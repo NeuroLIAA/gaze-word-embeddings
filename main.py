@@ -1,3 +1,5 @@
+import argparse
+from pathlib import Path
 
 
 def load_corpus(path):
@@ -11,3 +13,13 @@ def load_corpus(path):
             corpus += load_corpus(file)
 
     return corpus
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--corpus', type=str, default='corpus', help='Path to training corpus')
+    args = parser.parse_args()
+
+    corpus_path = Path(args.corpus)
+    corpus = load_corpus(corpus_path)
+    print(corpus)
