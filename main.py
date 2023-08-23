@@ -10,8 +10,8 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '¿': '', '?': '', '¡': '', '!': '', '=': ''}
 
 
-def train(corpus, model, file_path):
-    model.train(corpus, total_examples=len(corpus), epochs=10)
+def train(corpus, file_path):
+    model = Word2Vec(sentences=corpus, vector_size=100, window=5, min_count=5, workers=-1)
     model.save(str(file_path))
     return model
 
@@ -40,17 +40,6 @@ def preprocess_str(string, chars_mapping):
     return preprocessing.split_on_space(string.lower())
 
 
-def baseline_model(dataset_name, data_split, file_path):
-    model = Word2Vec(vector_size=100, window=5, min_count=5, workers=-1)
-    baseline_corpus = load_baseline_corpus(name=dataset_name, split=data_split)
-    if not baseline_path.exists():
-        baseline_path.parent.mkdir(exist_ok=True)
-        baseline = train(baseline_corpus, model, file_path)
-    else:
-        baseline = Word2Vec.load(str(file_path))
-    return baseline
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--corpus', type=str, default='corpus', help='Path to training corpus')
@@ -64,6 +53,6 @@ if __name__ == '__main__':
     corpus_path, model_path, baseline_path = (Path(args.corpus), Path(args.output, args.model),
                                               Path(args.output, 'baseline'))
     chars_mapping = str.maketrans(CHARS_MAP)
-    baseline = baseline_model(dataset_name=args.dataset, data_split=args.split, file_path=baseline_path)
+    baseline_corpus = load_baseline_corpus(name=args.dataset, split=args.split)
     corpus = load_corpus(corpus_path, chars_mapping)
-    train(corpus, baseline, model_path)
+    train(baseline_corpus + corpus, model_path)
