@@ -28,7 +28,8 @@ def load_corpus(path, chars_mapping):
     for file in files:
         if file.is_file():
             with file.open('r') as f:
-                corpus.append(preprocess_str(f.read(), chars_mapping))
+                sentences = f.read().split('.')
+                corpus.extend([preprocess_str(sentence, chars_mapping) for sentence in sentences if len(sentence) > 0])
         elif file.is_dir():
             corpus += load_corpus(file, chars_mapping)
     return corpus
