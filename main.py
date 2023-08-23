@@ -7,7 +7,7 @@ from datasets import load_dataset
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
              '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
-             '¿': '', '?': '', '¡': '', '!': ''}
+             '¿': '', '?': '', '¡': '', '!': '', '=': ''}
 
 
 def train(corpus, model_path):
@@ -18,6 +18,7 @@ def train(corpus, model_path):
 
 def load_baseline_corpus(dataset='large_spanish_corpus', name='all_wikis', split='10%'):
     baseline_corpus = load_dataset(dataset, name, split=f'train[:{split}]')['text']
+    baseline_corpus = [preprocess_str(text, chars_mapping) for text in baseline_corpus if len(text) > 0]
     return baseline_corpus
 
 
