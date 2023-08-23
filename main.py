@@ -33,6 +33,9 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--corpus', type=str, default='corpus', help='Path to training corpus')
     parser.add_argument('-m', '--model', type=str, default='w2v', help='Model name')
     parser.add_argument('-o', '--output', type=str, default='model', help='Where to save trained model')
+    parser.add_argument('-d', '--dataset', type=str, default='all_wiki',
+                        help='Dataset name of baseline corpus')
+    parser.add_argument('-s', '--split', type=str, default='10%', help='Split for baseline corpus')
     args = parser.parse_args()
 
     corpus_path, model_path = Path(args.corpus), Path(args.output, args.model)
