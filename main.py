@@ -1,11 +1,18 @@
 import argparse
 from pathlib import Path
 from gensim.models import Word2Vec
+from datasets import load_dataset
 
 
 def train(corpus, model_path):
     model = Word2Vec(sentences=corpus, vector_size=100, window=5, min_count=5, workers=4)
     model.save(str(model_path))
+
+
+def load_baseline_corpus(dataset='large_spanish_corpus', name='all_wiki', split='10%'):
+    baseline_corpus = load_dataset(dataset, name, split=f'train[:{split}]')
+
+    return baseline_corpus
 
 
 def load_corpus(path):
