@@ -40,6 +40,16 @@ def preprocess_str(string, chars_mapping):
     return preprocessing.split_on_space(string.lower())
 
 
+def baseline_model(dataset_name, data_split, model_path):
+    baseline_corpus = load_baseline_corpus(name=dataset_name, split=data_split)
+    if not baseline_path.exists():
+        baseline_path.parent.mkdir(exist_ok=True)
+        baseline = train(baseline_corpus, model_path)
+    else:
+        baseline = Word2Vec.load(str(model_path))
+    return baseline
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--corpus', type=str, default='corpus', help='Path to training corpus')
@@ -53,11 +63,6 @@ if __name__ == '__main__':
     corpus_path, model_path, baseline_path = (Path(args.corpus), Path(args.output, args.model),
                                               Path(args.output, 'baseline'))
     chars_mapping = str.maketrans(CHARS_MAP)
-    baseline_corpus = load_baseline_corpus(name=args.dataset, split=args.split)
-    if not baseline_path.exists():
-        baseline_path.parent.mkdir(exist_ok=True)
-        baseline = train(baseline_corpus, baseline_path)
-    else:
-        baseline = Word2Vec.load(str(baseline_path))
+    baseline = baseline_model(dataset_name=args.dataset, data_split=args.split, model_path=baseline_path)
     corpus = load_corpus(corpus_path, chars_mapping)
     train(corpus, model_path)
