@@ -17,8 +17,9 @@ def train(corpus, file_path):
 
 
 def load_from_spanish_corpus(dataset='large_spanish_corpus', name='all_wikis', split='10%'):
-    baseline_corpus = load_dataset(dataset, name, split=f'train[:{split}]')['text']
-    baseline_corpus = [preprocess_str(text, chars_mapping) for text in baseline_corpus if len(text) > 0]
+    baseline_corpus = load_dataset(dataset, name, split='train', streaming=True)
+    baseline_corpus = baseline_corpus.map(lambda row: preprocess_str(row['text'], chars_mapping))
+    baseline_corpus = baseline_corpus.filter(lambda row: len(row['text']) > 0)
     return baseline_corpus
 
 
@@ -41,7 +42,8 @@ def load_corpus(path, chars_mapping, split='10%'):
 
 def preprocess_str(string, chars_mapping):
     string = string.translate(chars_mapping)
-    return preprocessing.split_on_space(string.lower())
+    words = preprocessing.split_on_space(string.lower())
+    return {'text': words}
 
 
 if __name__ == '__main__':
