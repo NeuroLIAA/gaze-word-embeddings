@@ -59,4 +59,5 @@ if __name__ == '__main__':
     training_corpus = []
     for corpus_name in corpora:
         training_corpus += load_corpus(Path(corpus_name), chars_mapping, args.split)
+    model_path.parent.mkdir(exist_ok=True)
     train(training_corpus, model_path)
