@@ -16,14 +16,15 @@ def train(corpus, file_path):
     return model
 
 
-def load_from_spanish_corpus(dataset='large_spanish_corpus', name='all_wikis', split='10%'):
+def load_from_spanish_corpus(dataset='large_spanish_corpus', name='all_wikis', split=0.1):
     baseline_corpus = load_dataset(dataset, name, split='train', streaming=True)
+    baseline_corpus = baseline_corpus.take(int(len(baseline_corpus) * split))
     baseline_corpus = baseline_corpus.map(lambda row: preprocess_str(row['text'], chars_mapping))
     baseline_corpus = baseline_corpus.filter(lambda row: len(row['text']) > 0)
     return baseline_corpus
 
 
-def load_corpus(path, chars_mapping, split='10%'):
+def load_corpus(path, chars_mapping, split):
     if not path.exists():
         corpus = load_from_spanish_corpus(name=path.name, split=split)
     else:
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--corpora', type=str, default='all_wikis+texts',
                         help='Texts to be employed for training')
     parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
-    parser.add_argument('-s', '--split', type=str, default='10%', help='Split for baseline corpus')
+    parser.add_argument('-s', '--split', type=float, default=0.1, help='Split for baseline corpus')
     parser.add_argument('-o', '--output', type=str, default='model', help='Where to save the trained model')
     args = parser.parse_args()
     model_path = Path(args.output, args.model)
