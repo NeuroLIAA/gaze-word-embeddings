@@ -29,15 +29,15 @@ def load_corpus(path, chars_mapping, split):
         corpus = load_from_spanish_corpus(name=path.name, split=split)
     else:
         files = [f for f in path.iterdir()]
-        corpus = []
+        corpus = {'text': []}
         for file in files:
             if file.is_file():
                 with file.open('r') as f:
                     sentences = f.read().split('.')
-                    corpus.extend([preprocess_str(sentence, chars_mapping)
-                                   for sentence in sentences if len(sentence) > 0])
+                    corpus['text'].extend([preprocess_str(sentence, chars_mapping)
+                                           for sentence in sentences if len(sentence) > 0])
             elif file.is_dir():
-                corpus += load_corpus(file, chars_mapping, split)
+                corpus['text'] += load_corpus(file, chars_mapping, split)['text']
     return corpus
 
 
