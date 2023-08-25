@@ -17,7 +17,7 @@ def train(corpus, file_path):
 
 
 def load_from_spanish_corpus(dataset='large_spanish_corpus', name='all_wikis', split=0.1):
-    baseline_corpus = load_dataset(dataset, name, split='train', streaming=True)
+    baseline_corpus = load_dataset(dataset, name, split='train')
     baseline_corpus = baseline_corpus.take(int(len(baseline_corpus) * split))
     baseline_corpus = baseline_corpus.map(lambda row: preprocess_str(row['text'], chars_mapping))
     baseline_corpus = baseline_corpus.filter(lambda row: len(row['text']) > 0)
