@@ -37,7 +37,7 @@ def load_corpus(path, chars_mapping, split):
                     corpus.extend([preprocess_str(sentence, chars_mapping)
                                    for sentence in sentences if len(sentence) > 0])
             elif file.is_dir():
-                corpus += load_corpus(file, chars_mapping)
+                corpus += load_corpus(file, chars_mapping, split)
     return corpus
 
 
