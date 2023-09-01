@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from gensim.models import Word2Vec
+from gensim.corpora.wikicorpus import WikiCorpus
 from gensim.parsing import preprocessing
 from datasets import load_dataset
 
@@ -10,8 +11,17 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '¿': '', '?': '', '¡': '', '!': '', '=': ''}
 
 
+class WikiIterator:
+    def __init__(self, wikicorpus):
+        self.corpus = WikiCorpus(wikicorpus, metadata=False)
+
+    def __iter__(self):
+        for sentence in self.corpus.get_texts():
+            yield list(sentence)
+
+
 def train(corpus, file_path):
-    model = Word2Vec(sentences=corpus, vector_size=100, window=5, min_count=1, workers=-1)
+    model = Word2Vec(sentences=corpus, vector_size=300, window=5, min_count=1, workers=-1)
     model.save(str(file_path))
     return model
 
@@ -48,8 +58,10 @@ def preprocess_str(string, chars_mapping):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--corpora', type=str, default='all_wikis+texts',
+    parser.add_argument('-c', '--corpora', type=str, default='wikidump+texts',
                         help='Texts to be employed for training')
+    parser.add_argument('-d', '--dataset', type=str, default='large_datasets/eswiki-20230820-pages-articles.xml.bz2',
+                        help='Path to large text dataset')
     parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
     parser.add_argument('-s', '--split', type=float, default=0.1, help='Split for baseline corpus')
     parser.add_argument('-o', '--output', type=str, default='model', help='Where to save the trained model')
@@ -58,8 +70,6 @@ if __name__ == '__main__':
 
     chars_mapping = str.maketrans(CHARS_MAP)
     corpora = args.corpora.split('+')
-    training_corpus = []
-    for corpus_name in corpora:
-        training_corpus += load_corpus(Path(corpus_name), chars_mapping, args.split)
+    training_corpus = WikiCorpus(args.dataset)
     model_path.parent.mkdir(exist_ok=True)
     train(training_corpus, model_path)
