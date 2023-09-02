@@ -1,10 +1,24 @@
 from gensim.corpora.wikicorpus import WikiCorpus
 from gensim.parsing import preprocessing
+from itertools import chain
 
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
              '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
              '¿': '', '?': '', '¡': '', '!': '', '=': ''}
+
+
+class Corpora:
+    def __init__(self):
+        self.corpora = []
+
+    def add_corpus(self, name, path, split):
+        self.corpora.append(Corpus(name, path, split))
+
+    def __iter__(self):
+        for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
+            yield list(sentence)
+
 
 class Corpus:
     def __init__(self, name, path, split):
