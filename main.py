@@ -1,49 +1,13 @@
 import argparse
+from corpora import Corpora
 from pathlib import Path
 from gensim.models import Word2Vec
-from gensim.corpora.wikicorpus import WikiCorpus
-from gensim.parsing import preprocessing
-
-CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
-             '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
-             '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
-             '¿': '', '?': '', '¡': '', '!': '', '=': ''}
-
-
-class WikiIterator:
-    def __init__(self, wikicorpus):
-        self.corpus = WikiCorpus(wikicorpus, metadata=False)
-
-    def __iter__(self):
-        for sentence in self.corpus.get_texts():
-            yield list(sentence)
 
 
 def train(corpus, file_path):
     model = Word2Vec(sentences=corpus, vector_size=300, window=5, min_count=1, workers=-1)
     model.save(str(file_path))
     return model
-
-
-def load_corpus(path, chars_mapping, split):
-    corpus = {'text': []}
-    if path.exists():
-        files = [f for f in path.iterdir()]
-        for file in files:
-            if file.is_file():
-                with file.open('r') as f:
-                    sentences = f.read().split('.')
-                    corpus['text'].extend([preprocess_str(sentence, chars_mapping)
-                                           for sentence in sentences if len(sentence) > 0])
-            elif file.is_dir():
-                corpus['text'] += load_corpus(file, chars_mapping, split)['text']
-    return corpus
-
-
-def preprocess_str(string, chars_mapping):
-    string = string.translate(chars_mapping)
-    words = preprocessing.split_on_space(string.lower())
-    return {'text': words}
 
 
 if __name__ == '__main__':
@@ -58,8 +22,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     model_path = Path(args.output, args.model)
 
-    chars_mapping = str.maketrans(CHARS_MAP)
     corpora = args.corpora.split('+')
-    training_corpus = WikiCorpus(args.dataset)
+    training_corpora = Corpora()
+    for corpus in corpora:
+        datapath = Path(args.dataset) if corpus == 'wikidump' else Path(corpus)
+        training_corpora.add_corpus(corpus, datapath, args.split)
     model_path.parent.mkdir(exist_ok=True)
-    train(training_corpus, model_path)
+    train(training_corpora, model_path)
