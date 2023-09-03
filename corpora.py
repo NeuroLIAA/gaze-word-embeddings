@@ -1,11 +1,13 @@
 from gensim.corpora.wikicorpus import WikiCorpus
 from gensim.parsing import preprocessing
-from itertools import chain
+from itertools import chain, islice
 
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
              '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
              '¿': '', '?': '', '¡': '', '!': '', '=': ''}
+
+N_WIKI_ARTICLES = 1889000
 
 
 class Corpora:
@@ -51,6 +53,9 @@ class Corpus:
 
     def get_texts(self):
         if self.name == 'wikidump':
-            return self.corpus.get_texts()
+            if 0 < self.split < 1.0:
+                return islice(self.corpus.get_texts(), int(N_WIKI_ARTICLES * self.split))
+            else:
+                return self.corpus.get_texts()
         else:
             return self.corpus
