@@ -32,7 +32,7 @@ class Corpus:
     def load_corpus(self, path):
         corpus = []
         if self.name == 'wikidump':
-            corpus = WikiCorpus(path, dictionary={})
+            corpus = WikiCorpus(path, dictionary={}, article_min_tokens=100)
         else:
             if path.exists():
                 files = [f for f in path.iterdir()]
