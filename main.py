@@ -14,7 +14,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--corpora', type=str, default='wikidump+texts',
                         help='Texts to be employed for training')
-    parser.add_argument('-d', '--dataset', type=str, default='large_datasets/eswiki-20230820-pages-articles.xml.bz2',
+    parser.add_argument('-d', '--dataset', type=str,
+                        default='large_datasets/eswiki-20230820-pages-articles-multistream.xml.bz2',
                         help='Path to large text dataset')
     parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
     parser.add_argument('-s', '--split', type=float, default=0.1, help='Split for baseline corpus')
