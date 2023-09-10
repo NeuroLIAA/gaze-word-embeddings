@@ -5,7 +5,7 @@ from gensim.models import Word2Vec
 
 
 def train(corpus, file_path):
-    model = Word2Vec(sentences=corpus, vector_size=300, window=5, min_count=1, workers=-1)
+    model = Word2Vec(sentences=corpus, vector_size=300, window=5, min_count=100, workers=-1)
     model.save(str(file_path))
     return model
 
