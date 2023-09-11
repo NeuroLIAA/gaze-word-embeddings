@@ -11,8 +11,8 @@ class Corpora:
     def __init__(self):
         self.corpora = []
 
-    def add_corpus(self, name, source, fraction):
-        self.corpora.append(Corpus(name, source, fraction))
+    def add_corpus(self, name, source, fraction, is_large):
+        self.corpora.append(Corpus(name, source, fraction, is_large))
 
     def __iter__(self):
         for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
@@ -20,9 +20,10 @@ class Corpora:
 
 
 class Corpus:
-    def __init__(self, name, source, fraction):
+    def __init__(self, name, source, fraction, is_large):
         self.name = name
         self.fraction = fraction
+        self.is_large = is_large
         self.corpus = self.load_corpus(source)
 
     def load_corpus(self, source):
@@ -36,9 +37,9 @@ class Corpus:
         return corpus
 
     def get_texts(self):
-        if self.name == 'wikidump':
+        if self.is_large:
             if 0 < self.fraction < 1.0:
-                return islice(self.corpus.get_texts(), int(N_WIKI_ARTICLES * self.split))
+                return islice(self.corpus.get_texts(), int(N_WIKI_ARTICLES * self.fraction))
             else:
                 return self.corpus.get_texts()
         else:

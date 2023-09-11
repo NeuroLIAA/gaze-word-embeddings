@@ -26,7 +26,8 @@ if __name__ == '__main__':
     corpora = args.corpora.split('+')
     training_corpora = Corpora()
     for corpus in corpora:
-        source = Path(corpus) if 'texts' in corpus else Path(args.source)
-        training_corpora.add_corpus(corpus, source, args.fraction)
+        is_large = 'texts' not in corpus
+        source = Path(corpus) if not is_large else Path(args.source)
+        training_corpora.add_corpus(corpus, source, args.fraction, is_large)
     model_path.parent.mkdir(exist_ok=True)
     train(training_corpora, model_path)
