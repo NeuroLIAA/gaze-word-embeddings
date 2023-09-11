@@ -3,8 +3,6 @@ from itertools import chain, islice
 from datasets import load_dataset
 import regex as re
 
-N_WIKI_ARTICLES = 1889000
-
 
 class Corpora:
     def __init__(self):
