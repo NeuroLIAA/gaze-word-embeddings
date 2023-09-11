@@ -11,8 +11,8 @@ class Corpora:
     def __init__(self):
         self.corpora = []
 
-    def add_corpus(self, name, path, split):
-        self.corpora.append(Corpus(name, path, split))
+    def add_corpus(self, name, source, split):
+        self.corpora.append(Corpus(name, source, split))
 
     def __iter__(self):
         for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
@@ -20,20 +20,20 @@ class Corpora:
 
 
 class Corpus:
-    def __init__(self, name, path, split):
+    def __init__(self, name, source, split):
         self.name = name
         self.split = split
-        self.corpus = self.load_corpus(path)
+        self.corpus = self.load_corpus(source)
 
-    def load_corpus(self, path):
+    def load_corpus(self, source):
         corpus = {'text': []}
-        if self.name == 'wikidump':
-            corpus = WikiCorpus(path, dictionary={}, article_min_tokens=100)
-        elif self.name == 'all_wikis':
+        if source.name == 'huggingface':
             corpus = load_hg_dataset(self.name)
+        elif self.name == 'wikidump':
+            corpus = WikiCorpus(source, dictionary={}, article_min_tokens=100)
         else:
-            if path.exists():
-                files = [f for f in path.iterdir()]
+            if source.exists():
+                files = [f for f in source.iterdir()]
                 for file in files:
                     if file.is_file():
                         with file.open('r') as f:
