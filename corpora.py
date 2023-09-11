@@ -1,4 +1,3 @@
-from gensim.corpora.wikicorpus import WikiCorpus
 from gensim.utils import simple_preprocess
 from itertools import chain, islice
 from datasets import load_dataset
@@ -30,18 +29,13 @@ class Corpus:
         corpus = {'text': []}
         if source.name == 'huggingface':
             corpus = load_hg_dataset(self.name)
-        elif self.name == 'wikidump':
-            corpus = WikiCorpus(source, dictionary={}, article_min_tokens=100)
         else:
             self.load_local_corpus(source, corpus)
         return corpus
 
     def get_texts(self):
-        if self.is_large:
-            if 0 < self.fraction < 1.0:
-                return islice(self.corpus.get_texts(), int(N_WIKI_ARTICLES * self.fraction))
-            else:
-                return self.corpus.get_texts()
+        if self.is_large and 0 < self.fraction < 1.0:
+            return islice(self.corpus, int(self.corpus.info.splits['train'].num_examples * self.fraction))
         else:
             return self.corpus
 
