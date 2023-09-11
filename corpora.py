@@ -11,8 +11,8 @@ class Corpora:
     def __init__(self):
         self.corpora = []
 
-    def add_corpus(self, name, source, split):
-        self.corpora.append(Corpus(name, source, split))
+    def add_corpus(self, name, source, fraction):
+        self.corpora.append(Corpus(name, source, fraction))
 
     def __iter__(self):
         for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
@@ -20,9 +20,9 @@ class Corpora:
 
 
 class Corpus:
-    def __init__(self, name, source, split):
+    def __init__(self, name, source, fraction):
         self.name = name
-        self.split = split
+        self.fraction = fraction
         self.corpus = self.load_corpus(source)
 
     def load_corpus(self, source):
@@ -32,26 +32,29 @@ class Corpus:
         elif self.name == 'wikidump':
             corpus = WikiCorpus(source, dictionary={}, article_min_tokens=100)
         else:
-            if source.exists():
-                files = [f for f in source.iterdir()]
-                for file in files:
-                    if file.is_file():
-                        with file.open('r') as f:
-                            sentences = f.read().split('.')
-                            corpus['text'].extend([preprocess_str({'text': sentence})['text']
-                                                   for sentence in sentences if len(sentence) > 0])
-                    elif file.is_dir():
-                        corpus['text'] += self.load_corpus(file)['text']
+            self.load_local_corpus(source, corpus)
         return corpus
 
     def get_texts(self):
         if self.name == 'wikidump':
-            if 0 < self.split < 1.0:
+            if 0 < self.fraction < 1.0:
                 return islice(self.corpus.get_texts(), int(N_WIKI_ARTICLES * self.split))
             else:
                 return self.corpus.get_texts()
         else:
             return self.corpus
+
+    def load_local_corpus(self, source, corpus):
+        if source.exists():
+            files = [f for f in source.iterdir()]
+            for file in files:
+                if file.is_file():
+                    with file.open('r') as f:
+                        sentences = f.read().split('.')
+                        corpus['text'].extend([preprocess_str({'text': sentence})['text']
+                                               for sentence in sentences if len(sentence) > 0])
+                elif file.is_dir():
+                    corpus['text'] += self.load_corpus(file)['text']
 
 
 def load_hg_dataset(name):

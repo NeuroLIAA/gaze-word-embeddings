@@ -17,7 +17,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--source', type=str, default='huggingface',
                         help='Source for large scale data, either remote or local. Remote options: huggingface')
     parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
-    parser.add_argument('-s', '--split', type=float, default=1.0, help='Split for baseline corpus')
+    parser.add_argument('-f', '--fraction', type=float, default=1.0,
+                        help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-o', '--output', type=str, default='model', help='Where to save the trained model')
     args = parser.parse_args()
     model_path = Path(args.output, args.model)
@@ -26,6 +27,6 @@ if __name__ == '__main__':
     training_corpora = Corpora()
     for corpus in corpora:
         source = Path(corpus) if 'texts' in corpus else Path(args.source)
-        training_corpora.add_corpus(corpus, source, args.split)
+        training_corpora.add_corpus(corpus, source, args.fraction)
     model_path.parent.mkdir(exist_ok=True)
     train(training_corpora, model_path)
