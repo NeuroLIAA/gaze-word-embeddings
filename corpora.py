@@ -29,7 +29,7 @@ class Corpus:
 
     def load_corpus(self, source, min_token_len, max_token_len, min_sentence_len):
         corpus = {'text': []}
-        if source.name == 'huggingface':
+        if self.is_large and source.name == 'huggingface':
             corpus = load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
         else:
             corpus = self.load_local_corpus(source, corpus, min_token_len, max_token_len)
