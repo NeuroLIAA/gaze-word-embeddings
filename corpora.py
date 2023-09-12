@@ -28,11 +28,11 @@ class Corpus:
         self.corpus = self.load_corpus(source, min_token_len, max_token_len, min_sentence_len)
 
     def load_corpus(self, source, min_token_len, max_token_len, min_sentence_len):
-        corpus = {'text': []}
+        corpus = []
         if self.is_large and source.name == 'huggingface':
             corpus = load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
         else:
-            corpus = self.load_local_corpus(source, corpus, min_token_len, max_token_len)
+            self.load_local_corpus(source, corpus, min_token_len, max_token_len)
         return corpus
 
     def get_texts(self):
@@ -47,12 +47,10 @@ class Corpus:
             for file in files:
                 if file.is_file():
                     with file.open('r') as f:
-                        sentences = f.read().split('.')
-                        corpus['text'].extend([preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']
-                                               for sentence in sentences if len(sentence) > 0])
+                        corpus.append({'text':
+                                           preprocess_str({'text': f.read()}, min_token_len, max_token_len)['text']})
                 elif file.is_dir():
-                    corpus['text'] += self.load_local_corpus(file, corpus, min_token_len, max_token_len)['text']
-        return corpus
+                    self.load_local_corpus(file, corpus, min_token_len, max_token_len)
 
 
 def load_hg_dataset(name, min_token_len, max_token_len, min_sentence_len):
