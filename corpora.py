@@ -62,5 +62,5 @@ def load_hg_dataset(name, min_token_len, max_token_len, min_sentence_len):
 
 def preprocess_str(string, min_token_len, max_token_len):
     string['text'] = re.sub(r'[^ \nA-Za-zÀ-ÖØ-öø-ÿ/]+', '', string['text'])
-    string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
+    string['text'] = simple_preprocess(string['text'], deacc=True, min_len=min_token_len, max_len=max_token_len)
     return string
