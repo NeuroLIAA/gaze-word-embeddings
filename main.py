@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 from corpora import Corpora
 from pathlib import Path
 from gensim.models import Word2Vec
@@ -8,6 +9,24 @@ def train(corpus, vector_size, window_size, min_count, file_path):
     model = Word2Vec(sentences=corpus, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
     model.save(str(file_path))
     return model
+
+
+def test(model, words_associations):
+    words = words_associations.index
+    distances = words_associations.apply(lambda answers: distances(model, words, answers))
+    return distances
+
+
+def distances(model, words, answers):
+    for i, answer in enumerate(answers):
+        answers[i] = distance_to_word(model, words[i], answer)
+    return answers
+
+
+def distance_to_word(model, word, answer):
+    if answer is None or answer not in model.wv or word not in model.wv:
+        return np.nan
+    return model.wv.distance(word, answer)
 
 
 if __name__ == '__main__':
