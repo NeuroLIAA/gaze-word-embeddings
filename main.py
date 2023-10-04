@@ -12,7 +12,7 @@ def train(corpora, source, fraction, min_token_len, max_token_len, min_sentence_
     corpora = load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
     save_path.mkdir(exist_ok=True, parents=True)
-    model.save(str(save_path))
+    model.save(str(save_path / save_path.name))
     return model
 
 
@@ -26,14 +26,18 @@ def load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_se
 
 
 def test(model_path, wa_file):
-    if not model_path.exists():
-        raise ValueError('The specified model does not exist')
+    model_file = model_path / model_path.name
+    if not model_file.exists():
+        raise ValueError('The specified models does not exist')
     if not wa_file.exists():
         raise ValueError('The specified words association file does not exist')
-    model = Word2Vec.load(str(model_path))
+    model = Word2Vec.load(str(model_file))
     words_associations = pd.read_pickle(wa_file)
     words = words_associations.index
     distances = words_associations.apply(lambda answers: distances(model, words, answers))
+    save_path = model_path / 'test'
+    save_path.mkdir(exist_ok=True)
+    distances.to_pickle(save_path / wa_file.name)
     return distances
 
 
@@ -69,8 +73,8 @@ if __name__ == '__main__':
                         help='Sentence min length, in tokens, for large scale corpora')
     parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.pkl',
                         help='Words association file to be employed for evaluation')
-    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation')
-    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained model')
+    parser.add_argument('-t', '--test', action='store_true', help='Perform models evaluation')
+    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
     if args.test:
