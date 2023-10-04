@@ -34,11 +34,11 @@ def test(model_path, wa_file):
     model = Word2Vec.load(str(model_file))
     words_associations = pd.read_pickle(wa_file)
     words = words_associations.index
-    distances = words_associations.apply(lambda answers: distances(model, words, answers))
+    distances_df = words_associations.apply(lambda answers: distances(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    distances.to_pickle(save_path / wa_file.name)
-    return distances
+    distances_df.to_pickle(save_path / wa_file.name)
+    return distances_df
 
 
 def distances(model, words, answers):
