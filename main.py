@@ -1,4 +1,5 @@
 import argparse
+import pandas as pd
 import numpy as np
 from corpora import Corpora
 from pathlib import Path
@@ -47,15 +48,26 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=10,
                         help='Sentence min length, in tokens, for large scale corpora')
+    parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.pkl',
+                        help='Words association file to be employed for evaluation')
+    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation')
     parser.add_argument('-o', '--output', type=str, default='model', help='Where to save the trained model')
     args = parser.parse_args()
-    model_path = Path(args.output, args.model)
-
-    corpora = args.corpora.split('+')
-    training_corpora = Corpora(args.min_token, args.max_token, args.min_length)
-    for corpus in corpora:
-        is_large = 'texts' not in corpus
-        source = Path(corpus) if not is_large else Path(args.source)
-        training_corpora.add_corpus(corpus, source, args.fraction, is_large)
-    model_path.parent.mkdir(exist_ok=True)
-    train(training_corpora, args.size, args.window, args.min_count, model_path)
+    model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
+    if args.test:
+        if not model_path.exists():
+            raise ValueError('The specified model does not exist')
+        if not wa_file.exists():
+            raise ValueError('The specified words association file does not exist')
+        model = Word2Vec.load(str(model_path))
+        words_associations = pd.read_pickle(wa_file)
+        distances = test(model, words_associations)
+    else:
+        corpora = args.corpora.split('+')
+        training_corpora = Corpora(args.min_token, args.max_token, args.min_length)
+        for corpus in corpora:
+            is_large = 'texts' not in corpus
+            source = Path(corpus) if not is_large else Path(args.source)
+            training_corpora.add_corpus(corpus, source, args.fraction, is_large)
+        model_path.parent.mkdir(exist_ok=True)
+        train(training_corpora, args.size, args.window, args.min_count, model_path)
