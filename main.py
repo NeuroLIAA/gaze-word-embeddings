@@ -6,13 +6,32 @@ from pathlib import Path
 from gensim.models import Word2Vec
 
 
-def train(corpus, vector_size, window_size, min_count, file_path):
-    model = Word2Vec(sentences=corpus, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
+def train(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len,
+          vector_size, window_size, min_count, file_path):
+    corpora = corpora.split('+')
+    corpora = load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len)
+    model_path.parent.mkdir(exist_ok=True)
+    model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
     model.save(str(file_path))
     return model
 
 
-def test(model, words_associations):
+def load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len):
+    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len)
+    for corpus in corpora:
+        is_large = 'texts' not in corpus
+        source = Path(corpus) if not is_large else Path(source)
+        training_corpora.add_corpus(corpus, source, fraction, is_large)
+    return training_corpora
+
+
+def test(model_path, wa_file):
+    if not model_path.exists():
+        raise ValueError('The specified model does not exist')
+    if not wa_file.exists():
+        raise ValueError('The specified words association file does not exist')
+    model = Word2Vec.load(str(model_path))
+    words_associations = pd.read_pickle(wa_file)
     words = words_associations.index
     distances = words_associations.apply(lambda answers: distances(model, words, answers))
     return distances
@@ -55,19 +74,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
     if args.test:
-        if not model_path.exists():
-            raise ValueError('The specified model does not exist')
-        if not wa_file.exists():
-            raise ValueError('The specified words association file does not exist')
-        model = Word2Vec.load(str(model_path))
-        words_associations = pd.read_pickle(wa_file)
-        distances = test(model, words_associations)
+        test(model_path, wa_file)
     else:
-        corpora = args.corpora.split('+')
-        training_corpora = Corpora(args.min_token, args.max_token, args.min_length)
-        for corpus in corpora:
-            is_large = 'texts' not in corpus
-            source = Path(corpus) if not is_large else Path(args.source)
-            training_corpora.add_corpus(corpus, source, args.fraction, is_large)
-        model_path.parent.mkdir(exist_ok=True)
-        train(training_corpora, args.size, args.window, args.min_count, model_path)
+        train(args.corpora, args.source, args.fraction, args.min_token, args.max_token, args.min_length,
+              args.size, args.window, args.min_count, model_path)
