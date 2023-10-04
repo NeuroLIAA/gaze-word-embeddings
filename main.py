@@ -7,12 +7,12 @@ from gensim.models import Word2Vec
 
 
 def train(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len,
-          vector_size, window_size, min_count, file_path):
+          vector_size, window_size, min_count, save_path):
     corpora = corpora.split('+')
     corpora = load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len)
-    model_path.parent.mkdir(exist_ok=True)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
-    model.save(str(file_path))
+    save_path.mkdir(exist_ok=True, parents=True)
+    model.save(str(save_path))
     return model
 
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.pkl',
                         help='Words association file to be employed for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation')
-    parser.add_argument('-o', '--output', type=str, default='model', help='Where to save the trained model')
+    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained model')
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
     if args.test:
