@@ -12,7 +12,7 @@ def train(corpora, source, fraction, min_token_len, max_token_len, min_sentence_
     corpora = load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
     save_path.mkdir(exist_ok=True, parents=True)
-    model.save(str(save_path / f'{save_path.name}_model'))
+    model.save(str(save_path / f'{save_path.name}.model'))
     return model
 
 
@@ -26,7 +26,7 @@ def load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_se
 
 
 def test(model_path, wa_file):
-    model_file = model_path / f'{model_path.name}_model'
+    model_file = model_path / f'{model_path.name}.model'
     if not model_file.exists():
         raise ValueError('The specified models does not exist')
     if not wa_file.exists():
