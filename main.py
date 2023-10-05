@@ -34,23 +34,23 @@ def test(model_path, wa_file):
     model = Word2Vec.load(str(model_file))
     words_associations = pd.read_pickle(wa_file)
     words = words_associations.index
-    distances_df = words_associations.apply(lambda answers: distances(model, words, answers))
+    similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    distances_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
-    return distances_df
+    similarities_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
+    return similarities_df
 
 
-def distances(model, words, answers):
+def similarities(model, words, answers):
     for i, answer in enumerate(answers):
-        answers[i] = distance_to_word(model, words[i], answer)
+        answers[i] = word_similarity(model, words[i], answer)
     return answers
 
 
-def distance_to_word(model, word, answer):
+def word_similarity(model, word, answer):
     if answer is None or answer not in model.wv or word not in model.wv:
         return np.nan
-    return model.wv.distance(word, answer)
+    return model.wv.similarity(word, answer)
 
 
 if __name__ == '__main__':
