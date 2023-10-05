@@ -32,7 +32,7 @@ def test(model_path, wa_file):
     if not wa_file.exists():
         raise ValueError('The specified words association file does not exist')
     model = Word2Vec.load(str(model_file))
-    words_associations = pd.read_pickle(wa_file)
+    words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
     similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
