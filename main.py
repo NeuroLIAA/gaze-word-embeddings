@@ -37,7 +37,7 @@ def test(model_path, wa_file):
     distances_df = words_associations.apply(lambda answers: distances(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    distances_df.to_pickle(save_path / wa_file.name)
+    distances_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
     return distances_df
 
 
