@@ -15,6 +15,9 @@ class Corpora:
         self.corpora.append(Corpus(name, source, fraction, is_large,
                                    self.min_token_len, self.max_token_len, self.min_sentence_len))
 
+    def get_size(self):
+        return sum(corpus.size for corpus in self.corpora)
+
     def __iter__(self):
         for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
             yield list(sentence['text'])
