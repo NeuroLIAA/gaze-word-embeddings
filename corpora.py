@@ -25,19 +25,20 @@ class Corpus:
         self.name = name
         self.fraction = fraction
         self.is_large = is_large
+        self.size = 0
         self.corpus = self.load_corpus(source, min_token_len, max_token_len, min_sentence_len)
 
     def load_corpus(self, source, min_token_len, max_token_len, min_sentence_len):
         corpus = []
         if self.is_large and source.name == 'huggingface':
-            corpus = load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
+            corpus = self.load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
         else:
             self.load_local_corpus(source, corpus, min_token_len, max_token_len)
         return corpus
 
     def get_texts(self):
         if self.is_large and 0 < self.fraction < 1.0:
-            return islice(self.corpus, int(self.corpus.info.splits['train'].num_examples * self.fraction))
+            return islice(self.corpus, self.size)
         else:
             return self.corpus
 
@@ -47,18 +48,19 @@ class Corpus:
             for file in files:
                 if file.is_file():
                     with file.open('r') as f:
-                        corpus.extend(
-                            [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
-                             for sentence in f.read().split('.')])
+                        sentences = [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
+                                        for sentence in f.read().split('.')]
+                        self.size += len(sentences)
+                        corpus.extend(sentences)
                 elif file.is_dir():
                     self.load_local_corpus(file, corpus, min_token_len, max_token_len)
 
-
-def load_hg_dataset(name, min_token_len, max_token_len, min_sentence_len):
-    corpus = load_dataset('large_spanish_corpus', name=name, split='train', streaming=True)
-    corpus = corpus.map(lambda row: preprocess_str(row, min_token_len, max_token_len))
-    corpus = corpus.filter(lambda row: len(row['text']) > min_sentence_len)
-    return corpus
+    def load_hg_dataset(self, name, min_token_len, max_token_len, min_sentence_len):
+        corpus = load_dataset('large_spanish_corpus', name=name, split='train', streaming=True)
+        corpus = corpus.map(lambda row: preprocess_str(row, min_token_len, max_token_len))
+        corpus = corpus.filter(lambda row: len(row['text']) > min_sentence_len)
+        self.size = int(corpus.info.splits['train'].num_examples * self.fraction)
+        return corpus
 
 
 def preprocess_str(string, min_token_len, max_token_len):
