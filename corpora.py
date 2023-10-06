@@ -47,8 +47,9 @@ class Corpus:
             for file in files:
                 if file.is_file():
                     with file.open('r') as f:
-                        corpus.append({'text':
-                                           preprocess_str({'text': f.read()}, min_token_len, max_token_len)['text']})
+                        corpus.extend(
+                            [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
+                             for sentence in f.read().split('.')])
                 elif file.is_dir():
                     self.load_local_corpus(file, corpus, min_token_len, max_token_len)
 
