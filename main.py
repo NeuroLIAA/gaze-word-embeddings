@@ -1,9 +1,8 @@
 import argparse
-import pandas as pd
-import eval
 from corpora import Corpora
 from pathlib import Path
 from gensim.models import Word2Vec
+from test import test
 
 
 def train(corpora, source, fraction, min_token_len, max_token_len, min_sentence_len,
@@ -23,31 +22,6 @@ def load_corpora(corpora, source, fraction, min_token_len, max_token_len, min_se
         source = Path(corpus) if not is_large else Path(source)
         training_corpora.add_corpus(corpus, source, fraction, is_large)
     return training_corpora
-
-
-def test(model_path, wa_file):
-    model_file = model_path / f'{model_path.name}.model'
-    if not model_file.exists():
-        raise ValueError('The specified models does not exist')
-    if not wa_file.exists():
-        raise ValueError('The specified words association file does not exist')
-    model = Word2Vec.load(str(model_file))
-    words_associations = pd.read_csv(wa_file, index_col=0)
-    words = words_associations.index
-    frequency = eval.answers_frequency(words_associations)
-    freq_similarity_pairs = eval.add_model_similarity(frequency, model)
-    similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
-    save_path = model_path / 'test'
-    save_path.mkdir(exist_ok=True)
-    similarities_df.to_csv(save_path / f'{wa_file.stem}.csv')
-    freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv')
-    return similarities_df
-
-
-def similarities(model, words, answers):
-    for i, answer in enumerate(answers):
-        answers[i] = eval.word_similarity(model, words[i], answer)
-    return answers
 
 
 if __name__ == '__main__':
