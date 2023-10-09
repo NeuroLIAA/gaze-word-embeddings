@@ -9,8 +9,8 @@ def answers_frequency(words_associations):
 def add_model_similarity(freq, model):
     words_pairs = []
     for cue in freq:
-        cue_answers = freq['cue']
-        for answer in cue_answers:
+        cue_answers = freq[cue]
+        for answer in cue_answers.keys():
             words_pairs.append((cue, answer, cue_answers[answer], word_similarity(model, cue, answer)))
 
     words_pairs = pd.DataFrame(words_pairs, columns=['cue', 'answer', 'freq', 'similarity'])
