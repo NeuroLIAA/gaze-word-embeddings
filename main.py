@@ -1,8 +1,7 @@
 import argparse
 import pandas as pd
-import numpy as np
+import eval
 from corpora import Corpora
-from eval import answers_frequency
 from pathlib import Path
 from gensim.models import Word2Vec
 
@@ -36,7 +35,8 @@ def test(model_path, wa_file):
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
     similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
-    frequency = answers_frequency(words_associations)
+    frequency = eval.answers_frequency(words_associations)
+    freq_similarity_pairs = eval.add_model_similarity(frequency, model)
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
     similarities_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
@@ -45,14 +45,8 @@ def test(model_path, wa_file):
 
 def similarities(model, words, answers):
     for i, answer in enumerate(answers):
-        answers[i] = word_similarity(model, words[i], answer)
+        answers[i] = eval.word_similarity(model, words[i], answer)
     return answers
-
-
-def word_similarity(model, word, answer):
-    if answer is None or answer not in model.wv or word not in model.wv:
-        return np.nan
-    return model.wv.similarity(word, answer)
 
 
 if __name__ == '__main__':
