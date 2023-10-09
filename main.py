@@ -34,12 +34,13 @@ def test(model_path, wa_file):
     model = Word2Vec.load(str(model_file))
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
-    similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     frequency = eval.answers_frequency(words_associations)
     freq_similarity_pairs = eval.add_model_similarity(frequency, model)
+    similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    similarities_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
+    similarities_df.to_csv(save_path / f'{wa_file.stem}.csv')
+    freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv')
     return similarities_df
 
 
@@ -67,7 +68,7 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=10,
                         help='Sentence min length, in tokens, for large scale corpora')
-    parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.pkl',
+    parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.csv',
                         help='Words association file to be employed for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform models evaluation')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
