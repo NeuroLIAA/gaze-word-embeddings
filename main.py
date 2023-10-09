@@ -2,6 +2,7 @@ import argparse
 import pandas as pd
 import numpy as np
 from corpora import Corpora
+from eval import answers_frequency
 from pathlib import Path
 from gensim.models import Word2Vec
 
@@ -35,6 +36,7 @@ def test(model_path, wa_file):
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
     similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
+    frequency = answers_frequency(words_associations)
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
     similarities_df.to_pickle(save_path / f'{wa_file.stem}.pkl')
