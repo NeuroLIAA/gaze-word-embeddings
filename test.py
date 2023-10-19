@@ -17,7 +17,7 @@ def test(model_path, wa_file):
     similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    similarities_df.to_csv(save_path / f'{wa_file.stem}.csv')
+    similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv')
     return similarities_df
 
