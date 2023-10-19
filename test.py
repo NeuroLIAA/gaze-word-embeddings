@@ -19,7 +19,19 @@ def test(model_path, wa_file):
     save_path.mkdir(exist_ok=True)
     similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
+    evaluate_word_pairs(freq_similarity_pairs, save_path)
     return similarities_df
+
+
+def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
+    filename = save_path / 'word_pairs.csv'
+    word_pairs = freq_similarity_pairs.drop(columns=['similarity'])
+    word_pairs.to_csv(filename, index=False, header=False)
+    pearson, spearman, oov_ratio = model.wv.evaluate_word_pairs(filename, delimiter=',')
+    print(f'Pearson correlation coefficient: {pearson}')
+    print(f'Spearman rank-order correlation coefficient: {spearman}')
+    print(f'Out of vocabulary ratio: {oov_ratio}')
+    filename.unlink()
 
 
 def add_model_similarity(freq, model):
