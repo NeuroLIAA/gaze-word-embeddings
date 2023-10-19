@@ -3,6 +3,18 @@ from itertools import chain, islice
 from datasets import load_dataset
 import regex as re
 
+DEACCENT_MAP = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
+                'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
+                'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+                'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+                'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+                'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+                'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
+                'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+                'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
+                'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
+                'Ç': 'C', 'ç': 'c'}
+
 
 class Corpora:
     def __init__(self, min_token_len, max_token_len, min_sentence_len):
@@ -52,7 +64,7 @@ class Corpus:
                 if file.is_file():
                     with file.open('r') as f:
                         sentences = [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
-                                        for sentence in f.read().split('.')]
+                                     for sentence in f.read().split('.')]
                         self.size += len(sentences)
                         corpus.extend(sentences)
                 elif file.is_dir():
@@ -67,9 +79,8 @@ class Corpus:
 
 
 def preprocess_str(string, min_token_len, max_token_len):
+    deaccent_map = str.maketrans(DEACCENT_MAP)
     string['text'] = re.sub(r'[^ \nA-Za-zÀ-ÖØ-öø-ÿ/]+', '', string['text'])
-    n_positions = [m.start() for m in re.finditer('ñ', string['text'])]
-    string['text'] = simple_preprocess(string['text'], deacc=True, min_len=min_token_len, max_len=max_token_len)
-    for n_position in n_positions:
-        string['text'][n_position] = 'ñ'
+    string['text'] = string['text'].translate(deaccent_map)
+    string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
     return string
