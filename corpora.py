@@ -68,5 +68,8 @@ class Corpus:
 
 def preprocess_str(string, min_token_len, max_token_len):
     string['text'] = re.sub(r'[^ \nA-Za-zÀ-ÖØ-öø-ÿ/]+', '', string['text'])
+    n_positions = [m.start() for m in re.finditer('ñ', string['text'])]
     string['text'] = simple_preprocess(string['text'], deacc=True, min_len=min_token_len, max_len=max_token_len)
+    for n_position in n_positions:
+        string['text'][n_position] = 'ñ'
     return string
