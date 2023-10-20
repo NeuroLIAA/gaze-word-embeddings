@@ -28,8 +28,9 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
     word_pairs = freq_similarity_pairs.drop(columns=['similarity'])
     word_pairs.to_csv(filename, index=False, header=False)
     pearson, spearman, oov_ratio = model.wv.evaluate_word_pairs(filename, delimiter=',')
-    print(f'Pearson correlation coefficient: {pearson}')
-    print(f'Spearman rank-order correlation coefficient: {spearman}')
+    print('------Correlation between similarity and frequency of response for cue-answer pairs------')
+    print(f'Pearson correlation coefficient: {pearson[0]} (p-value: {pearson[1]})')
+    print(f'Spearman rank-order correlation coefficient: {spearman.correlation} (p-value: {spearman.pvalue})')
     print(f'Out of vocabulary ratio: {oov_ratio}')
     filename.unlink()
 
