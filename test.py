@@ -26,6 +26,12 @@ def test(model_path, wa_file):
     return similarities_df
 
 
+def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
+    num_answers = answers_frequency(words_associations, normalized=False)
+    return words_answers_pairs[words_answers_pairs.apply(
+            lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
+
+
 def similarity_to_cues(similarities_df):
     report_similarity(similarities_df, 'Avg. similarity to cues answers', 1)
 
@@ -81,5 +87,5 @@ def word_similarity(model, word, answer):
     return model.wv.similarity(word, answer)
 
 
-def answers_frequency(words_associations):
-    return {word: words_associations.loc[word].value_counts(normalize=True) for word in words_associations.index}
+def answers_frequency(words_associations, normalized=True):
+    return {word: words_associations.loc[word].value_counts(normalize=normalized) for word in words_associations.index}
