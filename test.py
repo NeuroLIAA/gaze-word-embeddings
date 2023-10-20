@@ -1,6 +1,18 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
+
+
+def similarity_to_subjs(similarities_df):
+    mean_subj_similarity = similarities_df.mean()
+    std_subj_similarity = similarities_df.std()
+    se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
+    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, figsize=(20, 10), fontsize=20)
+    plt.ylabel('Similarity', fontsize=20)
+    plt.show()
+    print('------Average similarity to subjects answers------')
+    print(f'Mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})')
 
 
 def test(model_path, wa_file):
@@ -19,6 +31,7 @@ def test(model_path, wa_file):
     save_path.mkdir(exist_ok=True)
     similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
+    similarity_to_subjs(similarities_df)
     evaluate_word_pairs(model, freq_similarity_pairs, save_path)
     return similarities_df
 
