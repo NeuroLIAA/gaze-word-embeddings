@@ -4,17 +4,6 @@ import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
 
 
-def similarity_to_subjs(similarities_df):
-    mean_subj_similarity = similarities_df.mean()
-    std_subj_similarity = similarities_df.std()
-    se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
-    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, figsize=(20, 10), fontsize=20)
-    plt.ylabel('Similarity', fontsize=20)
-    plt.show()
-    print('------Average similarity to subjects answers------')
-    print(f'Mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})')
-
-
 def test(model_path, wa_file):
     model_file = model_path / f'{model_path.name}.model'
     if not model_file.exists():
@@ -32,8 +21,29 @@ def test(model_path, wa_file):
     similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
     similarity_to_subjs(similarities_df)
+    similarity_to_cues(similarities_df)
     evaluate_word_pairs(model, freq_similarity_pairs, save_path)
     return similarities_df
+
+
+def similarity_to_cues(similarities_df):
+    report_similarity(similarities_df, 'Avg. similarity to cues answers', 1)
+
+
+def similarity_to_subjs(similarities_df):
+    report_similarity(similarities_df, 'Avg. similarity to subjects answers', 0)
+
+
+def report_similarity(similarities_df, title, axis):
+    mean_subj_similarity = similarities_df.mean(axis=axis)
+    std_subj_similarity = similarities_df.std(axis=axis)
+    se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
+    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, figsize=(20, 10), fontsize=20)
+    plt.title(title, fontsize=20)
+    plt.ylabel('Similarity', fontsize=20)
+    plt.show()
+    print(f'------{title}------')
+    print(f'Mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})\n')
 
 
 def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
@@ -44,7 +54,7 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
     print('------Correlation between similarity and frequency of response for cue-answer pairs------')
     print(f'Pearson correlation coefficient: {pearson[0]} (p-value: {pearson[1]})')
     print(f'Spearman rank-order correlation coefficient: {spearman.correlation} (p-value: {spearman.pvalue})')
-    print(f'Out of vocabulary ratio: {oov_ratio}')
+    print(f'Out of vocabulary ratio: {oov_ratio}\n')
     filename.unlink()
 
 
