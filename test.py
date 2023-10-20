@@ -19,7 +19,7 @@ def test(model_path, wa_file):
     save_path.mkdir(exist_ok=True)
     similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
-    evaluate_word_pairs(freq_similarity_pairs, save_path)
+    evaluate_word_pairs(model, freq_similarity_pairs, save_path)
     return similarities_df
 
 
