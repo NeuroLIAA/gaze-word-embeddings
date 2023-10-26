@@ -19,8 +19,8 @@ def test(model_path, wa_file):
     save_path.mkdir(exist_ok=True)
     wa_subj_sim_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     wa_freq_sim_df.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
-    similarity_to_subjs(wa_subj_sim_df)
-    similarity_to_cues(wa_subj_sim_df)
+    similarity_to_subjs(wa_subj_sim_df, save_path)
+    similarity_to_cues(wa_subj_sim_df, save_path)
     evaluate_word_pairs(model, wa_freq_sim_df, save_path)
     plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences=2)
     return wa_subj_sim_df
@@ -29,24 +29,25 @@ def test(model_path, wa_file):
 def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
     num_answers = answers_frequency(words_associations, normalized=False)
     return words_answers_pairs[words_answers_pairs.apply(
-            lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
+        lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
 
 
-def similarity_to_cues(similarities_df):
-    report_similarity(similarities_df, 'Avg. similarity to cues answers', 1)
+def similarity_to_cues(similarities_df, save_path):
+    report_similarity(similarities_df, 'Avg. similarity to cues answers', 1, save_path)
 
 
-def similarity_to_subjs(similarities_df):
-    report_similarity(similarities_df, 'Avg. similarity to subjects answers', 0)
+def similarity_to_subjs(similarities_df, save_path):
+    report_similarity(similarities_df, 'Avg. similarity to subjects answers', 0, save_path)
 
 
-def report_similarity(similarities_df, title, axis):
+def report_similarity(similarities_df, title, axis, save_path):
     mean_subj_similarity = similarities_df.mean(axis=axis)
     std_subj_similarity = similarities_df.std(axis=axis)
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
     mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, figsize=(20, 10), fontsize=20)
     plt.title(title, fontsize=20)
     plt.ylabel('Similarity', fontsize=20)
+    plt.savefig(save_path / f'{title}.png')
     plt.show()
     print(f'------{title}------')
     print(f'Mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})\n')
@@ -69,6 +70,7 @@ def plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearen
     wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5),
                                      title='Human frequency to model similarity', xlabel='Model similarity',
                                      ylabel='Human frequency of answer')
+    plt.savefig(save_path / 'freq_to_sim.png')
     plt.show()
 
 
