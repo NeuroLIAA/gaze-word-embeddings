@@ -13,17 +13,17 @@ def test(model_path, wa_file):
     model = Word2Vec.load(str(model_file))
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
-    frequency = answers_frequency(words_associations)
-    freq_similarity_pairs = add_model_similarity(frequency, model)
-    similarities_df = words_associations.apply(lambda answers: similarities(model, words, answers))
+    wa_freq_sim_df = wa_similarities(answers_frequency(words_associations), model)
+    wa_subj_sim_df = words_associations.apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
-    similarities_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
-    freq_similarity_pairs.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
-    similarity_to_subjs(similarities_df)
-    similarity_to_cues(similarities_df)
-    evaluate_word_pairs(model, freq_similarity_pairs, save_path)
-    return similarities_df
+    wa_subj_sim_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
+    wa_freq_sim_df.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
+    similarity_to_subjs(wa_subj_sim_df)
+    similarity_to_cues(wa_subj_sim_df)
+    evaluate_word_pairs(model, wa_freq_sim_df, save_path)
+    plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences=2)
+    return wa_subj_sim_df
 
 
 def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
@@ -64,7 +64,16 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
     filename.unlink()
 
 
-def add_model_similarity(freq, model):
+def plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences):
+    wa_freq_sim_to_plot = filter_low_frequency_answers(wa_freq_sim_df, words_associations, min_appearences)
+    wa_freq_sim_to_plot['similarity'] += wa_freq_sim_to_plot['similarity'].min()
+    wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(20, 10), fontsize=20,
+                                     title='Human frequency to model similarity', xlabel='Model similarity',
+                                     ylabel='Human frequency of answer')
+    plt.show()
+
+
+def wa_similarities(freq, model):
     words_pairs = []
     for cue in freq:
         cue_answers = freq[cue]
