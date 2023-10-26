@@ -13,6 +13,8 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
+    parser.add_argument('-r', '--repeats', type=int, default=1,
+                        help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-min', '--min_count', type=int, default=100, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
@@ -31,5 +33,5 @@ if __name__ == '__main__':
     if args.test:
         test(model_path, wa_file)
     else:
-        train(args.corpora, args.source, args.fraction, args.min_token, args.max_token, args.min_length,
+        train(args.corpora, args.source, args.fraction, args.repeats, args.min_token, args.max_token, args.min_length,
               args.size, args.window, args.min_count, model_path)

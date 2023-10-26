@@ -23,9 +23,14 @@ class Corpora:
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
 
-    def add_corpus(self, name, source, fraction, is_large):
-        self.corpora.append(Corpus(name, source, fraction, is_large,
-                                   self.min_token_len, self.max_token_len, self.min_sentence_len))
+    def add_corpus(self, name, source, fraction, repeats, is_large):
+        if is_large or repeats == 1:
+            self.corpora.append(Corpus(name, source, fraction, is_large,
+                                       self.min_token_len, self.max_token_len, self.min_sentence_len))
+        else:
+            for _ in range(repeats):
+                self.corpora.append(Corpus(name, source, fraction, is_large,
+                                           self.min_token_len, self.max_token_len, self.min_sentence_len))
 
     def get_size(self):
         return {corpus.name: corpus.size for corpus in self.corpora}
