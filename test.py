@@ -66,8 +66,7 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
 
 def plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences):
     wa_freq_sim_to_plot = filter_low_frequency_answers(wa_freq_sim_df, words_associations, min_appearences)
-    wa_freq_sim_to_plot['similarity'] += wa_freq_sim_to_plot['similarity'].min()
-    wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(20, 10), fontsize=20,
+    wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5),
                                      title='Human frequency to model similarity', xlabel='Model similarity',
                                      ylabel='Human frequency of answer')
     plt.show()
