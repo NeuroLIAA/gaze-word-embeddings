@@ -14,7 +14,7 @@ def test(model_path, wa_file):
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
     wa_freq_sim_df = wa_similarities(answers_frequency(words_associations), model)
-    wa_subj_sim_df = words_associations.apply(lambda answers: similarities(model, words, answers))
+    wa_subj_sim_df = words_associations.copy().apply(lambda answers: similarities(model, words, answers))
     save_path = model_path / 'test'
     save_path.mkdir(exist_ok=True)
     wa_subj_sim_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
