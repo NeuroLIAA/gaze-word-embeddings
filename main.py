@@ -6,11 +6,11 @@ from train import train
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--corpora', type=str, default='wikidump+texts',
+    parser.add_argument('-c', '--corpora', type=str, default='all_wikis+texts_et',
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--source', type=str, default='huggingface',
                         help='Source for large scale data, either remote or local. Remote options: huggingface')
-    parser.add_argument('-m', '--model', type=str, default='wikis_texts', help='Model name')
+    parser.add_argument('-m', '--model', type=str, default='wikis_texts_et', help='Model name')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
