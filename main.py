@@ -30,8 +30,10 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
+    if args.fraction < 1.0:
+        model_path = model_path / f'{int(args.fraction * 100)}'
     if args.test:
         test(model_path, wa_file)
     else:
         train(args.corpora, args.source, args.fraction, args.repeats, args.min_token, args.max_token, args.min_length,
-              args.size, args.window, args.min_count, model_path)
+              args.size, args.window, args.min_count, args.model, model_path)
