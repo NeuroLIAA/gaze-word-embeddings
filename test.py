@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
 
 
-def test(model_path, wa_file):
-    model_file = model_path / f'{model_path.name}.model'
+def test(model_name, model_path, wa_file):
+    model_file = model_path / f'{model_name}.model'
     if not model_file.exists():
         raise ValueError(f'Model {model_file} does not exist')
     if not wa_file.exists():

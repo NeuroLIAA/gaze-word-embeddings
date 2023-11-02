@@ -33,7 +33,7 @@ if __name__ == '__main__':
     if args.fraction < 1.0:
         model_path = model_path / f'{int(args.fraction * 100)}'
     if args.test:
-        test(model_path, wa_file)
+        test(args.model, model_path, wa_file)
     else:
         train(args.corpora, args.source, args.fraction, args.repeats, args.min_token, args.max_token, args.min_length,
               args.size, args.window, args.min_count, args.model, model_path)
