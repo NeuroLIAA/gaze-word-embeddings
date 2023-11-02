@@ -22,7 +22,7 @@ def test(model_name, model_path, wa_file, save_path):
     similarity_to_subjs(wa_subj_sim_df, save_path)
     similarity_to_cues(wa_subj_sim_df, save_path)
     evaluate_word_pairs(model, wa_freq_sim_df, save_path)
-    plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences=2)
+    plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences=5)
     return wa_subj_sim_df
 
 
