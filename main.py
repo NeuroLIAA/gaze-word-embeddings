@@ -27,8 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.csv',
                         help='Words association file to be employed for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation')
-    parser.add_argument('-o', '--output', type=str, default='models',
-                        help='Where to save the trained models and evaluation results')
+    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
     if args.fraction < 1.0:
