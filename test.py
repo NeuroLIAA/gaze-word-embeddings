@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
 
 
-def test(model_name, model_path, wa_file):
+def test(model_name, model_path, wa_file, save_path):
     model_file = model_path / f'{model_name}.model'
     if not model_file.exists():
         raise ValueError(f'Model {model_file} does not exist')
@@ -15,8 +15,8 @@ def test(model_name, model_path, wa_file):
     words = words_associations.index
     wa_freq_sim_df = wa_similarities(answers_frequency(words_associations), model)
     wa_subj_sim_df = words_associations.copy().apply(lambda answers: similarities(model, words, answers))
-    save_path = model_path / 'test'
-    save_path.mkdir(exist_ok=True)
+    save_path = save_path / model_name
+    save_path.mkdir(exist_ok=True, parents=True)
     wa_subj_sim_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
     wa_freq_sim_df.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
     similarity_to_subjs(wa_subj_sim_df, save_path)
