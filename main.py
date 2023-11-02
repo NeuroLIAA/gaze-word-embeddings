@@ -6,11 +6,11 @@ from train import train
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('model', type=str, help='Model name')
     parser.add_argument('-c', '--corpora', type=str, default='all_wikis+texts_et',
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--source', type=str, default='huggingface',
                         help='Source for large scale data, either remote or local. Remote options: huggingface')
-    parser.add_argument('-m', '--model', type=str, default='wikis_texts_et', help='Model name')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
@@ -26,8 +26,9 @@ if __name__ == '__main__':
                         help='Sentence min length, in tokens, for large scale corpora')
     parser.add_argument('-wa', '--words_association', type=str, default='evaluation/words_associations.csv',
                         help='Words association file to be employed for evaluation')
-    parser.add_argument('-t', '--test', action='store_true', help='Perform models evaluation')
-    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
+    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation')
+    parser.add_argument('-o', '--output', type=str, default='models',
+                        help='Where to save the trained models and evaluation results')
     args = parser.parse_args()
     model_path, wa_file = Path(args.output, args.model), Path(args.words_association)
     if args.fraction < 1.0:
