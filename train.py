@@ -9,7 +9,7 @@ def train(corpora_labels, data_sources, fraction, repeats, min_token_len, max_to
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
                            min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
-    save_path = get_path(save_path, corpora_labels)
+    save_path = get_path(save_path, corpora_labels, data_sources)
     save_path.mkdir(exist_ok=True, parents=True)
     model.save(str(save_path / f'{model_name}.model'))
     print(f'Training completed. Model saved at {save_path}')
@@ -23,8 +23,8 @@ def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len,
     return training_corpora
 
 
-def get_path(save_path, corpora_labels):
-    if len(corpora_labels) > 1:
+def get_path(save_path, corpora_labels, data_sources):
+    if 'local' in data_sources:
         save_path = save_path / corpora_labels[-1]
     else:
         save_path = save_path / 'baseline'
