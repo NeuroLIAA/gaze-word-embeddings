@@ -75,18 +75,14 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
 
 def print_words_pairs_correlations(models_results):
     print('------Correlation between similarity and frequency of response for cue-answer pairs------')
-    print('------Pearson correlation coefficient------')
-    for model in models_results:
-        model_results = models_results[model]['word_pairs'][0]
-        print(f'{model}: {model_results[0]} (p-value: {models_results[1]})')
-    print('------Spearman rank-order correlation coefficient------')
-    for model in models_results:
-        model_results = models_results[model]['word_pairs'][1]
-        print(f'{model}: {model_results.correlation} (p-value: {model_results.pvalue})')
-    print('------Out of vocabulary ratio------')
-    for model in models_results:
-        model_results = models_results[model]['word_pairs'][2]
-        print(f'{model}: {model_results}\n')
+    correlations = ['Pearson', 'Spearman rank-order', 'Out of vocabulary ratio']
+    for i, correlation in enumerate(correlations):
+        print(f'{correlation} correlation')
+        for model in models_results:
+            model_results = models_results[model]['word_pairs'][i]
+            print(f'{model}: {model_results[0]}', end=' ')
+            if len(model_results) > 1:
+                print(f'(p-value: {model_results[1]})')
 
 
 def plot_freq_to_sim(basename, models_results, words_associations, save_path, min_appearences):
