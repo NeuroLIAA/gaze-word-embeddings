@@ -4,26 +4,31 @@ import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
 
 
-def test(model_name, model_path, wa_file, save_path):
-    model_file = model_path / f'{model_name}.model'
-    if not model_file.exists():
-        raise ValueError(f'Model {model_file} does not exist')
+def test(model_path, wa_file, save_path):
+    models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
+    if len(models) == 0:
+        raise ValueError(f'There are no models in {model_path}')
     if not wa_file.exists():
         raise ValueError(f'Words association file {wa_file} does not exist')
-    model = Word2Vec.load(str(model_file))
     words_associations = pd.read_csv(wa_file, index_col=0)
     words = words_associations.index
-    wa_freq_sim_df = wa_similarities(answers_frequency(words_associations), model)
-    wa_subj_sim_df = words_associations.copy().apply(lambda answers: similarities(model, words, answers))
-    save_path = save_path / model_name
+    model_basename = model_path.name
+    models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None}
+                      for model in models}
+    for model_dir in models:
+        model_file = model_dir / f'{model_dir.name}.model'
+        model = Word2Vec.load(str(model_file))
+        wa_freq_sim_df = wa_similarities(answers_frequency(words_associations), model)
+        wa_subj_sim_df = words_associations.copy().apply(lambda answers: similarities(model, words, answers))
+        models_results[model_dir.name]['similarity_to_subjs'] = wa_subj_sim_df
+        models_results[model_dir.name]['similarity_to_answers'] = wa_freq_sim_df
+        models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model, wa_freq_sim_df, save_path)
+    save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    wa_subj_sim_df.to_csv(save_path / f'{wa_file.stem}_similarity.csv')
-    wa_freq_sim_df.to_csv(save_path / f'{wa_file.stem}_freq.csv', index=False)
-    similarity_to_subjs(wa_subj_sim_df, save_path)
-    similarity_to_cues(wa_subj_sim_df, save_path)
-    evaluate_word_pairs(model, wa_freq_sim_df, save_path)
-    plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences=5)
-    return wa_subj_sim_df
+    similarity_to_subjs(model_basename, models_results, save_path)
+    similarity_to_cues(model_basename, models_results, save_path)
+    print_words_pairs_correlations(models_results)
+    plot_freq_to_sim(model_basename, models_results, words_associations, save_path, min_appearences=5)
 
 
 def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
@@ -32,44 +37,78 @@ def filter_low_frequency_answers(words_answers_pairs, words_associations, min_ap
         lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
 
 
-def similarity_to_cues(similarities_df, save_path):
-    report_similarity(similarities_df, 'Avg. similarity to cues answers', 1, save_path)
+def similarity_to_cues(model_basename, models_results, save_path):
+    fig, ax = plt.subplots(figsize=(15, 6))
+    title = f'Avg. similarity to cues answers ({model_basename})'
+    print(f'------{title}------')
+    for model in models_results:
+        model_results = models_results[model]
+        report_similarity(model, model_results['similarity_to_subjs'], 1, ax)
+    ax.settitle(title, fontsize=15)
+    ax.legend(fontsize=15)
+    ax.set_ylabel('Similarity', fontsize=15)
+    plt.savefig(save_path / f'{title}.png')
+    plt.show()
 
 
-def similarity_to_subjs(similarities_df, save_path):
-    report_similarity(similarities_df, 'Avg. similarity to subjects answers', 0, save_path)
+def similarity_to_subjs(model_basename, models_results, save_path):
+    fig, ax = plt.subplots(figsize=(15, 6))
+    title = f'Avg. similarity to subjects answers ({model_basename})'
+    print(f'------{title}------')
+    for model in models_results:
+        model_results = models_results[model]
+        report_similarity(model, model_results['similarity_to_subjs'], 0, ax)
+    ax.set_title(title, fontsize=15)
+    ax.legend(fontsize=15)
+    ax.set_ylabel('Similarity', fontsize=15)
+    plt.savefig(save_path / f'{title}.png')
+    plt.show()
 
 
-def report_similarity(similarities_df, title, axis, save_path):
+def report_similarity(model, similarities_df, axis, plt_axis):
     mean_subj_similarity = similarities_df.mean(axis=axis)
     std_subj_similarity = similarities_df.std(axis=axis)
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
-    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, figsize=(20, 10), fontsize=20)
-    plt.title(title, fontsize=20)
-    plt.ylabel('Similarity', fontsize=20)
-    plt.savefig(save_path / f'{title}.png')
-    plt.show()
-    print(f'------{title}------')
-    print(f'Mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})\n')
+    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, label=model, ax=plt_axis)
+    print(f'{model} mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})\n')
 
 
 def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
-    filename = save_path / 'word_pairs.csv'
+    temp_file = save_path / 'word_pairs.csv'
     word_pairs = freq_similarity_pairs.drop(columns=['similarity'])
-    word_pairs.to_csv(filename, index=False, header=False)
-    pearson, spearman, oov_ratio = model.wv.evaluate_word_pairs(filename, delimiter=',')
+    word_pairs.to_csv(temp_file, index=False, header=False)
+    pearson, spearman, oov_ratio = model.wv.evaluate_word_pairs(temp_file, delimiter=',')
+    temp_file.unlink()
+    return pearson, spearman, oov_ratio
+
+
+def print_words_pairs_correlations(models_results):
     print('------Correlation between similarity and frequency of response for cue-answer pairs------')
-    print(f'Pearson correlation coefficient: {pearson[0]} (p-value: {pearson[1]})')
-    print(f'Spearman rank-order correlation coefficient: {spearman.correlation} (p-value: {spearman.pvalue})')
-    print(f'Out of vocabulary ratio: {oov_ratio}\n')
-    filename.unlink()
+    print('------Pearson correlation coefficient------')
+    for model in models_results:
+        model_results = models_results[model]['word_pairs'][0]
+        print(f'{model}: {model_results[0]} (p-value: {models_results[1]})')
+    print('------Spearman rank-order correlation coefficient------')
+    for model in models_results:
+        model_results = models_results[model]['word_pairs'][1]
+        print(f'{model}: {model_results.correlation} (p-value: {model_results.pvalue})')
+    print('------Out of vocabulary ratio------')
+    for model in models_results:
+        model_results = models_results[model]['word_pairs'][2]
+        print(f'{model}: {model_results}\n')
 
 
-def plot_freq_to_sim(wa_freq_sim_df, words_associations, save_path, min_appearences):
-    wa_freq_sim_to_plot = filter_low_frequency_answers(wa_freq_sim_df, words_associations, min_appearences)
-    wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5),
-                                     title='Human frequency to model similarity', xlabel='Model similarity',
-                                     ylabel='Human frequency of answer')
+def plot_freq_to_sim(basename, models_results, words_associations, save_path, min_appearences):
+    fig, ax = plt.subplots(figsize=(15, 6))
+    title = f'Human frequency to model similarity {basename}'
+    for model in models_results:
+        model_results = models_results[model]['similarity_to_answers']
+        wa_freq_sim_to_plot = filter_low_frequency_answers(model_results, words_associations, min_appearences)
+        wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5), ax=ax, label=model)
+    ax.set_xlabel('Model similarity')
+    ax.set_ylabel('Human frequency of answer')
+    ax.set_title(title)
+    ax.legend()
     plt.savefig(save_path / 'freq_to_sim.png')
     plt.show()
 

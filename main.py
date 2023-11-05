@@ -38,7 +38,7 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
     if args.test:
-        test(args.model, model_path, wa_file, save_path=Path('results'))
+        test(model_path, wa_file, save_path=Path('results'))
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.min_token, args.max_token,
               args.min_length, args.size, args.window, args.min_count, args.model, model_path)
