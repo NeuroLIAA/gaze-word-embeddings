@@ -25,13 +25,11 @@ class Corpora:
         self.min_sentence_len = min_sentence_len
 
     def add_corpus(self, name, source, fraction, repeats):
-        if source == 'remote' or repeats == 1:
+        if source == 'remote':
+            repeats = 1
+        for _ in range(repeats):
             self.corpora.append(Corpus(name, source, fraction,
                                        self.min_token_len, self.max_token_len, self.min_sentence_len))
-        else:
-            for _ in range(repeats):
-                self.corpora.append(Corpus(name, source, fraction,
-                                           self.min_token_len, self.max_token_len, self.min_sentence_len))
 
     def get_size(self):
         return {corpus.name: corpus.size for corpus in self.corpora}
