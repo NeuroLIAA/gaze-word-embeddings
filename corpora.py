@@ -1,6 +1,7 @@
 from gensim.utils import simple_preprocess
 from itertools import chain, islice
 from datasets import load_dataset
+from pathlib import Path
 import regex as re
 
 DEACCENT_MAP = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
@@ -23,13 +24,13 @@ class Corpora:
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
 
-    def add_corpus(self, name, source, fraction, repeats, is_large):
-        if is_large or repeats == 1:
-            self.corpora.append(Corpus(name, source, fraction, is_large,
+    def add_corpus(self, name, source, fraction, repeats):
+        if source == 'remote' or repeats == 1:
+            self.corpora.append(Corpus(name, source, fraction,
                                        self.min_token_len, self.max_token_len, self.min_sentence_len))
         else:
             for _ in range(repeats):
-                self.corpora.append(Corpus(name, source, fraction, is_large,
+                self.corpora.append(Corpus(name, source, fraction,
                                            self.min_token_len, self.max_token_len, self.min_sentence_len))
 
     def get_size(self):
@@ -41,30 +42,30 @@ class Corpora:
 
 
 class Corpus:
-    def __init__(self, name, source, fraction, is_large, min_token_len, max_token_len, min_sentence_len):
+    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len):
         self.name = name
         self.fraction = fraction
-        self.is_large = is_large
+        self.is_remote = source == 'remote'
         self.size = 0
-        self.corpus = self.load_corpus(source, min_token_len, max_token_len, min_sentence_len)
+        self.corpus = self.load_corpus(min_token_len, max_token_len, min_sentence_len)
 
-    def load_corpus(self, source, min_token_len, max_token_len, min_sentence_len):
+    def load_corpus(self, min_token_len, max_token_len, min_sentence_len):
         corpus = []
-        if self.is_large and source.name == 'huggingface':
+        if self.is_remote:
             corpus = self.load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
         else:
-            self.load_local_corpus(source, corpus, min_token_len, max_token_len)
+            self.load_local_corpus(Path(self.name), corpus, min_token_len, max_token_len)
         return corpus
 
     def get_texts(self):
-        if self.is_large and 0 < self.fraction < 1.0:
+        if self.is_remote and 0 < self.fraction < 1.0:
             return islice(self.corpus, self.size)
         else:
             return self.corpus
 
-    def load_local_corpus(self, source, corpus, min_token_len, max_token_len):
-        if source.exists():
-            files = [f for f in source.iterdir()]
+    def load_local_corpus(self, data_path, corpus, min_token_len, max_token_len):
+        if data_path.exists():
+            files = [f for f in data_path.iterdir()]
             for file in files:
                 if file.is_file():
                     with file.open('r') as f:

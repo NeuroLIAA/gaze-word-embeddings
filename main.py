@@ -9,8 +9,8 @@ if __name__ == '__main__':
     parser.add_argument('model', type=str, help='Model base name')
     parser.add_argument('-c', '--corpora', type=str, default='all_wikis+texts_et',
                         help='Texts to be employed for training')
-    parser.add_argument('-s', '--source', type=str, default='huggingface',
-                        help='Source for large scale data, either remote or local. Remote options: huggingface')
+    parser.add_argument('-s', '--sources', type=str, default='remote+local',
+                        help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
@@ -30,6 +30,9 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
     output, wa_file = Path(args.output), Path(args.words_association)
+    source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
+    if len(source_labels) != len(corpora_labels):
+        raise ValueError('You must specify from where each corpus will be fetched')
     if args.fraction < 1.0:
         model_path = output / f'{args.model}_{int(args.fraction * 100)}%'
     else:
@@ -37,5 +40,5 @@ if __name__ == '__main__':
     if args.test:
         test(args.model, model_path, wa_file, save_path=Path('results'))
     else:
-        train(args.corpora, args.source, args.fraction, args.repeats, args.min_token, args.max_token, args.min_length,
-              args.size, args.window, args.min_count, args.model, model_path)
+        train(corpora_labels, source_labels, args.fraction, args.repeats, args.min_token, args.max_token,
+              args.min_length, args.size, args.window, args.min_count, args.model, model_path)
