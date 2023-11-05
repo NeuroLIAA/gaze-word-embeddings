@@ -5,13 +5,14 @@ from pathlib import Path
 
 def train(corpora, source, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
           vector_size, window_size, min_count, model_name, save_path):
-    corpora = corpora.split('+')
-    corpora = load_corpora(corpora, source, fraction, repeats, min_token_len, max_token_len, min_sentence_len)
-    print(f'Beginning training model {model_name} with {int(fraction * 100)}% of baseline corpus')
+    corpora_labels = corpora.split('+')
+    print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
+    corpora = load_corpora(corpora_labels, source, fraction, repeats, min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
+    save_path = get_path(save_path, corpora_labels)
     save_path.mkdir(exist_ok=True, parents=True)
     model.save(str(save_path / f'{model_name}.model'))
-    print(f'Finished training model {model_name} with {int(fraction * 100)}% of baseline corpus')
+    print(f'Training completed. Model saved at {save_path}')
     return model
 
 
@@ -22,3 +23,11 @@ def load_corpora(corpora, source, fraction, repeats, min_token_len, max_token_le
         source = Path(corpus) if not is_large else Path(source)
         training_corpora.add_corpus(corpus, source, fraction, repeats, is_large)
     return training_corpora
+
+
+def get_path(save_path, corpora_labels):
+    if len(corpora_labels) > 1:
+        save_path = save_path / corpora_labels[-1]
+    else:
+        save_path = save_path / 'baseline'
+    return save_path
