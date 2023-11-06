@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gensim.models import Word2Vec
 
 
-def test(model_path, wa_file, save_path):
+def test(model_path, wa_file, save_path, error_bars=True):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -20,7 +20,7 @@ def test(model_path, wa_file, save_path):
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_similarity(model_basename, models_results, save_path)
+    plot_similarity(model_basename, models_results, save_path, error_bars)
     plot_freq_to_sim(model_basename, models_results, words_associations, save_path, min_appearences=5)
     print_words_pairs_correlations(models_results)
 
@@ -41,7 +41,7 @@ def filter_low_frequency_answers(words_answers_pairs, words_associations, min_ap
         lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
 
 
-def plot_similarity(model_basename, models_results, save_path):
+def plot_similarity(model_basename, models_results, save_path, error_bars=True):
     for axis, title in zip([0, 1], ['subjects', 'cues']):
         fig, ax = plt.subplots(figsize=(25, 15))
         title = f'Avg. similarity to {title} answers ({model_basename})'
@@ -52,7 +52,10 @@ def plot_similarity(model_basename, models_results, save_path):
             mean_subj_sim, se_subj_sim = report_similarity(model, model_results['similarity_to_subjs'], axis)
             mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
             se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
-        mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
+        if error_bars:
+            mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
+        else:
+            mean_similarities.plot.bar(ax=ax)
         ax.set_title(title, fontsize=15)
         ax.legend(fontsize=15)
         ax.set_ylabel('Similarity', fontsize=15)
