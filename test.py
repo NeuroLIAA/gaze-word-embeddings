@@ -43,12 +43,16 @@ def filter_low_frequency_answers(words_answers_pairs, words_associations, min_ap
 
 def plot_similarity(model_basename, models_results, save_path):
     for axis, title in zip([0, 1], ['subjects', 'cues']):
-        fig, ax = plt.subplots(figsize=(15, 6))
+        fig, ax = plt.subplots(figsize=(25, 15))
         title = f'Avg. similarity to {title} answers ({model_basename})'
         print(f'\n------{title}------')
+        mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model in models_results:
             model_results = models_results[model]
-            report_similarity(model, model_results['similarity_to_subjs'], axis, ax)
+            mean_subj_sim, se_subj_sim = report_similarity(model, model_results['similarity_to_subjs'], axis)
+            mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
+            se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
+        mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
         ax.set_title(title, fontsize=15)
         ax.legend(fontsize=15)
         ax.set_ylabel('Similarity', fontsize=15)
@@ -56,12 +60,12 @@ def plot_similarity(model_basename, models_results, save_path):
         plt.show()
 
 
-def report_similarity(model, similarities_df, axis, plt_axis):
+def report_similarity(model, similarities_df, axis):
     mean_subj_similarity = similarities_df.mean(axis=axis)
     std_subj_similarity = similarities_df.std(axis=axis)
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
-    mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, label=model, ax=plt_axis)
     print(f'{model} mean: {round(mean_subj_similarity.mean(), 4)} (std: {round(std_subj_similarity.mean(), 4)})')
+    return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
 
 
 def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
