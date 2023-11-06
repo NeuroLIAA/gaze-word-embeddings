@@ -45,7 +45,7 @@ def plot_similarity(model_basename, models_results, save_path):
     for axis, title in zip([0, 1], ['subjects', 'cues']):
         fig, ax = plt.subplots(figsize=(15, 6))
         title = f'Avg. similarity to {title} answers ({model_basename})'
-        print(f'------{title}------')
+        print(f'\n------{title}------')
         for model in models_results:
             model_results = models_results[model]
             report_similarity(model, model_results['similarity_to_subjs'], axis, ax)
@@ -61,7 +61,7 @@ def report_similarity(model, similarities_df, axis, plt_axis):
     std_subj_similarity = similarities_df.std(axis=axis)
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
     mean_subj_similarity.plot.bar(yerr=se_subj_similarity, capsize=4, label=model, ax=plt_axis)
-    print(f'{model} mean: {mean_subj_similarity.mean()} (std: {std_subj_similarity.mean()})\n')
+    print(f'{model} mean: {round(mean_subj_similarity.mean(), 4)} (std: {round(std_subj_similarity.mean(), 4)})')
 
 
 def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
@@ -70,19 +70,19 @@ def evaluate_word_pairs(model, freq_similarity_pairs, save_path):
     word_pairs.to_csv(temp_file, index=False, header=False)
     pearson, spearman, oov_ratio = model.wv.evaluate_word_pairs(temp_file, delimiter=',')
     temp_file.unlink()
-    return pearson, spearman, oov_ratio
+    return pearson, spearman, [oov_ratio]
 
 
 def print_words_pairs_correlations(models_results):
-    print('------Correlation between similarity and frequency of response for cue-answer pairs------')
-    correlations = ['Pearson', 'Spearman rank-order', 'Out of vocabulary ratio']
-    for i, correlation in enumerate(correlations):
-        print(f'{correlation} correlation')
+    print('\n---Correlation between similarity and frequency of response for cue-answer pairs---')
+    measures = ['Pearson', 'Spearman rank-order', 'Out of vocabulary ratio']
+    for i, measure in enumerate(measures):
+        print(f'{measure}')
         for model in models_results:
             model_results = models_results[model]['word_pairs'][i]
-            print(f'{model}: {model_results[0]}', end=' ')
+            print(f'{model}: {round(model_results[0], 4)}', end=' ')
             if len(model_results) > 1:
-                print(f'(p-value: {model_results[1]})')
+                print(f'(p-value: {round(model_results[1], 4)})')
 
 
 def plot_freq_to_sim(basename, models_results, words_associations, save_path, min_appearences):
