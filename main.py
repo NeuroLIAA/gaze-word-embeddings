@@ -26,11 +26,13 @@ if __name__ == '__main__':
                         help='Sentence min length, in tokens, for large scale corpora')
     parser.add_argument('-sa', '--subjs_associations', type=str, default='evaluation/subjects_associations.csv',
                         help='Subjects free associations to words file to be employed for evaluation')
+    parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
+                        help='Words associations file to be employed for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
     parser.add_argument('-e', '--error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
-    output, sa_file = Path(args.output), Path(args.subjs_associations)
+    output, sa_file, wa_file = Path(args.output), Path(args.subjs_associations), Path(args.words_associations)
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
@@ -39,7 +41,7 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
     if args.test:
-        test(model_path, sa_file, save_path=Path('results'), error_bars=args.error)
+        test(model_path, wa_file, sa_file, save_path=Path('results'), error_bars=args.error)
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.min_token, args.max_token,
               args.min_length, args.size, args.window, args.min_count, args.model, model_path)
