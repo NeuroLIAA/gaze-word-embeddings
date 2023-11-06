@@ -98,7 +98,8 @@ def plot_freq_to_sim(basename, models_results, words_associations, save_path, mi
     for model in models_results:
         model_results = models_results[model]['similarity_to_answers']
         wa_freq_sim_to_plot = filter_low_frequency_answers(model_results, words_associations, min_appearences)
-        wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5), ax=ax, label=model)
+        ax.scatter(wa_freq_sim_to_plot['similarity'], wa_freq_sim_to_plot['freq'], label=model)
+        # wa_freq_sim_to_plot.plot.scatter(x='similarity', y='freq', figsize=(15, 5), ax=ax, label=model)
     ax.set_xlabel('Model similarity')
     ax.set_ylabel('Human frequency of answer')
     ax.set_title(title)
