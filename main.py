@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
-from test import test
-from train import train
+from scripts.test import test
+from scripts.train import train
 
 
 if __name__ == '__main__':

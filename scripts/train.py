@@ -1,6 +1,5 @@
-from corpora import Corpora
+from scripts.corpora import Corpora
 from gensim.models import Word2Vec
-from pathlib import Path
 
 
 def train(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
