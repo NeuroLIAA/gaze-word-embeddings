@@ -41,7 +41,7 @@ def test_model(model_dir, words_associations, subjs_associations, gt_embeddings,
     wa_model_sim_df = words_associations.copy()
     distance_to_gt_embeddings = get_distance(model.wv, words_associations['cue'], words_in_stimuli, gt_embeddings)
     words = subjs_associations.index
-    sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
+    sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers.to_list()))
     models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim_df
     models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim_df
     models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim_df, save_path)
@@ -59,12 +59,12 @@ def evaluate_word_pairs(words_vectors, freq_similarity_pairs, save_path):
 
 def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
-    cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_in_stimuli, n, seed=42)
+    cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
 
-    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli.to_list())
-    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli.to_list())
-    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli.to_list())
-    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli.to_list())
+    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli.copy())
+    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli.copy())
+    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli.copy())
+    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli.copy())
 
     diff_cues_in_stimuli = cues_in_stimuli_sim_gt - cues_in_stimuli_sim
     diff_cues_off_stimuli = cues_off_stimuli_sim_gt - cues_off_stimuli_sim

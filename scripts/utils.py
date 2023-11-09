@@ -13,7 +13,7 @@ def get_words_in_corpus(stimuli_path):
 
 
 def subsample(series, n, seed):
-    return series.sample(n, random_state=seed) if len(series) > n else series
+    return series.sample(n, random_state=seed).to_numpy() if len(series) > n else series.to_numpy()
 
 
 def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):

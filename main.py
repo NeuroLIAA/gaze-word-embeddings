@@ -30,7 +30,7 @@ if __name__ == '__main__':
                         help='Subjects free associations to words file to be employed for evaluation')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
                         help='Words associations file to be employed for evaluation')
-    parser.add_argument('-e', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
+    parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Human derived word embeddings to be used as ground truth for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
     parser.add_argument('-e', '--error', action='store_true', help='Plot error bars in similarity plots')
