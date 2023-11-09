@@ -13,7 +13,7 @@ def get_words_in_corpus(stimuli_path):
 
 
 def subsample(series, n, seed):
-    return series.sample(n, random_state=seed).to_numpy() if len(series) > n else series.to_numpy()
+    return series.sample(n, random_state=seed) if len(series) > n else series
 
 
 def filter_low_frequency_answers(words_answers_pairs, min_appearances):
@@ -21,9 +21,11 @@ def filter_low_frequency_answers(words_answers_pairs, min_appearances):
 
 
 def similarities(words_vectors, words, answers):
-    for i, answer in enumerate(answers):
-        answers[i] = word_similarity(words_vectors, words[i], answer)
-    return answers
+    similarities = np.zeros(len(answers))
+    for i, word_pair in enumerate(zip(words, answers)):
+        word, answer = word_pair
+        similarities[i] = word_similarity(words_vectors, word, answer)
+    return similarities
 
 
 def word_similarity(words_vectors, word, answer):
