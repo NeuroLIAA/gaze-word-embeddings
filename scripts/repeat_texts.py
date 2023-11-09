@@ -1,7 +1,8 @@
 import argparse
+import shutil
 from pathlib import Path
 
-if __name__ == 'main':
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str, default='../stimuli/',
                         help='Path to the items used in the experiment')
@@ -22,5 +23,5 @@ if __name__ == 'main':
             item_output = output / item.stem
             item_output.mkdir(exist_ok=True)
             stimulus = stimuli / item.stem
-            for _ in files:
-                stimulus.rename(item_output / stimulus.name)
+            for i, _ in enumerate(files):
+                shutil.copy(stimulus, item_output / f'{i} {stimulus.name}')
