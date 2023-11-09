@@ -9,13 +9,13 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
-    if not (sa_file.exists() and wa_file.exists()):
-        raise ValueError(f'Evaluation file(s) missing: {wa_file} and {sa_file} do not exist')
+    if not (sa_file.exists() or wa_file.exists()):
+        raise ValueError(f'Evaluation files missing: {wa_file} and {sa_file} do not exist')
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
-    subjs_associations = pd.read_csv(sa_file, index_col=0) if sa_file.exists() else None
-    words_associations = pd.read_csv(wa_file) if wa_file.exists() else None
-    gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file)) if gt_embeddings_file.exists() else None
+    subjs_associations = pd.read_csv(sa_file, index_col=0)
+    words_associations = pd.read_csv(wa_file)
+    gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None,
                                    'distance_to_embeddings': None} for model in models}
