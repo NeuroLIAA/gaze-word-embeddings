@@ -16,11 +16,8 @@ def subsample(series, n, seed):
     return series.sample(n, random_state=seed).to_numpy() if len(series) > n else series.to_numpy()
 
 
-def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
-    return words_answers_pairs[words_answers_pairs.apply(
-        lambda row: words_associations[(words_associations['cue'] == row['cue'])
-                                       & (words_associations['answer'] == row['answer'])].n.iloc[0] >= min_appearances,
-        axis=1)]
+def filter_low_frequency_answers(words_answers_pairs, min_appearances):
+    return words_answers_pairs[words_answers_pairs['n'] >= min_appearances]
 
 
 def similarities(words_vectors, words, answers):

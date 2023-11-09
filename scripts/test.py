@@ -26,7 +26,7 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_similarity(model_basename, models_results, save_path, error_bars)
-    plot_freq_to_sim(model_basename, models_results, words_associations, save_path, min_appearences=5)
+    plot_freq_to_sim(model_basename, models_results, save_path, min_appearences=5)
     plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars)
     print_words_pairs_correlations(models_results)
 
@@ -115,12 +115,12 @@ def plot_similarity(model_basename, models_results, save_path, error_bars=True):
         plt.show()
 
 
-def plot_freq_to_sim(basename, models_results, words_associations, save_path, min_appearences):
+def plot_freq_to_sim(basename, models_results, save_path, min_appearences):
     fig, ax = plt.subplots(figsize=(15, 6))
     title = f'Human frequency to model similarity ({basename})'
     for model in models_results:
         model_results = models_results[model]['similarity_to_answers']
-        wa_freq_sim_to_plot = filter_low_frequency_answers(model_results, words_associations, min_appearences)
+        wa_freq_sim_to_plot = filter_low_frequency_answers(model_results, min_appearences)
         ax.scatter(wa_freq_sim_to_plot['similarity'], wa_freq_sim_to_plot['freq'], label=model)
     ax.set_xlabel('Model similarity')
     ax.set_ylabel('Human frequency of answer')
