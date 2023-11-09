@@ -35,14 +35,14 @@ def test_model(model_dir, words_associations, subjs_associations, gt_embeddings,
     model_file = model_dir / f'{model_dir.name}.model'
     model = Word2Vec.load(str(model_file))
     answers_sim = similarities(model.wv, words_associations['cue'], words_associations['answer'])
-    words_associations['similarity'] = answers_sim
-    wa_model_sim_df = words_associations.copy()
+    wa_model_sim = words_associations.copy()
+    wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
     distance_to_gt_embeddings = get_distance(model.wv, words, words_in_stimuli, gt_embeddings)
-    sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
-    models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim_df
-    models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim_df
-    models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim_df, model_dir)
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
+    models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim
+    models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim
+    models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim, model_dir)
     models_results[model_dir.name]['distance_to_embeddings'] = distance_to_gt_embeddings
 
 
