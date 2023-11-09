@@ -3,12 +3,12 @@ from gensim.models import Word2Vec
 
 
 def train(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
-          vector_size, window_size, min_count, model_name, save_path):
+          vector_size, window_size, min_count, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
                            min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
-    save_path = get_path(save_path, corpora_labels, data_sources)
+    model_name, save_path = get_path(save_path, corpora_labels, data_sources)
     save_path.mkdir(exist_ok=True, parents=True)
     model.save(str(save_path / f'{model_name}.model'))
     print(f'Training completed. Model saved at {save_path}')
@@ -23,8 +23,6 @@ def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len,
 
 
 def get_path(save_path, corpora_labels, data_sources):
-    if 'local' in data_sources:
-        save_path = save_path / corpora_labels[-1]
-    else:
-        save_path = save_path / 'baseline'
-    return save_path
+    model_name = corpora_labels[-1] if 'local' in data_sources else 'baseline'
+    save_path = save_path / model_name
+    return model_name, save_path

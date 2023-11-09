@@ -49,4 +49,4 @@ if __name__ == '__main__':
         test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, error_bars=args.error)
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.min_token, args.max_token,
-              args.min_length, args.size, args.window, args.min_count, args.model, model_path)
+              args.min_length, args.size, args.window, args.min_count, model_path)
