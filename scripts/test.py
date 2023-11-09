@@ -37,8 +37,8 @@ def test_model(model_dir, words_associations, subjs_associations, gt_embeddings,
     answers_sim = similarities(model.wv, words_associations['cue'], words_associations['answer'])
     words_associations['similarity'] = answers_sim
     wa_model_sim_df = words_associations.copy()
-    distance_to_gt_embeddings = get_distance(model.wv, words_associations['cue'], words_in_stimuli, gt_embeddings)
-    words = subjs_associations.index
+    words = words_associations['cue'].drop_duplicates()
+    distance_to_gt_embeddings = get_distance(model.wv, words, words_in_stimuli, gt_embeddings)
     sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
     models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim_df
     models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim_df
@@ -72,7 +72,7 @@ def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
 
 
 def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars=True):
-    fig, ax = plt.subplots(figsize=(25, 15))
+    fig, ax = plt.subplots(figsize=(10, 6))
     title = f'Distance to ground truth embeddings ({model_basename})'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model in models_results:
@@ -85,10 +85,10 @@ def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, er
     if error_bars:
         diff_df.plot.bar(yerr=se_df, capsize=4, ax=ax)
     else:
-        diff_df.plot.bar(ax=ax)
-    ax.set_title(title, fontsize=15)
-    ax.legend(fontsize=15)
-    ax.set_ylabel('Similarity difference with SWOW-RP embeddings', fontsize=15)
+        diff_df.plot.bar(xlabel='Words present in stimuli', ax=ax)
+    ax.set_title(title)
+    ax.legend()
+    ax.set_ylabel('Similarity difference with SWOW-RP embeddings')
     plt.savefig(save_path / f'{title}.png')
     plt.show()
 
