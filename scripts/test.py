@@ -1,41 +1,80 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from gensim.models import Word2Vec
+from gensim.models import Word2Vec, KeyedVectors
+from corpora import Corpus
 
 
-def test(model_path, wa_file, sa_file, save_path, error_bars=True):
+def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_path, error_bars=True):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
     if not (sa_file.exists() and wa_file.exists()):
         raise ValueError(f'Evaluation file(s) missing: {wa_file} and {sa_file} do not exist')
+    if not stimuli_path.exists():
+        raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     subjs_associations = pd.read_csv(sa_file, index_col=0) if sa_file.exists() else None
     words_associations = pd.read_csv(wa_file) if wa_file.exists() else None
-    models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None}
-                      for model in models}
+    gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file)) if gt_embeddings_file.exists() else None
+    words_in_stimuli = get_words_in_corpus(stimuli_path)
+    models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None,
+                                   'distance_to_embeddings': None} for model in models}
     for model_dir in models:
-        test_model(model_dir, words_associations, subjs_associations, models_results, save_path)
+        test_model(model_dir, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
+                   models_results, save_path)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_similarity(model_basename, models_results, save_path, error_bars)
     plot_freq_to_sim(model_basename, models_results, subjs_associations, save_path, min_appearences=5)
+    plot_distance_to_gt_embeddings(model_basename, models_results, save_path)
     print_words_pairs_correlations(models_results)
 
 
-def test_model(model_dir, words_associations, subjs_associations, models_results, save_path):
+def get_words_in_corpus(stimuli_path):
+    stimuli = Corpus(stimuli_path.name, 'local', 1.0, min_token_len=2, max_token_len=20, min_sentence_len=None)
+    words_in_corpus = set()
+    for sentence in stimuli.get_texts():
+        for word in sentence['text']:
+            words_in_corpus.add(word)
+    return words_in_corpus
+
+
+def test_model(model_dir, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
+               models_results, save_path):
     model_file = model_dir / f'{model_dir.name}.model'
     model = Word2Vec.load(str(model_file))
-    answers_sim = similarities(model, words_associations['cue'], words_associations['answer'].to_list())
+    answers_sim = similarities(model.wv, words_associations['cue'], words_associations['answer'].to_list())
     words_associations['similarity'] = answers_sim
     wa_model_sim_df = words_associations.copy()
+    distance_to_gt_embeddings = get_distance(model.wv, words_associations['cue'], words_in_stimuli, gt_embeddings)
     words = subjs_associations.index
-    sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model, words, answers))
+    sa_subj_sim_df = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
     models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim_df
     models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim_df
     models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model, wa_model_sim_df, save_path)
+    models_results[model_dir.name]['distance_to_embeddings'] = distance_to_gt_embeddings
+
+
+def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
+    cues_in_stimuli = cues[cues.isin(words_in_stimuli)]
+    cues_out_stimuli = cues[~cues.isin(words_in_stimuli)]
+    cues_in_stimuli = cues_in_stimuli.sample(n, random_state=42) if len(cues_in_stimuli) > n else cues_in_stimuli
+    cues_out_stimuli = cues_out_stimuli.sample(n, random_state=42) if len(cues_out_stimuli) > n else cues_out_stimuli
+    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli.to_list())
+    cues_out_stimuli_sim = similarities(words_vectors, cues_out_stimuli, cues_out_stimuli.to_list())
+    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli.to_list())
+    cues_out_stimuli_sim_gt = similarities(gt_embeddings, cues_out_stimuli, cues_out_stimuli.to_list())
+    diff_cues_in_stimuli = cues_in_stimuli_sim_gt - cues_in_stimuli_sim
+    diff_cues_out_stimuli = cues_out_stimuli_sim_gt - cues_out_stimuli_sim
+    df_stimuli = pd.DataFrame({'cue': cues_in_stimuli, 'diff': diff_cues_in_stimuli, 'in_stimuli': True})
+    df_out_stimuli = pd.DataFrame({'cue': cues_out_stimuli, 'diff': diff_cues_out_stimuli, 'in_stimuli': False})
+    return pd.concat([df_stimuli, df_out_stimuli])
+
+
+def plot_distance_to_gt_embeddings(model_basename, models_results, save_path):
+    pass
 
 
 def plot_similarity(model_basename, models_results, save_path, error_bars=True):
@@ -110,16 +149,16 @@ def filter_low_frequency_answers(words_answers_pairs, subjs_associations, min_ap
         lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
 
 
-def similarities(model, words, answers):
+def similarities(words_vectors, words, answers):
     for i, answer in enumerate(answers):
-        answers[i] = word_similarity(model, words[i], answer)
+        answers[i] = word_similarity(words_vectors, words[i], answer)
     return answers
 
 
-def word_similarity(model, word, answer):
-    if answer is None or answer not in model.wv or word not in model.wv:
+def word_similarity(words_vectors, word, answer):
+    if answer is None or answer not in words_vectors or word not in words_vectors:
         return np.nan
-    return model.wv.similarity(word, answer)
+    return words_vectors.similarity(word, answer)
 
 
 def answers_frequency(words_associations, normalized=True):
