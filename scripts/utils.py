@@ -16,10 +16,11 @@ def subsample(series, n, seed):
     return series.sample(n, random_state=seed) if len(series) > n else series
 
 
-def filter_low_frequency_answers(words_answers_pairs, subjs_associations, min_appearances):
-    num_answers = answers_frequency(subjs_associations, normalized=False)
+def filter_low_frequency_answers(words_answers_pairs, words_associations, min_appearances):
     return words_answers_pairs[words_answers_pairs.apply(
-        lambda row: num_answers[row['cue']][row['answer']] >= min_appearances, axis=1)]
+        lambda row: words_associations[(words_associations['cue'] == row['cue'])
+                                       & (words_associations['answer'] == row['answer'])].n.iloc[0] >= min_appearances,
+        axis=1)]
 
 
 def similarities(words_vectors, words, answers):
@@ -32,7 +33,3 @@ def word_similarity(words_vectors, word, answer):
     if answer is None or answer not in words_vectors or word not in words_vectors:
         return np.nan
     return words_vectors.similarity(word, answer)
-
-
-def answers_frequency(words_associations, normalized=True):
-    return {word: words_associations.loc[word].value_counts(normalize=normalized) for word in words_associations.index}
