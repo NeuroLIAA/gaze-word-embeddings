@@ -28,7 +28,7 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     save_path.mkdir(exist_ok=True, parents=True)
     plot_similarity(model_basename, models_results, save_path, error_bars)
     plot_freq_to_sim(model_basename, models_results, subjs_associations, save_path, min_appearences=5)
-    plot_distance_to_gt_embeddings(model_basename, models_results, save_path)
+    plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars)
     print_words_pairs_correlations(models_results)
 
 
@@ -73,8 +73,26 @@ def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     return pd.concat([df_stimuli, df_out_stimuli])
 
 
-def plot_distance_to_gt_embeddings(model_basename, models_results, save_path):
-    pass
+def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars=True):
+    fig, ax = plt.subplots(figsize=(25, 15))
+    title = f'Distance to ground truth embeddings ({model_basename})'
+    diff_df, se_df = pd.DataFrame(), pd.DataFrame()
+    for model in models_results:
+        model_results = models_results[model]['distance_to_embeddings']
+        mean_diff = model_results.groupby('in_stimuli')['diff'].mean()
+        std_diff = model_results.groupby('in_stimuli')['diff'].std()
+        se_diff = std_diff / np.sqrt(model_results.shape[0])
+        diff_df = pd.concat([diff_df, mean_diff.to_frame(model)], axis=1)
+        se_df = pd.concat([se_df, se_diff.to_frame(model)], axis=1)
+    if error_bars:
+        diff_df.plot.bar(yerr=se_df, capsize=4, ax=ax)
+    else:
+        diff_df.plot.bar(ax=ax)
+    ax.set_title(title, fontsize=15)
+    ax.legend(fontsize=15)
+    ax.set_ylabel('Similarity difference with SWOW-RP embeddings', fontsize=15)
+    plt.savefig(save_path / f'{title}.png')
+    plt.show()
 
 
 def plot_similarity(model_basename, models_results, save_path, error_bars=True):
