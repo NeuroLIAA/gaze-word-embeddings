@@ -2,12 +2,13 @@ from scripts.corpora import Corpora
 from gensim.models import Word2Vec
 
 
-def train(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
-          vector_size, window_size, min_count, save_path):
+def train(corpora_labels, data_sources, fraction, repeats, skip_gram, negative_samples, epochs,
+          min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
                            min_token_len, max_token_len, min_sentence_len)
-    model = Word2Vec(sentences=corpora, vector_size=vector_size, window=window_size, min_count=min_count, workers=-1)
+    model = Word2Vec(sentences=corpora, sg=skip_gram, vector_size=vector_size, window=window_size, min_count=min_count,
+                     negative=negative_samples, epochs=epochs, workers=-1)
     model_name, save_path = get_path(save_path, corpora_labels, data_sources)
     save_path.mkdir(exist_ok=True, parents=True)
     model.save(str(save_path / f'{model_name}.model'))

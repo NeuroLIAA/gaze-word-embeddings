@@ -15,7 +15,11 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
                         help='Number of times the local corpus will be iterated over for training')
-    parser.add_argument('-min', '--min_count', type=int, default=100, help='Minimum number of occurrences for a word')
+    parser.add_argument('-sg', '--skip_gram', action='store_true', help='Use skip-gram instead of CBOW')
+    parser.add_argument('-ns', '--negative_sampling', type=int, default=20,
+                        help='Number of negative samples to be used in training')
+    parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
+    parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,
@@ -33,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Human derived word embeddings to be used as ground truth for evaluation')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
-    parser.add_argument('-e', '--error', action='store_true', help='Plot error bars in similarity plots')
+    parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
     output, sa_file, wa_file = Path(args.output), Path(args.subjs_associations), Path(args.words_associations)
@@ -46,7 +50,7 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
     if args.test:
-        test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, error_bars=args.error)
+        test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, args.standard_error)
     else:
-        train(corpora_labels, source_labels, args.fraction, args.repeats, args.min_token, args.max_token,
-              args.min_length, args.size, args.window, args.min_count, model_path)
+        train(corpora_labels, source_labels, args.fraction, args.repeats, args.sg, args.ns, args.epochs, args.min_token,
+              args.max_token, args.min_length, args.size, args.window, args.min_count, model_path)
