@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--repeats', type=int, default=1,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-sg', '--skip_gram', action='store_true', help='Use skip-gram instead of CBOW')
-    parser.add_argument('-ns', '--negative_sampling', type=int, default=20,
+    parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
@@ -52,5 +52,6 @@ if __name__ == '__main__':
     if args.test:
         test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, args.standard_error)
     else:
-        train(corpora_labels, source_labels, args.fraction, args.repeats, args.sg, args.ns, args.epochs, args.min_token,
-              args.max_token, args.min_length, args.size, args.window, args.min_count, model_path)
+        train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
+              args.epochs, args.min_token, args.max_token, args.min_length, args.size, args.window, args.min_count,
+              model_path)
