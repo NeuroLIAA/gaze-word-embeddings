@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
+    parser.add_argument('-th', '--threads', type=int, default=12, help='Number of workers to use')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,
                         help='Word min length, in tokens')
     parser.add_argument('-max_token', '--max_token', type=int, default=20,
@@ -53,5 +54,5 @@ if __name__ == '__main__':
         test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, args.standard_error)
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
-              args.epochs, args.min_token, args.max_token, args.min_length, args.size, args.window, args.min_count,
-              model_path)
+              args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
+              args.min_count, model_path)
