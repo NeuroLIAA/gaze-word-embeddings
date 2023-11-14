@@ -1,10 +1,12 @@
 from scripts.corpora import Corpora
 from gensim.models import Word2Vec
+import logging
 
 
 def train(corpora_labels, data_sources, fraction, repeats, skip_gram, negative_samples, epochs, threads,
           min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
                            min_token_len, max_token_len, min_sentence_len)
     model = Word2Vec(sentences=corpora, sg=skip_gram, vector_size=vector_size, window=window_size, min_count=min_count,
