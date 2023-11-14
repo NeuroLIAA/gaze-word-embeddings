@@ -18,33 +18,34 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     words_associations = pd.read_csv(wa_file)
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None,
-                                   'distance_to_embeddings': None} for model in models}
+    models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {},
+                      'distance_to_embeddings': {}}
     for model_dir in models:
-        model = Word2Vec.load(str(model_dir / f'{model_dir.name}.model'))
-        model_results = models_results[model_dir.name]
-        test_model(model, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, model_results)
+        model_wv = Word2Vec.load(str(model_dir / f'{model_dir.name}.model')).wv
+        test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
+                   models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_similarity(model_basename, models_results, save_path, sort_sim_by, error_bars)
-    plot_freq_to_sim(model_basename, models_results, save_path, min_appearances=5)
-    plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars)
-    print_words_pairs_correlations(models_results)
+    plot_similarity(model_basename, models_results['similarity_to_subjs'], save_path, sort_sim_by, error_bars)
+    plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=5)
+    plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], save_path, error_bars)
+    print_words_pairs_correlations(models_results['word_pairs'])
 
 
-def test_model(model, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, model_results):
-    answers_sim = similarities(model.wv, words_associations['cue'], words_associations['answer'])
+def test_model(model_wv, model_name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
+               models_results):
+    answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
-    distance_to_gt_embeddings = get_distance(model.wv, words, words_in_stimuli, gt_embeddings)
-    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
-    model_results['similarity_to_subjs'] = sa_subj_sim
-    model_results['similarity_to_answers'] = wa_model_sim
-    model_results['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim)
-    model_results['distance_to_embeddings'] = distance_to_gt_embeddings
+    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, words, answers))
+    models_results['similarity_to_subjs'][model_name] = sa_subj_sim
+    models_results['similarity_to_answers'][model_name] = wa_model_sim
+    models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv.wv, wa_model_sim)
+    models_results['distance_to_embeddings'][model_name] = distance_to_gt_embeddings
 
 
 def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
@@ -72,17 +73,17 @@ def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     return pd.concat([df_stimuli, df_off_stimuli])
 
 
-def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars=True):
+def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
     title = f'Distance to ground truth embeddings ({model_basename})'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
-    for model in models_results:
-        model_results = models_results[model]['distance_to_embeddings']
-        mean_diff = model_results.groupby('in_stimuli')['diff'].mean()
-        std_diff = model_results.groupby('in_stimuli')['diff'].std()
-        se_diff = std_diff / np.sqrt(model_results.shape[0])
-        diff_df = pd.concat([diff_df, mean_diff.to_frame(model)], axis=1)
-        se_df = pd.concat([se_df, se_diff.to_frame(model)], axis=1)
+    for model_name in distances_to_embeddings:
+        model_distances = distances_to_embeddings[model_name]
+        mean_diff = model_distances.groupby('in_stimuli')['diff'].mean()
+        std_diff = model_distances.groupby('in_stimuli')['diff'].std()
+        se_diff = std_diff / np.sqrt(model_distances.shape[0])
+        diff_df = pd.concat([diff_df, mean_diff.to_frame(model_name)], axis=1)
+        se_df = pd.concat([se_df, se_diff.to_frame(model_name)], axis=1)
     if error_bars:
         diff_df.plot.bar(yerr=se_df, capsize=4, ax=ax)
     else:
@@ -94,13 +95,13 @@ def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, er
     plt.show()
 
 
-def plot_freq_to_sim(basename, models_results, save_path, min_appearances):
+def plot_freq_to_sim(basename, similarities_to_answers, save_path, min_appearances):
     fig, ax = plt.subplots(figsize=(15, 6))
     title = f'Human frequency to model similarity ({basename})'
-    for model in models_results:
-        model_results = models_results[model]['similarity_to_answers']
-        wa_freq_sim_to_plot = filter_low_frequency_answers(model_results, min_appearances)
-        ax.scatter(wa_freq_sim_to_plot['similarity'], wa_freq_sim_to_plot['freq'], label=model)
+    for model_name in similarities_to_answers:
+        model_sim_to_answers = similarities_to_answers[model_name]
+        wa_freq_sim_to_plot = filter_low_frequency_answers(model_sim_to_answers, min_appearances)
+        ax.scatter(wa_freq_sim_to_plot['similarity'], wa_freq_sim_to_plot['freq'], label=model_name)
     ax.set_xlabel('Model similarity')
     ax.set_ylabel('Human frequency of answer')
     ax.set_title(title)
@@ -109,8 +110,8 @@ def plot_freq_to_sim(basename, models_results, save_path, min_appearances):
     plt.show()
 
 
-def plot_similarity(model_basename, models_results, save_path, sort_by='texts', error_bars=True):
-    if 'baseline' not in models_results:
+def plot_similarity(model_basename, similarities_to_subjs, save_path, sort_by='texts', error_bars=True):
+    if 'baseline' not in similarities_to_subjs:
         print('No baseline model found. Skipping similarity plots')
         return
     for axis, comparable in zip([0, 1], ['subjects', 'cues']):
@@ -118,9 +119,9 @@ def plot_similarity(model_basename, models_results, save_path, sort_by='texts', 
         title = f'Avg. similarity to {comparable} answers (baseline: {model_basename})'
         print(f'\n------{title}------')
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
-        for model in models_results:
-            model_results = models_results[model]
-            mean_subj_sim, se_subj_sim = report_similarity(model, model_results['similarity_to_subjs'], axis)
+        for model_name in similarities_to_subjs:
+            model_sim_to_subjs = similarities_to_subjs[model_name]
+            mean_subj_sim, se_subj_sim = report_similarity(model_name, model_sim_to_subjs, axis)
             mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
             se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
         mean_similarities, se_similarities = compare_to_baseline(mean_similarities, se_similarities)
