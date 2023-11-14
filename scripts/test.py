@@ -6,7 +6,7 @@ from gensim.models import Word2Vec, KeyedVectors
 from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
 
 
-def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_path, error_bars=True):
+def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_path, sort_sim_by, error_bars=True):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -28,7 +28,7 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_similarity(model_basename, models_results, save_path, error_bars)
+    plot_similarity(model_basename, models_results, save_path, sort_sim_by, error_bars)
     plot_freq_to_sim(model_basename, models_results, save_path, min_appearances=5)
     plot_distance_to_gt_embeddings(model_basename, models_results, save_path, error_bars)
     print_words_pairs_correlations(models_results)
@@ -109,7 +109,7 @@ def plot_freq_to_sim(basename, models_results, save_path, min_appearances):
     plt.show()
 
 
-def plot_similarity(model_basename, models_results, save_path, error_bars=True):
+def plot_similarity(model_basename, models_results, save_path, sort_by='texts', error_bars=True):
     if 'baseline' not in models_results:
         print('No baseline model found. Skipping similarity plots')
         return
@@ -124,6 +124,8 @@ def plot_similarity(model_basename, models_results, save_path, error_bars=True):
             mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
             se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
         mean_similarities, se_similarities = compare_to_baseline(mean_similarities, se_similarities)
+        mean_similarities = mean_similarities.sort_values(by=sort_by, ascending=False)
+        se_similarities = se_similarities.reindex(mean_similarities.index)
         if error_bars:
             mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
         else:

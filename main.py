@@ -37,6 +37,8 @@ if __name__ == '__main__':
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Human derived word embeddings to be used as ground truth for evaluation')
+    parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
+                        help='Sort similarity plots by the specified model values')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
     parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
@@ -51,7 +53,8 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
     if args.test:
-        test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, args.standard_error)
+        test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, results_path, args.sort_sim_by,
+             args.standard_error)
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
               args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
