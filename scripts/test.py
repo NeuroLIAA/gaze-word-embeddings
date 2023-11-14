@@ -113,9 +113,9 @@ def plot_similarity(model_basename, models_results, save_path, error_bars=True):
     if 'baseline' not in models_results:
         print('No baseline model found. Skipping similarity plots')
         return
-    for axis, title in zip([0, 1], ['subjects', 'cues']):
+    for axis, comparable in zip([0, 1], ['subjects', 'cues']):
         fig, ax = plt.subplots(figsize=(25, 15))
-        title = f'Avg. similarity to {title} answers ({model_basename})'
+        title = f'Avg. similarity to {comparable} answers (baseline: {model_basename})'
         print(f'\n------{title}------')
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model in models_results:
@@ -130,7 +130,7 @@ def plot_similarity(model_basename, models_results, save_path, error_bars=True):
             mean_similarities.plot.bar(ax=ax)
         ax.set_title(title, fontsize=15)
         ax.legend(fontsize=15)
-        ax.set_ylabel('Similarity', fontsize=15)
+        ax.set_ylabel('Similarity diff. to baseline', fontsize=15)
         plt.savefig(save_path / f'{title}.png')
         plt.show()
 
