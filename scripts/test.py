@@ -94,28 +94,6 @@ def plot_distance_to_gt_embeddings(model_basename, models_results, save_path, er
     plt.show()
 
 
-def plot_similarity(model_basename, models_results, save_path, error_bars=True):
-    for axis, title in zip([0, 1], ['subjects', 'cues']):
-        fig, ax = plt.subplots(figsize=(25, 15))
-        title = f'Avg. similarity to {title} answers ({model_basename})'
-        print(f'\n------{title}------')
-        mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
-        for model in models_results:
-            model_results = models_results[model]
-            mean_subj_sim, se_subj_sim = report_similarity(model, model_results['similarity_to_subjs'], axis)
-            mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
-            se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
-        if error_bars:
-            mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
-        else:
-            mean_similarities.plot.bar(ax=ax)
-        ax.set_title(title, fontsize=15)
-        ax.legend(fontsize=15)
-        ax.set_ylabel('Similarity', fontsize=15)
-        plt.savefig(save_path / f'{title}.png')
-        plt.show()
-
-
 def plot_freq_to_sim(basename, models_results, save_path, min_appearances):
     fig, ax = plt.subplots(figsize=(15, 6))
     title = f'Human frequency to model similarity ({basename})'
@@ -129,6 +107,41 @@ def plot_freq_to_sim(basename, models_results, save_path, min_appearances):
     ax.legend()
     plt.savefig(save_path / 'freq_to_sim.png')
     plt.show()
+
+
+def plot_similarity(model_basename, models_results, save_path, error_bars=True):
+    if 'baseline' not in models_results:
+        print('No baseline model found. Skipping similarity plots')
+        return
+    for axis, title in zip([0, 1], ['subjects', 'cues']):
+        fig, ax = plt.subplots(figsize=(25, 15))
+        title = f'Avg. similarity to {title} answers ({model_basename})'
+        print(f'\n------{title}------')
+        mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
+        for model in models_results:
+            model_results = models_results[model]
+            mean_subj_sim, se_subj_sim = report_similarity(model, model_results['similarity_to_subjs'], axis)
+            mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
+            se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
+        mean_similarities, se_similarities = compare_to_baseline(mean_similarities, se_similarities)
+        if error_bars:
+            mean_similarities.plot.bar(yerr=se_similarities, capsize=4, ax=ax)
+        else:
+            mean_similarities.plot.bar(ax=ax)
+        ax.set_title(title, fontsize=15)
+        ax.legend(fontsize=15)
+        ax.set_ylabel('Similarity', fontsize=15)
+        plt.savefig(save_path / f'{title}.png')
+        plt.show()
+
+
+def compare_to_baseline(mean_similarities, se_similarities):
+    baseline_mean, baseline_se = mean_similarities['baseline'], se_similarities['baseline']
+    mean_similarities = mean_similarities.drop(columns=['baseline'])
+    se_similarities = se_similarities.drop(columns=['baseline'])
+    mean_similarities = mean_similarities.subtract(baseline_mean, axis=0)
+    se_similarities = se_similarities.add(baseline_se, axis=0)
+    return mean_similarities, se_similarities
 
 
 def report_similarity(model, similarities_df, axis):
