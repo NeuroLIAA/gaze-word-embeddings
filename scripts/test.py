@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from gensim.models import Word2Vec, KeyedVectors
 from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
 
@@ -20,7 +21,9 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     models_results = {model.name: {'similarity_to_subjs': None, 'similarity_to_answers': None, 'word_pairs': None,
                                    'distance_to_embeddings': None} for model in models}
     for model_dir in models:
-        test_model(model_dir, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, models_results)
+        model = Word2Vec.load(str(model_dir / f'{model_dir.name}.model'))
+        model_results = models_results[model_dir.name]
+        test_model(model, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, model_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
@@ -31,23 +34,21 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
     print_words_pairs_correlations(models_results)
 
 
-def test_model(model_dir, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, models_results):
-    model_file = model_dir / f'{model_dir.name}.model'
-    model = Word2Vec.load(str(model_file))
+def test_model(model, words_associations, subjs_associations, gt_embeddings, words_in_stimuli, model_results):
     answers_sim = similarities(model.wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
     distance_to_gt_embeddings = get_distance(model.wv, words, words_in_stimuli, gt_embeddings)
     sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model.wv, words, answers))
-    models_results[model_dir.name]['similarity_to_subjs'] = sa_subj_sim
-    models_results[model_dir.name]['similarity_to_answers'] = wa_model_sim
-    models_results[model_dir.name]['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim, model_dir)
-    models_results[model_dir.name]['distance_to_embeddings'] = distance_to_gt_embeddings
+    model_results['similarity_to_subjs'] = sa_subj_sim
+    model_results['similarity_to_answers'] = wa_model_sim
+    model_results['word_pairs'] = evaluate_word_pairs(model.wv, wa_model_sim)
+    model_results['distance_to_embeddings'] = distance_to_gt_embeddings
 
 
-def evaluate_word_pairs(words_vectors, freq_similarity_pairs, model_dir):
-    temp_file = model_dir / 'word_pairs.csv'
+def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
+    temp_file = Path('word_pairs.csv')
     word_pairs = freq_similarity_pairs.drop(columns=['similarity', 'n'])
     word_pairs.to_csv(temp_file, index=False, header=False)
     pearson, spearman, oov_ratio = words_vectors.evaluate_word_pairs(temp_file, delimiter=',')
