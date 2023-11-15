@@ -6,7 +6,7 @@ from gensim.models import Word2Vec, KeyedVectors
 from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
 
 
-def test(model_path, wa_file, sa_file, num_samples, stimuli_path, gt_embeddings_file, save_path, sort_sim_by,
+def test(model_path, wa_file, sa_file, min_freq, num_samples, stimuli_path, gt_embeddings_file, save_path, sort_sim_by,
          error_bars):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
@@ -32,7 +32,7 @@ def test(model_path, wa_file, sa_file, num_samples, stimuli_path, gt_embeddings_
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_similarity(model_basename, models_results['similarity_to_subjs'], save_path, sort_sim_by, error_bars)
-    plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=5)
+    plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
     plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
