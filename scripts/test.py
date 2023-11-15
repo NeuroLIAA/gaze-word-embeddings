@@ -44,17 +44,8 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, words, answers))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
-    models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv.wv, wa_model_sim)
+    models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
     models_results['distance_to_embeddings'][model_name] = distance_to_gt_embeddings
-
-
-def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
-    temp_file = Path('word_pairs.csv')
-    word_pairs = freq_similarity_pairs.drop(columns=['similarity', 'n'])
-    word_pairs.to_csv(temp_file, index=False, header=False)
-    pearson, spearman, oov_ratio = words_vectors.evaluate_word_pairs(temp_file, delimiter=',')
-    temp_file.unlink()
-    return pearson, spearman, [oov_ratio]
 
 
 def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
@@ -71,6 +62,27 @@ def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     df_stimuli = pd.DataFrame({'cue': cues_in_stimuli, 'diff': diff_cues_in_stimuli, 'in_stimuli': True})
     df_off_stimuli = pd.DataFrame({'cue': cues_off_stimuli, 'diff': diff_cues_off_stimuli, 'in_stimuli': False})
     return pd.concat([df_stimuli, df_off_stimuli])
+
+
+def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
+    temp_file = Path('word_pairs.csv')
+    word_pairs = freq_similarity_pairs.drop(columns=['similarity', 'n'])
+    word_pairs.to_csv(temp_file, index=False, header=False)
+    pearson, spearman, oov_ratio = words_vectors.evaluate_word_pairs(temp_file, delimiter=',')
+    temp_file.unlink()
+    return pearson, spearman, [oov_ratio]
+
+
+def print_words_pairs_correlations(models_results):
+    print('\n---Correlation between similarity and frequency of response for cue-answer pairs---')
+    measures = ['Pearson', 'Spearman rank-order', 'Out of vocabulary ratio']
+    for i, measure in enumerate(measures):
+        print(f'{measure}')
+        for model in models_results:
+            model_correlations = models_results[model][i]
+            print(f'{model}: {round(model_correlations[0], 4)}', end=' ')
+            if len(model_correlations) > 1:
+                print(f'(p-value: {round(model_correlations[1], 4)})')
 
 
 def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, save_path, error_bars=True):
@@ -153,15 +165,3 @@ def report_similarity(model, similarities_df, axis):
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
     print(f'{model} mean: {round(mean_subj_similarity.mean(), 4)} (std: {round(std_subj_similarity.mean(), 4)})')
     return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
-
-
-def print_words_pairs_correlations(models_results):
-    print('\n---Correlation between similarity and frequency of response for cue-answer pairs---')
-    measures = ['Pearson', 'Spearman rank-order', 'Out of vocabulary ratio']
-    for i, measure in enumerate(measures):
-        print(f'{measure}')
-        for model in models_results:
-            model_results = models_results[model]['word_pairs'][i]
-            print(f'{model}: {round(model_results[0], 4)}', end=' ')
-            if len(model_results) > 1:
-                print(f'(p-value: {round(model_results[1], 4)})')
