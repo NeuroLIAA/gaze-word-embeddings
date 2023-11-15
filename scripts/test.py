@@ -80,9 +80,9 @@ def print_words_pairs_correlations(models_results):
         print(f'{measure}')
         for model in models_results:
             model_correlations = models_results[model][i]
-            print(f'{model}: {round(model_correlations[0], 4)}', end=' ')
+            print(f'{model}: {model_correlations[0]:.4f)}', end=' ')
             if len(model_correlations) > 1:
-                print(f'(p-value: {round(model_correlations[1], 4)})')
+                print(f'(p-value: {model_correlations[1]:9f})')
 
 
 def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, save_path, error_bars=True):
@@ -163,5 +163,5 @@ def report_similarity(model, similarities_df, axis):
     mean_subj_similarity = similarities_df.mean(axis=axis)
     std_subj_similarity = similarities_df.std(axis=axis)
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
-    print(f'{model} mean: {round(mean_subj_similarity.mean(), 4)} (std: {round(std_subj_similarity.mean(), 4)})')
+    print(f'{model} mean: {mean_subj_similarity.mean():.4f} (std: {std_subj_similarity.mean():.4f})')
     return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
