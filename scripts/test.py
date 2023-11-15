@@ -6,7 +6,8 @@ from gensim.models import Word2Vec, KeyedVectors
 from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
 
 
-def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_path, sort_sim_by, error_bars=True):
+def test(model_path, wa_file, sa_file, num_samples, stimuli_path, gt_embeddings_file, save_path, sort_sim_by,
+         error_bars):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -16,6 +17,8 @@ def test(model_path, wa_file, sa_file, stimuli_path, gt_embeddings_file, save_pa
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     subjs_associations = pd.read_csv(sa_file, index_col=0)
     words_associations = pd.read_csv(wa_file)
+    words_associations = words_associations[words_associations['cue'].isin(
+        subsample(words_associations['cue'], num_samples, seed=42))]
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {},
@@ -41,7 +44,8 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
     distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
-    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, words, answers))
+    cues = subjs_associations.index
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
@@ -80,9 +84,9 @@ def print_words_pairs_correlations(models_results):
         print(f'{measure}')
         for model in models_results:
             model_correlations = models_results[model][i]
-            print(f'{model}: {model_correlations[0]:.4f)}', end=' ')
+            print(f'{model}: {model_correlations[0]:.4f}', end=' ')
             if len(model_correlations) > 1:
-                print(f'(p-value: {model_correlations[1]:9f})')
+                print(f'(p-value: {model_correlations[1]:.9f})')
 
 
 def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, save_path, error_bars=True):
