@@ -6,8 +6,8 @@ from gensim.models import Word2Vec, KeyedVectors
 from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
 
 
-def test(model_path, wa_file, sa_file, min_freq, num_samples, stimuli_path, gt_embeddings_file, save_path, sort_sim_by,
-         error_bars):
+def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, stimuli_path, gt_embeddings_file,
+         save_path, sort_sim_by, error_bars):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -26,7 +26,7 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, stimuli_path, gt_e
     for model_dir in models:
         model_wv = Word2Vec.load(str(model_dir / f'{model_dir.name}.model')).wv
         test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-                   models_results)
+                   sim_threshold, models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
@@ -38,14 +38,14 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, stimuli_path, gt_e
 
 
 def test_model(model_wv, model_name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-               models_results):
-    answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'])
+               sim_threshold, models_results):
+    answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'], sim_threshold)
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
     distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
     cues = subjs_associations.index
-    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers))
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers, sim_threshold))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)

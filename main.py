@@ -41,6 +41,8 @@ if __name__ == '__main__':
                         help='Number of words to be sampled from the words association file for evaluation')
     parser.add_argument('-mf', '--min_freq', type=int, default=15,
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
+    parser.add_argument('-thr', '--threshold', type=float, default=0.2,
+                        help='Threshold for the similarity values to be considered correct')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
     parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
@@ -57,8 +59,8 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
     if args.test:
-        test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, stimuli_path, gt_embeddings_file,
-             results_path, args.sort_sim_by, args.standard_error)
+        test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold,
+             stimuli_path, gt_embeddings_file, results_path, args.sort_sim_by, args.standard_error)
     else:
         train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
               args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,

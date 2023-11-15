@@ -20,15 +20,16 @@ def filter_low_frequency_answers(words_answers_pairs, min_appearances):
     return words_answers_pairs[words_answers_pairs['n'] >= min_appearances]
 
 
-def similarities(words_vectors, words, answers):
+def similarities(words_vectors, words, answers, sim_threshold):
     similarities = np.zeros(len(answers))
     for i, word_pair in enumerate(zip(words, answers)):
         word, answer = word_pair
-        similarities[i] = word_similarity(words_vectors, word, answer)
+        similarities[i] = word_similarity(words_vectors, word, answer, sim_threshold)
     return similarities
 
 
-def word_similarity(words_vectors, word, answer):
+def word_similarity(words_vectors, word, answer, threshold):
     if answer is None or answer not in words_vectors or word not in words_vectors:
         return np.nan
-    return words_vectors.similarity(word, answer)
+    similarity = words_vectors.similarity(word, answer)
+    return 1 if similarity > threshold else 0
