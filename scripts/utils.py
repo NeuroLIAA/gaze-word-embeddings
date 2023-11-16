@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -43,3 +45,11 @@ def build_all_pairs(words):
     words_pairs = pd.DataFrame({'cue': np.repeat(words, len(words)),
                                'answer': np.tile(words, len(words))})
     return words_pairs
+
+
+def get_model_path(models, model_name, fraction):
+    if fraction < 1.0:
+        model_path = Path(models) / f'{model_name}_{int(fraction * 100)}%'
+    else:
+        model_path = Path(models) / model_name
+    return model_path

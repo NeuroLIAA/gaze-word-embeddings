@@ -1,6 +1,7 @@
 import logging
 import argparse
 from scripts.corpora import Corpora
+from scripts.utils import get_model_path
 from gensim.models import Word2Vec
 from pathlib import Path
 
@@ -60,14 +61,10 @@ if __name__ == '__main__':
                         help='Sentence min length, in tokens, for large scale corpora')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
-    output = Path(args.output)
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
-    if args.fraction < 1.0:
-        model_path = output / f'{args.model}_{int(args.fraction * 100)}%'
-    else:
-        model_path = output / args.model
+    model_path = get_model_path(args.output, args.model, args.fraction)
 
     train(corpora_labels, source_labels, args.fraction, args.repeats, args.cbow, args.negative_samples,
           args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
