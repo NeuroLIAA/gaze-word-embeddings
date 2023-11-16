@@ -43,7 +43,7 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
-    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
+    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings, sim_threshold)
     cues = subjs_associations.index
     sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers, sim_threshold))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
@@ -52,14 +52,14 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     models_results['distance_to_embeddings'][model_name] = distance_to_gt_embeddings
 
 
-def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
+def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, sim_threshold, n=20):
     cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
     cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
 
-    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli)
-    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli)
-    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli)
-    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli)
+    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli, sim_threshold)
+    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli, sim_threshold)
+    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli, sim_threshold)
+    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli, sim_threshold)
 
     diff_cues_in_stimuli = cues_in_stimuli_sim_gt - cues_in_stimuli_sim
     diff_cues_off_stimuli = cues_off_stimuli_sim_gt - cues_off_stimuli_sim
