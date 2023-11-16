@@ -34,7 +34,8 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, sti
     plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
                     save_path, sort_sim_by, error_bars)
     plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
-    plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], save_path, error_bars)
+    plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], sim_threshold,
+                                   save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
@@ -57,16 +58,15 @@ def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
     cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
 
-    # TODO: do not save diff, save similarity
     cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli)
     cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli)
     cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli)
     cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli)
 
-    diff_cues_in_stimuli = cues_in_stimuli_sim_gt - cues_in_stimuli_sim
-    diff_cues_off_stimuli = cues_off_stimuli_sim_gt - cues_off_stimuli_sim
-    df_stimuli = pd.DataFrame({'cue': cues_in_stimuli, 'diff': diff_cues_in_stimuli, 'in_stimuli': True})
-    df_off_stimuli = pd.DataFrame({'cue': cues_off_stimuli, 'diff': diff_cues_off_stimuli, 'in_stimuli': False})
+    df_stimuli = pd.DataFrame({'cue': cues_in_stimuli, 'sim': cues_in_stimuli_sim, 'sim_gt': cues_in_stimuli_sim_gt,
+                               'in_stimuli': True})
+    df_off_stimuli = pd.DataFrame({'cue': cues_off_stimuli, 'sim': cues_off_stimuli_sim,
+                                   'sim_gt': cues_off_stimuli_sim_gt, 'in_stimuli': False})
     return pd.concat([df_stimuli, df_off_stimuli])
 
 
@@ -91,12 +91,15 @@ def print_words_pairs_correlations(models_results):
                 print(f'(p-value: {model_correlations[1]:.9f})')
 
 
-def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, save_path, error_bars=True):
+def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, sim_threshold, save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
     title = f'Distance to ground truth embeddings ({model_basename})'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model_name in distances_to_embeddings:
         model_distances = distances_to_embeddings[model_name]
+        model_distances[['sim', 'sim_gt']] = model_distances[['sim', 'sim_gt']].applymap(
+            lambda sim: 0 if sim < sim_threshold else sim)
+        model_distances['diff'] = model_distances['sim'] - model_distances['sim_gt']
         mean_diff = model_distances.groupby('in_stimuli')['diff'].mean()
         std_diff = model_distances.groupby('in_stimuli')['diff'].std()
         se_diff = std_diff / np.sqrt(model_distances.shape[0])
