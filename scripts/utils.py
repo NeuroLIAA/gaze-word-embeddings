@@ -34,6 +34,7 @@ def word_similarity(words_vectors, word, answer):
         return np.nan
     return words_vectors.similarity(word, answer)
 
+
 def apply_threshold(similarity_df, threshold):
     return similarity_df.applymap(lambda x: 0 if x < threshold or np.isnan(x) else 1)
 

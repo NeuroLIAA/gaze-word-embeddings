@@ -22,8 +22,7 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, sti
         subsample(words_associations['cue'], num_samples, seed=42))]
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {},
-                      'distance_to_embeddings': {}}
+    models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = Word2Vec.load(str(model_dir / f'{model_dir.name}.model')).wv
         test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
