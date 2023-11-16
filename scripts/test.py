@@ -26,40 +26,42 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, sti
     for model_dir in models:
         model_wv = Word2Vec.load(str(model_dir / f'{model_dir.name}.model')).wv
         test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-                   sim_threshold, models_results)
+                   models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_similarity(model_basename, models_results['similarity_to_subjs'], save_path, sort_sim_by, error_bars)
+    plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
+                    save_path, sort_sim_by, error_bars)
     plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
     plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
 def test_model(model_wv, model_name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-               sim_threshold, models_results):
-    answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'], sim_threshold)
+               models_results):
+    answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
-    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings, sim_threshold)
+    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
     cues = subjs_associations.index
-    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers, sim_threshold))
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
     models_results['distance_to_embeddings'][model_name] = distance_to_gt_embeddings
 
 
-def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, sim_threshold, n=20):
+def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
     cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
 
-    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli, sim_threshold)
-    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli, sim_threshold)
-    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli, sim_threshold)
-    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli, sim_threshold)
+    # TODO: do not save diff, save similarity
+    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli)
+    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli)
+    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli)
+    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli)
 
     diff_cues_in_stimuli = cues_in_stimuli_sim_gt - cues_in_stimuli_sim
     diff_cues_off_stimuli = cues_off_stimuli_sim_gt - cues_off_stimuli_sim
@@ -126,7 +128,7 @@ def plot_freq_to_sim(basename, similarities_to_answers, save_path, min_appearanc
     plt.show()
 
 
-def plot_similarity(model_basename, similarities_to_subjs, save_path, sort_by='texts', error_bars=True):
+def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_path, sort_by='texts', error_bars=True):
     if 'baseline' not in similarities_to_subjs:
         print('No baseline model found. Skipping similarity plots')
         return
@@ -137,6 +139,7 @@ def plot_similarity(model_basename, similarities_to_subjs, save_path, sort_by='t
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model_name in similarities_to_subjs:
             model_sim_to_subjs = similarities_to_subjs[model_name]
+            model_sim_to_subjs = model_sim_to_subjs.applymap(lambda sim: 0 if sim < sim_threshold else 1)
             mean_subj_sim, se_subj_sim = report_similarity(model_name, model_sim_to_subjs, axis)
             mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
             se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
