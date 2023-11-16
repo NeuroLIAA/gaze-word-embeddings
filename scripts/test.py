@@ -57,17 +57,21 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
 def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
     cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
     cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
+    cues_in_stimuli = pd.DataFrame({'cue': np.repeat(cues_in_stimuli, len(cues_in_stimuli)),
+                                        'answer': np.tile(cues_in_stimuli, len(cues_in_stimuli)),
+                                        'in_stimuli': True})
+    cues_off_stimuli = pd.DataFrame({'cue': np.repeat(cues_off_stimuli, len(cues_off_stimuli)),
+                                        'answer': np.tile(cues_off_stimuli, len(cues_off_stimuli)),
+                                        'in_stimuli': False})
+    cues_in_stimuli = cues_in_stimuli[cues_in_stimuli['cue'] != cues_in_stimuli['answer']]
+    cues_off_stimuli = cues_off_stimuli[cues_off_stimuli['cue'] != cues_off_stimuli['answer']]
 
-    cues_in_stimuli_sim = similarities(words_vectors, cues_in_stimuli, cues_in_stimuli)
-    cues_in_stimuli_sim_gt = similarities(gt_embeddings, cues_in_stimuli, cues_in_stimuli)
-    cues_off_stimuli_sim = similarities(words_vectors, cues_off_stimuli, cues_off_stimuli)
-    cues_off_stimuli_sim_gt = similarities(gt_embeddings, cues_off_stimuli, cues_off_stimuli)
+    cues_in_stimuli['sim'] = similarities(words_vectors, cues_in_stimuli['cue'], cues_in_stimuli['answer'])
+    cues_in_stimuli['sim_gt'] = similarities(gt_embeddings, cues_in_stimuli['cue'], cues_in_stimuli['answer'])
+    cues_off_stimuli['sim'] = similarities(words_vectors, cues_off_stimuli['cue'], cues_off_stimuli['answer'])
+    cues_off_stimuli['sim_gt'] = similarities(gt_embeddings, cues_off_stimuli['cue'], cues_off_stimuli['answer'])
 
-    df_stimuli = pd.DataFrame({'cue': cues_in_stimuli, 'sim': cues_in_stimuli_sim, 'sim_gt': cues_in_stimuli_sim_gt,
-                               'in_stimuli': True})
-    df_off_stimuli = pd.DataFrame({'cue': cues_off_stimuli, 'sim': cues_off_stimuli_sim,
-                                   'sim_gt': cues_off_stimuli_sim_gt, 'in_stimuli': False})
-    return pd.concat([df_stimuli, df_off_stimuli])
+    return pd.concat([cues_in_stimuli, cues_off_stimuli])
 
 
 def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
