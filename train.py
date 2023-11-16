@@ -5,13 +5,13 @@ from gensim.models import Word2Vec
 from pathlib import Path
 
 
-def train(corpora_labels, data_sources, fraction, repeats, skip_gram, negative_samples, epochs, threads,
+def train(corpora_labels, data_sources, fraction, repeats, cbow, negative_samples, epochs, threads,
           min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
                            min_token_len, max_token_len, min_sentence_len)
-    model = Word2Vec(sentences=corpora, sg=skip_gram, vector_size=vector_size, window=window_size, min_count=min_count,
+    model = Word2Vec(sentences=corpora, sg=not cbow, vector_size=vector_size, window=window_size, min_count=min_count,
                      negative=negative_samples, epochs=epochs, workers=threads)
     model_name, save_path = get_path(save_path, corpora_labels, data_sources)
     save_path.mkdir(exist_ok=True, parents=True)
@@ -44,11 +44,11 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
                         help='Number of times the local corpus will be iterated over for training')
-    parser.add_argument('-sg', '--skip_gram', action='store_true', help='Use skip-gram instead of CBOW')
+    parser.add_argument('-cb', '--cbow', action='store_true', help='Use CBOW instead of skip gram')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
-    parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
+    parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
     parser.add_argument('-t', '--threads', type=int, default=12, help='Number of workers to use')
@@ -69,6 +69,6 @@ if __name__ == '__main__':
     else:
         model_path = output / args.model
 
-    train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
+    train(corpora_labels, source_labels, args.fraction, args.repeats, args.cbow, args.negative_samples,
           args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
           args.min_count, model_path)
