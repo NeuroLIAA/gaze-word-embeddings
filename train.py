@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
-    parser.add_argument('-th', '--threads', type=int, default=12, help='Number of workers to use')
+    parser.add_argument('-t', '--threads', type=int, default=12, help='Number of workers to use')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,
                         help='Word min length, in tokens')
     parser.add_argument('-max_token', '--max_token', type=int, default=20,

@@ -177,9 +177,11 @@ if __name__ == '__main__':
     parser.add_argument('model_name', type=str, help='Model base name')
     parser.add_argument('-m', '--models', type=str, default='models',
                         help='Path to the trained models')
+    parser.add_argument('-f', '--fraction', type=float, default=1.0,
+                        help='Fraction of baseline corpus employed for model training')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
-    parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
+    parser.add_argument('-e', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Human derived word embeddings to be used as ground truth for evaluation')
     parser.add_argument('-sa', '--subjs_associations', type=str, default='evaluation/subjects_associations.csv',
                         help='Subjects free associations to words file to be employed for evaluation')
@@ -189,11 +191,10 @@ if __name__ == '__main__':
                         help='Number of words to be sampled from the words association file for evaluation')
     parser.add_argument('-mf', '--min_freq', type=int, default=15,
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
-    parser.add_argument('-thr', '--threshold', type=float, default=0.2,
+    parser.add_argument('-t', '--threshold', type=float, default=0.2,
                         help='Threshold for the similarity values to be considered correct')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
-    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
     parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
