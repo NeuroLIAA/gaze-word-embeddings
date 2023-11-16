@@ -8,8 +8,8 @@ from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_a
     build_all_pairs
 
 
-def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, stimuli_path, gt_embeddings_file,
-         save_path, sort_sim_by, error_bars):
+def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
+         stimuli_path, save_path, sort_sim_by, error_bars):
     models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -35,7 +35,8 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, sti
     plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
                     save_path, sort_sim_by, error_bars)
     plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
-    plot_distance_to_gt(model_basename, models_results['gt_similarities'], sim_threshold, save_path, error_bars)
+    plot_distance_to_gt(model_basename, models_results['gt_similarities'], sim_threshold, gt_threshold,
+                        save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
@@ -88,13 +89,15 @@ def print_words_pairs_correlations(models_results):
                 print(f'(p-value: {model_correlations[1]:.9f})')
 
 
-def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, save_path, error_bars=True):
+def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, gt_threshold,
+                        save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
     title = f'Distance to ground truth embeddings ({model_basename})'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model_name in distances_to_embeddings:
         model_distances = distances_to_embeddings[model_name]
-        model_distances[['sim', 'sim_gt']] = apply_threshold(model_distances[['sim', 'sim_gt']], sim_threshold)
+        model_distances[['sim']] = apply_threshold(model_distances[['sim']], sim_threshold)
+        model_distances[['sim_gt']] = apply_threshold(model_distances[['sim_gt']], gt_threshold)
         model_distances['diff'] = model_distances['sim'] - model_distances['sim_gt']
         mean_diff = model_distances.groupby('in_stimuli')['diff'].mean()
         std_diff = model_distances.groupby('in_stimuli')['diff'].std()
@@ -179,6 +182,14 @@ if __name__ == '__main__':
                         help='Path to the trained models')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus employed for model training')
+    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
+                        help='Number of words to be sampled from the words association file for evaluation')
+    parser.add_argument('-mf', '--min_freq', type=int, default=15,
+                        help='Minimum number of occurrences for an answer in the words association file for evaluation')
+    parser.add_argument('-t', '--threshold', type=float, default=0.2,
+                        help='Threshold for the similarity values to be considered correct')
+    parser.add_argument('-et', '--et_threshold', type=float, default=0.4,
+                        help='Threshold for the ground truth embeddings similarity values to be considered correct')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
     parser.add_argument('-e', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
@@ -187,12 +198,6 @@ if __name__ == '__main__':
                         help='Subjects free associations to words file to be employed for evaluation')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
                         help='Words associations file to be employed for evaluation')
-    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
-                        help='Number of words to be sampled from the words association file for evaluation')
-    parser.add_argument('-mf', '--min_freq', type=int, default=15,
-                        help='Minimum number of occurrences for an answer in the words association file for evaluation')
-    parser.add_argument('-t', '--threshold', type=float, default=0.2,
-                        help='Threshold for the similarity values to be considered correct')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
     parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
@@ -205,5 +210,5 @@ if __name__ == '__main__':
     else:
         model_path = models_path / args.model
 
-    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold,
-         stimuli_path, gt_embeddings_file, output, args.sort_sim_by, args.standard_error)
+    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold, args.et_threshold,
+         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error)
