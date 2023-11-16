@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from gensim.models import Word2Vec, KeyedVectors
-from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities
+from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities, apply_threshold
 
 
 def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, stimuli_path, gt_embeddings_file,
@@ -97,8 +97,7 @@ def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, sim_
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model_name in distances_to_embeddings:
         model_distances = distances_to_embeddings[model_name]
-        model_distances[['sim', 'sim_gt']] = model_distances[['sim', 'sim_gt']].applymap(
-            lambda sim: 0 if sim < sim_threshold or np.isnan(sim) else sim)
+        model_distances[['sim', 'sim_gt']] = apply_threshold(model_distances[['sim', 'sim_gt']], sim_threshold)
         model_distances['diff'] = model_distances['sim'] - model_distances['sim_gt']
         mean_diff = model_distances.groupby('in_stimuli')['diff'].mean()
         std_diff = model_distances.groupby('in_stimuli')['diff'].std()
@@ -141,9 +140,7 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
         print(f'\n------{title}------')
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model_name in similarities_to_subjs:
-            model_sim_to_subjs = similarities_to_subjs[model_name]
-            model_sim_to_subjs = model_sim_to_subjs.applymap(lambda sim: 0 if sim < sim_threshold
-                                                                              or np.isnan(sim) else 1)
+            model_sim_to_subjs = apply_threshold(similarities_to_subjs[model_name], sim_threshold)
             mean_subj_sim, se_subj_sim = report_similarity(model_name, model_sim_to_subjs, axis)
             mean_similarities = pd.concat([mean_similarities, mean_subj_sim], axis=1)
             se_similarities = pd.concat([se_similarities, se_subj_sim], axis=1)
