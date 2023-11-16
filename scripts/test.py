@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from gensim.models import Word2Vec, KeyedVectors
-from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities, apply_threshold
+from scripts.utils import get_words_in_corpus, subsample, filter_low_frequency_answers, similarities, apply_threshold, \
+    build_all_pairs
 
 
 def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, stimuli_path, gt_embeddings_file,
@@ -34,8 +35,7 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, sti
     plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
                     save_path, sort_sim_by, error_bars)
     plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
-    plot_distance_to_gt_embeddings(model_basename, models_results['distance_to_embeddings'], sim_threshold,
-                                   save_path, error_bars)
+    plot_distance_to_gt(model_basename, models_results['gt_similarities'], sim_threshold, save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
@@ -45,33 +45,26 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
-    distance_to_gt_embeddings = get_distance(model_wv, words, words_in_stimuli, gt_embeddings)
-    cues = subjs_associations.index
-    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, cues, answers))
+    subjs_cues = subjs_associations.index
+    sa_subj_sim = subjs_associations.copy().apply(lambda answers: similarities(model_wv, subjs_cues, answers))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
-    models_results['distance_to_embeddings'][model_name] = distance_to_gt_embeddings
+    models_results['gt_similarities'][model_name] = gt_similarities(model_wv, words, words_in_stimuli, gt_embeddings)
 
 
-def get_distance(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
-    cues_in_stimuli, cues_off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
-    cues_in_stimuli, cues_off_stimuli = subsample(cues_in_stimuli, n, seed=42), subsample(cues_off_stimuli, n, seed=42)
-    cues_in_stimuli = pd.DataFrame({'cue': np.repeat(cues_in_stimuli, len(cues_in_stimuli)),
-                                        'answer': np.tile(cues_in_stimuli, len(cues_in_stimuli)),
-                                        'in_stimuli': True})
-    cues_off_stimuli = pd.DataFrame({'cue': np.repeat(cues_off_stimuli, len(cues_off_stimuli)),
-                                        'answer': np.tile(cues_off_stimuli, len(cues_off_stimuli)),
-                                        'in_stimuli': False})
-    cues_in_stimuli = cues_in_stimuli[cues_in_stimuli['cue'] != cues_in_stimuli['answer']]
-    cues_off_stimuli = cues_off_stimuli[cues_off_stimuli['cue'] != cues_off_stimuli['answer']]
+def gt_similarities(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
+    in_stimuli, off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
+    in_stimuli, off_stimuli = subsample(in_stimuli, n, seed=42), subsample(off_stimuli, n, seed=42)
+    in_stimuli, off_stimuli = build_all_pairs(in_stimuli), build_all_pairs(off_stimuli)
+    in_stimuli['in_stimuli'], off_stimuli['in_stimuli'] = True, False
 
-    cues_in_stimuli['sim'] = similarities(words_vectors, cues_in_stimuli['cue'], cues_in_stimuli['answer'])
-    cues_in_stimuli['sim_gt'] = similarities(gt_embeddings, cues_in_stimuli['cue'], cues_in_stimuli['answer'])
-    cues_off_stimuli['sim'] = similarities(words_vectors, cues_off_stimuli['cue'], cues_off_stimuli['answer'])
-    cues_off_stimuli['sim_gt'] = similarities(gt_embeddings, cues_off_stimuli['cue'], cues_off_stimuli['answer'])
+    gt_similarities = pd.concat([in_stimuli, off_stimuli])
+    gt_similarities = gt_similarities[gt_similarities['cue'] != gt_similarities['answer']]
+    gt_similarities['sim'] = similarities(words_vectors, gt_similarities['cue'], gt_similarities['answer'])
+    gt_similarities['sim_gt'] = similarities(gt_embeddings, gt_similarities['cue'], gt_similarities['answer'])
 
-    return pd.concat([cues_in_stimuli, cues_off_stimuli])
+    return gt_similarities
 
 
 def evaluate_word_pairs(words_vectors, freq_similarity_pairs):
@@ -95,7 +88,7 @@ def print_words_pairs_correlations(models_results):
                 print(f'(p-value: {model_correlations[1]:.9f})')
 
 
-def plot_distance_to_gt_embeddings(model_basename, distances_to_embeddings, sim_threshold, save_path, error_bars=True):
+def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
     title = f'Distance to ground truth embeddings ({model_basename})'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()

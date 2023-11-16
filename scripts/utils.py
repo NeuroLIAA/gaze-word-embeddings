@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from scripts.corpora import Corpus
 
@@ -35,3 +36,9 @@ def word_similarity(words_vectors, word, answer):
 
 def apply_threshold(similarity_df, threshold):
     return similarity_df.applymap(lambda x: 0 if x < threshold or np.isnan(x) else 1)
+
+
+def build_all_pairs(words):
+    words_pairs = pd.DataFrame({'cue': np.repeat(words, len(words)),
+                               'answer': np.tile(words, len(words))})
+    return words_pairs
