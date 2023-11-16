@@ -183,11 +183,11 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus employed for model training')
     parser.add_argument('-ws', '--words_samples', type=int, default=1000,
                         help='Number of words to be sampled from the words association file for evaluation')
-    parser.add_argument('-mf', '--min_freq', type=int, default=15,
+    parser.add_argument('-mf', '--min_freq', type=int, default=25,
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
     parser.add_argument('-t', '--threshold', type=float, default=0.2,
                         help='Threshold for the similarity values to be considered correct')
-    parser.add_argument('-et', '--et_threshold', type=float, default=0.4,
+    parser.add_argument('-et', '--et_threshold', type=float, default=0.3,
                         help='Threshold for the ground truth embeddings similarity values to be considered correct')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
