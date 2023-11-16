@@ -97,7 +97,7 @@ def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, 
         model_distances = distances_to_embeddings[model_name]
         model_distances[['sim']] = utils.apply_threshold(model_distances[['sim']], sim_threshold)
         model_distances[['sim_gt']] = utils.apply_threshold(model_distances[['sim_gt']], gt_threshold)
-        model_distances['diff'] = model_distances['sim'] - model_distances['sim_gt']
+        model_distances['diff'] = abs(model_distances['sim'] - model_distances['sim_gt'])
         mean_diff = model_distances.groupby('in_stimuli')['diff'].mean()
         std_diff = model_distances.groupby('in_stimuli')['diff'].std()
         se_diff = std_diff / np.sqrt(model_distances.shape[0])
