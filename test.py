@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -169,3 +170,39 @@ def report_similarity(model, similarities_df, axis):
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
     print(f'{model} mean: {mean_subj_similarity.mean():.4f} (std: {std_subj_similarity.mean():.4f})')
     return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('model_name', type=str, help='Model base name')
+    parser.add_argument('-m', '--models', type=str, default='models',
+                        help='Path to the trained models')
+    parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
+                        help='Path to item files employed in the experiment')
+    parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
+                        help='Human derived word embeddings to be used as ground truth for evaluation')
+    parser.add_argument('-sa', '--subjs_associations', type=str, default='evaluation/subjects_associations.csv',
+                        help='Subjects free associations to words file to be employed for evaluation')
+    parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
+                        help='Words associations file to be employed for evaluation')
+    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
+                        help='Number of words to be sampled from the words association file for evaluation')
+    parser.add_argument('-mf', '--min_freq', type=int, default=15,
+                        help='Minimum number of occurrences for an answer in the words association file for evaluation')
+    parser.add_argument('-thr', '--threshold', type=float, default=0.2,
+                        help='Threshold for the similarity values to be considered correct')
+    parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
+                        help='Sort similarity plots by the specified model values')
+    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
+    parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
+    parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
+    args = parser.parse_args()
+    models_path, sa_file, wa_file = Path(args.models), Path(args.subjs_associations), Path(args.words_associations)
+    output, stimuli_path, gt_embeddings_file = Path(args.output), Path(args.stimuli), Path(args.embeddings)
+    if args.fraction < 1.0:
+        model_path = models_path / f'{args.model}_{int(args.fraction * 100)}%'
+    else:
+        model_path = models_path / args.model
+
+    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold,
+         stimuli_path, gt_embeddings_file, output, args.sort_sim_by, args.standard_error)

@@ -1,7 +1,36 @@
+import logging
 import argparse
+from scripts.corpora import Corpora
+from gensim.models import Word2Vec
 from pathlib import Path
-from scripts.test import test
-from scripts.train import train
+
+
+def train(corpora_labels, data_sources, fraction, repeats, skip_gram, negative_samples, epochs, threads,
+          min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
+    print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+    corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
+                           min_token_len, max_token_len, min_sentence_len)
+    model = Word2Vec(sentences=corpora, sg=skip_gram, vector_size=vector_size, window=window_size, min_count=min_count,
+                     negative=negative_samples, epochs=epochs, workers=threads)
+    model_name, save_path = get_path(save_path, corpora_labels, data_sources)
+    save_path.mkdir(exist_ok=True, parents=True)
+    model.save(str(save_path / f'{model_name}.model'))
+    print(f'Training completed. Model saved at {save_path}')
+    return model
+
+
+def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len):
+    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len)
+    for corpus, source in zip(corpora_labels, data_sources):
+        training_corpora.add_corpus(corpus, source, fraction, repeats)
+    return training_corpora
+
+
+def get_path(save_path, corpora_labels, data_sources):
+    model_name = corpora_labels[-1] if 'local' in data_sources else 'baseline'
+    save_path = save_path / model_name
+    return model_name, save_path
 
 
 if __name__ == '__main__':
@@ -29,39 +58,17 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=10,
                         help='Sentence min length, in tokens, for large scale corpora')
-    parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
-                        help='Path to item files employed in the experiment')
-    parser.add_argument('-em', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
-                        help='Human derived word embeddings to be used as ground truth for evaluation')
-    parser.add_argument('-sa', '--subjs_associations', type=str, default='evaluation/subjects_associations.csv',
-                        help='Subjects free associations to words file to be employed for evaluation')
-    parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
-                        help='Words associations file to be employed for evaluation')
-    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
-                        help='Number of words to be sampled from the words association file for evaluation')
-    parser.add_argument('-mf', '--min_freq', type=int, default=15,
-                        help='Minimum number of occurrences for an answer in the words association file for evaluation')
-    parser.add_argument('-thr', '--threshold', type=float, default=0.2,
-                        help='Threshold for the similarity values to be considered correct')
-    parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
-                        help='Sort similarity plots by the specified model values')
-    parser.add_argument('-t', '--test', action='store_true', help='Perform model evaluation on all its variations')
-    parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
-    output, sa_file, wa_file = Path(args.output), Path(args.subjs_associations), Path(args.words_associations)
+    output = Path(args.output)
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
-    results_path, stimuli_path, gt_embeddings_file = Path('results'), Path(args.stimuli), Path(args.embeddings)
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
     if args.fraction < 1.0:
         model_path = output / f'{args.model}_{int(args.fraction * 100)}%'
     else:
         model_path = output / args.model
-    if args.test:
-        test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold,
-             stimuli_path, gt_embeddings_file, results_path, args.sort_sim_by, args.standard_error)
-    else:
-        train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
-              args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
-              args.min_count, model_path)
+
+    train(corpora_labels, source_labels, args.fraction, args.repeats, args.skip_gram, args.negative_samples,
+          args.epochs, args.threads, args.min_token, args.max_token, args.min_length, args.size, args.window,
+          args.min_count, model_path)
