@@ -206,9 +206,9 @@ if __name__ == '__main__':
     models_path, sa_file, wa_file = Path(args.models), Path(args.subjs_associations), Path(args.words_associations)
     output, stimuli_path, gt_embeddings_file = Path(args.output), Path(args.stimuli), Path(args.embeddings)
     if args.fraction < 1.0:
-        model_path = models_path / f'{args.model}_{int(args.fraction * 100)}%'
+        model_path = models_path / f'{args.model_name}_{int(args.fraction * 100)}%'
     else:
-        model_path = models_path / args.model
+        model_path = models_path / args.model_name
 
     test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold, args.et_threshold,
          gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error)
