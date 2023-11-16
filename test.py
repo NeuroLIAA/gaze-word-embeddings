@@ -91,7 +91,7 @@ def print_words_pairs_correlations(models_results):
 def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, gt_threshold,
                         save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
-    title = f'Distance to ground truth embeddings ({model_basename})'
+    title = f'Distance to ground truth embeddings ({model_basename}) (lower is better)'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model_name in distances_to_embeddings:
         model_distances = distances_to_embeddings[model_name]
@@ -135,7 +135,7 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
         return
     for axis, comparable in zip([0, 1], ['subjects', 'cues']):
         fig, ax = plt.subplots(figsize=(25, 15))
-        title = f'Avg. similarity to {comparable} answers (baseline: {model_basename})'
+        title = f'Avg. similarity to {comparable} answers (baseline: {model_basename}) (bigger is better)'
         print(f'\n------{title}------')
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model_name in similarities_to_subjs:
