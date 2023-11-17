@@ -135,7 +135,7 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
         return
     for axis, comparable in zip([0, 1], ['subjects', 'cues']):
         fig, ax = plt.subplots(figsize=(25, 15))
-        title = f'Avg. similarity to {comparable} answers (baseline: {model_basename}) (bigger is better)'
+        title = f'Avg. similarity to {comparable} answers (baseline: {model_basename}) (higher is better)'
         print(f'\n------{title}------')
         mean_similarities, se_similarities = pd.DataFrame(), pd.DataFrame()
         for model_name in similarities_to_subjs:
