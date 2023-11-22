@@ -53,7 +53,7 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     models_results['gt_similarities'][model_name] = gt_similarities(model_wv, words, words_in_stimuli, gt_embeddings)
 
 
-def gt_similarities(words_vectors, cues, words_in_stimuli, gt_embeddings, n=20):
+def gt_similarities(words_vectors, cues, words_in_stimuli, gt_embeddings, n=100):
     in_stimuli, off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
     in_stimuli, off_stimuli = utils.subsample(in_stimuli, n, seed=42), utils.subsample(off_stimuli, n, seed=42)
     in_stimuli, off_stimuli = utils.build_all_pairs(in_stimuli), utils.build_all_pairs(off_stimuli)
