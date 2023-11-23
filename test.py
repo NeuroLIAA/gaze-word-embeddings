@@ -187,9 +187,9 @@ if __name__ == '__main__':
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
     parser.add_argument('-t', '--threshold', type=float, default=0.2,
                         help='Threshold for the similarity values to be considered correct')
-    parser.add_argument('-et', '--et_threshold', type=float, default=0.3,
+    parser.add_argument('-gt', '--gt_threshold', type=float, default=-0.05,
                         help='Threshold for the ground truth embeddings similarity values to be considered correct')
-    parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
+    parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
     parser.add_argument('-e', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Human derived word embeddings to be used as ground truth for evaluation')
@@ -206,5 +206,5 @@ if __name__ == '__main__':
     output, stimuli_path, gt_embeddings_file = Path(args.output), Path(args.stimuli), Path(args.embeddings)
     model_path = utils.get_model_path(args.models, args.model_name, args.fraction)
 
-    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold, args.et_threshold,
+    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
          gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error)
