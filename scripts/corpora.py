@@ -32,7 +32,8 @@ class Corpora:
                                        self.min_token_len, self.max_token_len, self.min_sentence_len))
 
     def get_size(self):
-        return {corpus.name: corpus.size for corpus in self.corpora}
+        for corpus in self.corpora:
+            print(f'{corpus.name}: {corpus.size // (1024 * 1024)}MB, {corpus.num_sentences} sentences')
 
     def __iter__(self):
         for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
@@ -45,6 +46,7 @@ class Corpus:
         self.fraction = fraction
         self.is_remote = source == 'remote'
         self.size = 0
+        self.num_sentences = 0
         self.corpus = self.load_corpus(min_token_len, max_token_len, min_sentence_len)
 
     def load_corpus(self, min_token_len, max_token_len, min_sentence_len):
@@ -69,7 +71,8 @@ class Corpus:
                     with file.open('r') as f:
                         sentences = [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
                                      for sentence in f.read().split('.')]
-                        self.size += len(sentences)
+                        self.size += sum(len(sentence['text']) for sentence in sentences)
+                        self.num_sentences += len(sentences)
                         corpus.extend(sentences)
                 elif file.is_dir():
                     self.load_local_corpus(file, corpus, min_token_len, max_token_len)
@@ -78,7 +81,8 @@ class Corpus:
         corpus = load_dataset('large_spanish_corpus', name=name, split='train', streaming=True)
         corpus = corpus.map(lambda row: preprocess_str(row, min_token_len, max_token_len))
         corpus = corpus.filter(lambda row: len(row['text']) > min_sentence_len)
-        self.size = int(corpus.info.splits['train'].num_examples * self.fraction)
+        self.size = int(corpus.info.splits['train'].num_bytes * self.fraction)
+        self.num_sentences = int(corpus.info.splits['train'].num_examples * self.fraction)
         return corpus
 
 
