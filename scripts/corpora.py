@@ -59,7 +59,7 @@ class Corpus:
 
     def get_texts(self):
         if self.is_remote and 0 < self.fraction < 1.0:
-            return islice(self.corpus, self.size)
+            return islice(self.corpus, self.num_sentences)
         else:
             return self.corpus
 
