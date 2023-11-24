@@ -10,7 +10,7 @@ import argparse
 
 
 def train(corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr, batch_size,
-          min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
+          device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
@@ -19,7 +19,7 @@ def train(corpora_labels, data_sources, fraction, repeats, negative_samples, dow
     corpora.build_vocab(min_count)
     dataloader = DataLoader(corpora, batch_size=batch_size, shuffle=False, num_workers=0, collate_fn=corpora.collate)
     skip_gram = SkipGram(len(corpora.word2id), vector_size)
-    if torch.cuda.is_available():
+    if device == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
         skip_gram.cuda()
     else:
@@ -80,6 +80,8 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-lr', '--lr', type=float, default=0.001, help='Initial learning rate')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
+    parser.add_argument('-d', '--device', type=str, default='cpu',
+                        help='Device to be used for training (cpu or cuda)')
     parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
@@ -97,5 +99,5 @@ if __name__ == '__main__':
     model_path = get_model_path(args.output, args.model, args.fraction)
 
     train(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
-          args.epochs, args.lr, args.batch_size, args.min_token, args.max_token, args.min_length,
+          args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
           args.size, args.window, args.min_count, model_path)
