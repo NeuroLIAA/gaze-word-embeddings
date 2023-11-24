@@ -1,3 +1,8 @@
 scanpaths/*
+texts/*
 stimuli/*
-large_dataset/*
+models/*
+
+# Pycharm files
+.idea/*
+
