@@ -16,7 +16,7 @@ def train(corpora_labels, data_sources, fraction, repeats, cbow, negative_sample
                      negative=negative_samples, epochs=epochs, workers=threads)
     model_name, save_path = get_path(save_path, corpora_labels, data_sources)
     save_path.mkdir(exist_ok=True, parents=True)
-    model.save(str(save_path / f'{model_name}.model'))
+    model.wv.save_word2vec_format(str(save_path / f'{model_name}.vec'))
     print(f'Training completed. Model saved at {save_path}')
     return model
 

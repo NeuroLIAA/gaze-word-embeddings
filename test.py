@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from gensim.models import Word2Vec, KeyedVectors
+from gensim.models import KeyedVectors
 import scripts.utils as utils
 
 
@@ -24,7 +24,7 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_
     words_in_stimuli = utils.get_words_in_corpus(stimuli_path)
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
-        model_wv = Word2Vec.load(str(model_dir / f'{model_dir.name}.model')).wv
+        model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
         test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
                    models_results)
 
