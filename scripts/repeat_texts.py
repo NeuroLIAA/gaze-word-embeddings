@@ -24,4 +24,4 @@ if __name__ == '__main__':
             item_output.mkdir(exist_ok=True)
             stimulus = stimuli / item.stem
             for i, _ in enumerate(files):
-                shutil.copy(stimulus, item_output / f'{i} {stimulus.name}')
+                shutil.copy(stimulus, item_output / f'{i} {stimulus.name}.txt')
