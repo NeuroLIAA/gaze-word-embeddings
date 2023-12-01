@@ -22,7 +22,7 @@ if __name__ == '__main__':
             item_output = output / item.stem
             item_output.mkdir(exist_ok=True)
             stimulus = stimuli / item.stem
-            text = stimulus.read_text().replace('\n', '')
+            text = stimulus.read_text().replace('\n', ' ')
             text = text.replace('. ', '.\n')
             for i, _ in enumerate(files):
                 with (item_output / f'{i} {stimulus.name}.txt').open('w') as f:
