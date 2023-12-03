@@ -4,17 +4,8 @@ from datasets import load_dataset
 from pathlib import Path
 import regex as re
 
-DEACCENT_MAP = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
-                'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
-                'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
-                'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-                'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
-                'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-                'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
-                'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
-                'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
-                'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
-                'Ç': 'C', 'ç': 'c'}
+DEACCENT_MAP = {'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+                'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u'}
 
 
 class Corpora:
@@ -88,7 +79,7 @@ class Corpus:
 
 def preprocess_str(string, min_token_len, max_token_len):
     deaccent_map = str.maketrans(DEACCENT_MAP)
-    string['text'] = re.sub(r'[^ \nA-Za-zÀ-ÖØ-öø-ÿ/]+', '', string['text'])
+    string['text'] = re.sub(r'^(?![A-Za-zÁ-Úá-ú]+$).*', '', string['text'])
     string['text'] = string['text'].translate(deaccent_map)
     string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
     return string
