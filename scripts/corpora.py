@@ -79,7 +79,7 @@ class Corpus:
 
 def preprocess_str(string, min_token_len, max_token_len):
     deaccent_map = str.maketrans(DEACCENT_MAP)
-    string['text'] = re.sub(r'^(?![A-Za-zÁ-Úá-ú]+$).*', '', string['text'])
     string['text'] = string['text'].translate(deaccent_map)
     string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
+    string['text'] = [token for token in string['text'] if re.match(r'^[A-Za-z]+$', token)]
     return string
