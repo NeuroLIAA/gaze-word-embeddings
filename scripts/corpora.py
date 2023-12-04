@@ -1,80 +1,72 @@
 from gensim.utils import simple_preprocess
-from itertools import chain, islice
-from datasets import load_dataset
-from pathlib import Path
+from datasets import load_dataset, concatenate_datasets
+from torch.utils.data import Dataset
 import regex as re
 
 DEACCENT_MAP = {'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
                 'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u'}
 
 
-class Corpora:
-    def __init__(self, min_token_len, max_token_len, min_sentence_len):
-        self.corpora = []
+class Corpora(Dataset):
+
+    def __init__(self, min_token_len, max_token_len, min_sentence_len, max_sentence_len):
+        super(Corpora).__init__()
+        self.corpora = None
+        self.size = {}
+        self.num_sentences = {}
         self.min_token_len = min_token_len
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
+        self.max_sentence_len = max_sentence_len
 
     def add_corpus(self, name, source, fraction, repeats):
         if source == 'remote':
             repeats = 1
         for _ in range(repeats):
-            self.corpora.append(Corpus(name, source, fraction,
-                                       self.min_token_len, self.max_token_len, self.min_sentence_len))
+            corpus = Corpus(name, source, fraction,
+                            self.min_token_len, self.max_token_len, self.min_sentence_len, self.max_sentence_len)
+            self.corpora = corpus.data if self.corpora is None else concatenate_datasets([self.corpora, corpus.data])
+            self.size[name] = self.size.get(name, 0) + corpus.size
+            self.num_sentences[name] = self.num_sentences.get(name, 0) + corpus.num_sentences
 
-    def get_size(self):
-        for corpus in self.corpora:
-            print(f'{corpus.name}: {corpus.size // (1024 * 1024)}MB, {corpus.num_sentences} sentences')
+    def print_size(self):
+        total_size, total_sentences = 0, 0
+        for corpus in self.size:
+            print(f'{corpus}: {self.size[corpus] // (1024 * 1024)}MB, {self.num_sentences[corpus]} sentences')
+            total_size += self.size[corpus]
+            total_sentences += self.num_sentences[corpus]
+        print(f'Total: {total_size // (1024 * 1024)}MB, {total_sentences} sentences')
+
+    def __len__(self):
+        return self.corpora.num_rows
+
+    def __getitem__(self, idx):
+        return self.corpora[idx]['text']
 
     def __iter__(self):
-        for sentence in chain.from_iterable(corpus.get_texts() for corpus in self.corpora):
+        for sentence in self.corpora:
             yield list(sentence['text'])
 
 
 class Corpus:
-    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len):
+    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, max_sentence_len):
         self.name = name
-        self.fraction = fraction
         self.is_remote = source == 'remote'
         self.size = 0
         self.num_sentences = 0
-        self.corpus = self.load_corpus(min_token_len, max_token_len, min_sentence_len)
+        self.data = self.load_corpus(min_token_len, max_token_len, min_sentence_len, max_sentence_len, fraction)
 
-    def load_corpus(self, min_token_len, max_token_len, min_sentence_len):
-        corpus = []
+    def load_corpus(self, min_token_len, max_token_len, min_sentence_len, max_sentence_len, fraction):
         if self.is_remote:
-            corpus = self.load_hg_dataset(self.name, min_token_len, max_token_len, min_sentence_len)
+            fraction = int(fraction * 100)
+            data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]')
         else:
-            self.load_local_corpus(Path(self.name), corpus, min_token_len, max_token_len)
-        return corpus
-
-    def get_texts(self):
-        if self.is_remote and 0 < self.fraction < 1.0:
-            return islice(self.corpus, self.num_sentences)
-        else:
-            return self.corpus
-
-    def load_local_corpus(self, data_path, corpus, min_token_len, max_token_len):
-        if data_path.exists():
-            files = [f for f in data_path.iterdir()]
-            for file in files:
-                if file.is_file():
-                    with file.open('r') as f:
-                        sentences = [{'text': preprocess_str({'text': sentence}, min_token_len, max_token_len)['text']}
-                                     for sentence in f.read().split('.')]
-                        self.size += sum(len(sentence['text']) for sentence in sentences)
-                        self.num_sentences += len(sentences)
-                        corpus.extend(sentences)
-                elif file.is_dir():
-                    self.load_local_corpus(file, corpus, min_token_len, max_token_len)
-
-    def load_hg_dataset(self, name, min_token_len, max_token_len, min_sentence_len):
-        corpus = load_dataset('large_spanish_corpus', name=name, split='train', streaming=True)
-        corpus = corpus.map(lambda row: preprocess_str(row, min_token_len, max_token_len))
-        corpus = corpus.filter(lambda row: len(row['text']) > min_sentence_len)
-        self.size = int(corpus.info.splits['train'].num_bytes * self.fraction)
-        self.num_sentences = int(corpus.info.splits['train'].num_examples * self.fraction)
-        return corpus
+            data = load_dataset(self.name)['train']
+        self.size = data.info.size_in_bytes
+        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12)
+        data = data.filter(lambda row: min_sentence_len < len(row['text']) < max_sentence_len, num_proc=12)
+        self.num_sentences = data.num_rows
+        return data
 
 
 def preprocess_str(string, min_token_len, max_token_len):
