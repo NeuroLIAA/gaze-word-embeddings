@@ -74,11 +74,12 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
         reduced_window = rnd_generator.integers(1, window_size + 1)
         for idx, word_id in enumerate(words_ids):
             context_words = words_ids[max(idx - reduced_window, 0): idx + reduced_window]
+            input_word_idx = idx if idx < reduced_window else reduced_window
+            context_words.pop(input_word_idx)
             for context_word_id in context_words:
-                if context_word_id != word_id:
-                    batch_input.append(word_id)
-                    batch_output.append(context_word_id)
-                    batch_negatives.append(negative_samples.sample(n_negatives))
+                batch_input.append(word_id)
+                batch_output.append(context_word_id)
+                batch_negatives.append(negative_samples.sample(n_negatives))
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)
