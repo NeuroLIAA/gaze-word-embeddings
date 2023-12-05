@@ -44,3 +44,11 @@ class SkipGram(nn.Module):
             for wid, w in id2word.items():
                 e = ' '.join(map(lambda x: str(x), embedding[wid]))
                 f.write('%s %s\n' % (w, e))
+
+    def save_embedding_vocab(self, vocab, file_name):
+        embedding = self.u_embeddings.weight.cpu().data.numpy()
+        with open(file_name, 'w') as f:
+            f.write('%d %d\n' % (len(vocab), self.emb_dimension))
+            for wid, w in enumerate(vocab.get_itos()):
+                e = ' '.join(map(lambda x: str(x), embedding[wid]))
+                f.write('%s %s\n' % (w, e))

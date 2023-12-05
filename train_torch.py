@@ -1,9 +1,8 @@
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 import logging
-from scripts.corpora_torch import Corpora
+from scripts.corpora import Corpora, get_dataloader_and_vocab
 from scripts.w2v import SkipGram
 from scripts.utils import get_model_path
 import argparse
@@ -14,11 +13,11 @@ def train(corpora_labels, data_sources, fraction, repeats, negative_samples, dow
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
-                           min_token_len, max_token_len, min_sentence_len,
-                           negative_samples, window_size, downsample_factor)
-    corpora.build_vocab(min_count)
-    dataloader = DataLoader(corpora, batch_size=batch_size, shuffle=False, num_workers=0, collate_fn=corpora.collate)
-    skip_gram = SkipGram(len(corpora.word2id), vector_size)
+                           min_token_len, max_token_len, min_sentence_len)
+    corpora.print_size()
+    dataloader, vocab = get_dataloader_and_vocab(corpora, min_count, negative_samples, downsample_factor,
+                                                 window_size, batch_size)
+    skip_gram = SkipGram(len(vocab), vector_size)
     if device == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
         skip_gram.cuda()
@@ -30,11 +29,11 @@ def train(corpora_labels, data_sources, fraction, repeats, negative_samples, dow
         print(f'\nEpoch: {epoch + 1}')
         optimizer = optim.SparseAdam(skip_gram.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(dataloader))
-        for i, sample_batched in enumerate(tqdm(dataloader)):
-            if len(sample_batched[0]) > 1:
-                pos_u = sample_batched[0].to(device)
-                pos_v = sample_batched[1].to(device)
-                neg_v = sample_batched[2].to(device)
+        for batch in tqdm(dataloader):
+            if len(batch[0]) > 1:
+                pos_u = batch[0].to(device)
+                pos_v = batch[1].to(device)
+                neg_v = batch[2].to(device)
 
                 optimizer.zero_grad()
                 loss = skip_gram.forward(pos_u, pos_v, neg_v)
@@ -43,14 +42,12 @@ def train(corpora_labels, data_sources, fraction, repeats, negative_samples, dow
                 scheduler.step()
 
         save_path.mkdir(exist_ok=True, parents=True)
-        skip_gram.save_embedding(corpora.id2word, str(save_path / f'{model_name}.vec'))
+        skip_gram.save_embedding_vocab(vocab, str(save_path / f'{model_name}.vec'))
     print(f'Training completed. Model saved at {save_path}')
 
 
-def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
-                 negative_samples, window_size, downsample_factor):
-    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len, negative_samples, window_size,
-                               downsample_factor)
+def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len):
+    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len)
     for corpus, source in zip(corpora_labels, data_sources):
         training_corpora.add_corpus(corpus, source, fraction, repeats)
     return training_corpora
