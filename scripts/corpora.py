@@ -69,17 +69,15 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
     batch_input, batch_output, batch_negatives = [], [], []
     for sentence in batch:
         words_ids = words_mapping(sentence)
-        # Discard words with probability downsample_table
         words_ids = [word_id for word_id in words_ids if rnd_generator.random() < downsample_table[word_id]]
         reduced_window = rnd_generator.integers(1, window_size + 1)
         for idx, word_id in enumerate(words_ids):
             context_words = words_ids[max(idx - reduced_window, 0): idx + reduced_window]
             input_word_idx = idx if idx < reduced_window else reduced_window
             context_words.pop(input_word_idx)
-            for context_word_id in context_words:
-                batch_input.append(word_id)
-                batch_output.append(context_word_id)
-                batch_negatives.append(negative_samples.sample(n_negatives))
+            batch_input.extend([word_id] * len(context_words))
+            batch_output.extend(context_words)
+            batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)
@@ -166,7 +164,7 @@ class Corpus:
     def load_corpus(self, min_token_len, max_token_len, min_sentence_len, fraction):
         if self.is_remote:
             fraction = int(fraction * 100)
-            data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]')
+            data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]', num_proc=12)
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
