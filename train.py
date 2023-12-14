@@ -106,8 +106,8 @@ if __name__ == '__main__':
                         help='Word min length, in tokens')
     parser.add_argument('-max_token', '--max_token', type=int, default=20,
                         help='Word max length, in tokens')
-    parser.add_argument('-min_length', '--min_length', type=int, default=10,
-                        help='Sentence min length, in tokens, for large scale corpora')
+    parser.add_argument('-min_length', '--min_length', type=int, default=4,
+                        help='Sentence minimum length, in tokens')
     parser.add_argument('-g', '--gensim', action='store_true', help='Use gensim instead of PyTorch')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
