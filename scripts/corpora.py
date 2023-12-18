@@ -168,7 +168,7 @@ class Corpus:
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
-        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12)
+        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12, load_from_cache_file=False)
         data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=12)
         self.num_sentences = data.num_rows
         return data
@@ -179,4 +179,6 @@ def preprocess_str(string, min_token_len, max_token_len):
     string['text'] = string['text'].translate(deaccent_map)
     string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
     string['text'] = [token for token in string['text'] if re.match(r'^[A-Za-zñ]+$', token)]
+    if 'fix_dur' not in string:
+        string['fix_dur'] = [0] * len(string['text'])
     return string
