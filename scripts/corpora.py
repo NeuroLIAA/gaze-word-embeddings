@@ -168,7 +168,7 @@ class Corpus:
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
-        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12, load_from_cache_file=False)
+        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12)
         data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=12)
         self.num_sentences = data.num_rows
         return data
