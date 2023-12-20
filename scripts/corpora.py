@@ -33,7 +33,7 @@ def build_downsample_distribution(word_freq, total_words, downsample_factor):
 def build_vocab(corpora, min_count):
     word_freq = Counter()
     for tokens in corpora:
-        word_freq.update(tokens)
+        word_freq.update(tokens['text'])
     total_words = sum(word_freq.values())
     word_freq = OrderedDict(sorted(word_freq.items(), key=lambda x: x[1], reverse=True))
     vocabulary = vocab(word_freq, min_freq=min_count)
@@ -66,24 +66,33 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
 
 def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives):
     rnd_generator = np.random.default_rng()
-    batch_input, batch_output, batch_negatives = [], [], []
+    batch_input, batch_output, batch_negatives, batch_fixations = [], [], [], []
     for sentence in batch:
-        words_ids = words_mapping(sentence)
-        words_ids = [word_id for word_id in words_ids if rnd_generator.random() < downsample_table[word_id]]
+        words_ids, words_fix = words_mapping(sentence['text']), sentence['fix_dur']
+        words, fixs = [], []
+        for i, word_id in enumerate(words_ids):
+            if rnd_generator.random() < downsample_table[word_id]:
+                words.append(word_id)
+                fixs.append(words_fix[i])
         reduced_window = rnd_generator.integers(1, window_size + 1)
-        for idx, word_id in enumerate(words_ids):
-            context_words = words_ids[max(idx - reduced_window, 0): idx + reduced_window]
+        for idx, word_id in enumerate(words):
+            context_words = words[max(idx - reduced_window, 0): idx + reduced_window]
+            words_fix = fixs[max(idx - reduced_window, 0): idx + reduced_window]
             input_word_idx = idx if idx < reduced_window else reduced_window
             context_words.pop(input_word_idx)
+            words_fix.pop(input_word_idx)
             batch_input.extend([word_id] * len(context_words))
             batch_output.extend(context_words)
             batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
+            batch_fixations.extend(words_fix)
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)
     batch_negatives = np.array(batch_negatives)
+    batch_fixations = np.array(batch_fixations)
 
-    return torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives)
+    return (torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives),
+            torch.LongTensor(batch_fixations))
 
 
 class Samples:
@@ -146,11 +155,11 @@ class Corpora(Dataset):
         return self.corpora.num_rows
 
     def __getitem__(self, idx):
-        return self.corpora[idx]['text']
+        return self.corpora[idx]
 
     def __iter__(self):
         for sentence in self.corpora:
-            yield list(sentence['text'])
+            yield sentence
 
 
 class Corpus:

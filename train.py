@@ -5,13 +5,13 @@ import torch.optim as optim
 from tqdm import tqdm
 from scripts.corpora import Corpora, get_dataloader_and_vocab
 from scripts.utils import get_model_path
-from scripts.w2v import SkipGram
+from scripts.w2v_fix import SkipGram
 from gensim.models import Word2Vec
 
 
 def train(corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr, batch_size,
           device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count,
-          gensim, cbow, save_path):
+          gensim, cbow, train_fix, save_path):
     print(f'Beginning training with corpora {corpora_labels} ({int(fraction * 100)}% of baseline corpus)')
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
     corpora = load_corpora(corpora_labels, data_sources, fraction, repeats,
@@ -23,7 +23,7 @@ def train(corpora_labels, data_sources, fraction, repeats, negative_samples, dow
                      epochs, cbow, model_name, save_path)
     else:
         train_torch(corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs,
-                    lr, batch_size, device, model_name, save_path)
+                    lr, batch_size, train_fix, device, model_name, save_path)
     print(f'Training completed. Model saved at {save_path}')
 
 
@@ -35,7 +35,7 @@ def train_gensim(corpora, vector_size, window_size, min_count, negative_samples,
 
 
 def train_torch(corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                batch_size, device, model_name, save_path):
+                batch_size, train_fix, device, model_name, save_path):
     dataloader, vocab = get_dataloader_and_vocab(corpora, min_count, negative_samples, downsample_factor,
                                                  window_size, batch_size)
     skip_gram = SkipGram(len(vocab), vector_size)
@@ -47,18 +47,28 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
 
     for epoch in range(epochs):
         print(f'\nEpoch: {epoch + 1}')
-        optimizer = optim.SparseAdam(skip_gram.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(dataloader))
+        sparse_params = list(skip_gram.parameters())[:2]
+        dense_params = list(skip_gram.parameters())[2:]
+        opt_sparse = optim.SparseAdam(sparse_params, lr=lr)
+        opt_dense = optim.AdamW(dense_params, lr=lr)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt_sparse, len(dataloader))
         for batch in tqdm(dataloader):
             if len(batch[0]) > 1:
                 pos_u = batch[0].to(device)
                 pos_v = batch[1].to(device)
                 neg_v = batch[2].to(device)
+                fix_v = batch[3].to(device)
 
-                optimizer.zero_grad()
-                loss = skip_gram.forward(pos_u, pos_v, neg_v)
+                update_regressor = train_fix and fix_v.sum() > 0
+                opt_sparse.zero_grad(), opt_dense.zero_grad()
+                loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v)
+                if update_regressor:
+                    fix_loss = torch.nn.L1Loss()(fix_dur, fix_v)
+                    loss += fix_loss
                 loss.backward()
-                optimizer.step()
+                opt_sparse.step()
+                if update_regressor:
+                    opt_dense.step()
                 scheduler.step()
 
     save_path.mkdir(exist_ok=True, parents=True)
@@ -108,6 +118,7 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=4,
                         help='Sentence minimum length, in tokens')
+    parser.add_argument('-tf', '--train_fix', action='store_true', help='Train fixation duration regressor')
     parser.add_argument('-g', '--gensim', action='store_true', help='Use gensim instead of PyTorch')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()
@@ -118,4 +129,4 @@ if __name__ == '__main__':
 
     train(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
           args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
-          args.size, args.window, args.min_count, args.gensim, args.cbow, model_path)
+          args.size, args.window, args.min_count, args.gensim, args.cbow, args.train_fix, model_path)

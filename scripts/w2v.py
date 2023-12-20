@@ -35,7 +35,7 @@ class SkipGram(nn.Module):
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(F.logsigmoid(-neg_score), dim=1)
 
-        return torch.mean(score + neg_score)
+        return torch.mean(score + neg_score), 0
 
     def save_embedding_vocab(self, vocab, file_name):
         embedding = self.u_embeddings.weight.cpu().data.numpy()
