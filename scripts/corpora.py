@@ -1,6 +1,5 @@
 from functools import partial
 import torch
-from gensim.utils import simple_preprocess
 from datasets import load_dataset, concatenate_datasets
 from torch.utils.data import Dataset, DataLoader
 from collections import Counter, OrderedDict
@@ -20,6 +19,13 @@ DEACCENT_MAP = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
                 'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
                 'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
                 'Ç': 'C', 'ç': 'c'}
+
+CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
+             '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
+             '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
+             '¿': '', '?': '', '¡': '', '!': '', '=': ''}
+
+CHARS_MAP.update(DEACCENT_MAP)
 
 
 def build_downsample_distribution(word_freq, total_words, downsample_factor):
@@ -177,17 +183,31 @@ class Corpus:
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
-        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=12)
-        data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=12)
+        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=1)
+        data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=1)
         self.num_sentences = data.num_rows
         return data
 
 
 def preprocess_str(string, min_token_len, max_token_len):
-    deaccent_map = str.maketrans(DEACCENT_MAP)
-    string['text'] = string['text'].translate(deaccent_map)
-    string['text'] = simple_preprocess(string['text'], min_len=min_token_len, max_len=max_token_len)
-    string['text'] = [token for token in string['text'] if re.match(r'^[A-Za-zñ]+$', token)]
-    if 'fix_dur' not in string:
-        string['fix_dur'] = [0] * len(string['text'])
+    chars_map = str.maketrans(CHARS_MAP)
+    string['text'] = to_unicode(string['text'].lower()).split()
+    tokenized, tokens_fix = [], []
+    for i, token in enumerate(string['text']):
+        token = token.translate(chars_map)
+        if (min_token_len <= len(token) <= max_token_len and
+                not token.startswith('_') and re.match(r'^[A-Za-zñ]+$', token)):
+            tokenized.append(token)
+            if 'fix_dur' in string:
+                tokens_fix.append(string['fix_dur'][i])
+            else:
+                tokens_fix.append(0)
+    string['text'] = tokenized
+    string['fix_dur'] = tokens_fix
     return string
+
+
+def to_unicode(text, encoding='utf-8'):
+    if isinstance(text, str):
+        return text
+    return str(text, encoding, 'ignore')
