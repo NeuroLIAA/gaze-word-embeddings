@@ -37,7 +37,7 @@ def train_gensim(corpora, vector_size, window_size, min_count, negative_samples,
 def train_torch(corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
                 batch_size, train_fix, device, model_name, save_path):
     dataloader, vocab = get_dataloader_and_vocab(corpora, min_count, negative_samples, downsample_factor,
-                                                 window_size, batch_size)
+                                                 window_size, batch_size, train_fix)
     skip_gram = SkipGram(len(vocab), vector_size)
     if device == 'cuda' and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -61,7 +61,7 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
 
                 update_regressor = train_fix and fix_v.sum() > 0
                 opt_sparse.zero_grad(), opt_dense.zero_grad()
-                loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v)
+                loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, train_fix)
                 if update_regressor:
                     fix_loss = torch.nn.L1Loss()(fix_dur, fix_v)
                     loss += fix_loss
@@ -118,7 +118,8 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=4,
                         help='Sentence minimum length, in tokens')
-    parser.add_argument('-tf', '--train_fix', action='store_true', help='Train fixation duration regressor')
+    parser.add_argument('-tf', '--train_fix', type=str, default=None,
+                        help='Train fixation duration regressor of input or output words. Options: input, output.')
     parser.add_argument('-g', '--gensim', action='store_true', help='Use gensim instead of PyTorch')
     parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
     args = parser.parse_args()

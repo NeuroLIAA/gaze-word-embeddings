@@ -23,7 +23,7 @@ class SkipGram(nn.Module):
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
         init.constant_(self.v_embeddings.weight.data, 0)
 
-    def forward(self, pos_u, pos_v, neg_v):
+    def forward(self, pos_u, pos_v, neg_v, predict_fix):
         emb_u = self.u_embeddings(pos_u)
         emb_v = self.v_embeddings(pos_v)
         emb_neg_v = self.v_embeddings(neg_v)
@@ -36,7 +36,8 @@ class SkipGram(nn.Module):
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
 
-        duration = self.duration_regression(emb_v).squeeze()
+        duration = self.duration_regression(emb_v).squeeze() if predict_fix == 'output' else self.duration_regression(
+            emb_u).squeeze()
 
         return torch.mean(score + neg_score), duration
 
