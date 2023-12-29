@@ -9,7 +9,7 @@ import scripts.utils as utils
 
 def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
          stimuli_path, save_path, sort_sim_by, error_bars):
-    models = [dir_ for dir_ in model_path.iterdir() if dir_.is_dir()]
+    models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
     if not (sa_file.exists() or wa_file.exists()):
