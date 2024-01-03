@@ -3,7 +3,8 @@ import argparse
 import torch
 import torch.optim as optim
 from tqdm import tqdm
-from scripts.corpora import Corpora, get_dataloader_and_vocab
+from scripts.corpora import Corpora
+from scripts.data_handling import get_dataloader_and_vocab
 from scripts.utils import get_model_path
 from scripts.w2v_fix import SkipGram
 from gensim.models import Word2Vec
