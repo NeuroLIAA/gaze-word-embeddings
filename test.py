@@ -7,7 +7,7 @@ from gensim.models import KeyedVectors
 import scripts.utils as utils
 
 
-def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
+def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
          stimuli_path, save_path, sort_sim_by, error_bars):
     models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
@@ -17,7 +17,7 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     subjs_associations = pd.read_csv(sa_file, index_col=0)
-    words_associations = pd.read_csv(wa_file)
+    words_associations, words_frequency = pd.read_csv(wa_file), pd.read_csv(wf_file)
     words_associations = words_associations[words_associations['cue'].isin(
         utils.subsample(words_associations['cue'], num_samples, seed=42))]
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
@@ -25,8 +25,8 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
-        test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-                   models_results)
+        test_model(model_wv, model_dir.name, words_associations, words_frequency, subjs_associations, gt_embeddings,
+                   words_in_stimuli, models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
@@ -39,12 +39,13 @@ def test(model_path, wa_file, sa_file, min_freq, num_samples, sim_threshold, gt_
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
-def test_model(model_wv, model_name, words_associations, subjs_associations, gt_embeddings, words_in_stimuli,
-               models_results):
+def test_model(model_wv, model_name, words_associations, words_frequency, subjs_associations, gt_embeddings,
+               words_in_stimuli, models_results):
     answers_sim = utils.similarities(model_wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
     words = words_associations['cue'].drop_duplicates()
+    words = words_frequency[words_frequency['word'].isin(words)]
     subjs_cues = subjs_associations.index
     sa_subj_sim = subjs_associations.copy().apply(lambda answers: utils.similarities(model_wv, subjs_cues, answers))
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
@@ -54,9 +55,15 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
 
 
 def gt_similarities(words_vectors, cues, words_in_stimuli, gt_embeddings, n=100):
-    in_stimuli, off_stimuli = cues[cues.isin(words_in_stimuli)], cues[~cues.isin(words_in_stimuli)]
-    in_stimuli, off_stimuli = utils.subsample(in_stimuli, n, seed=42), utils.subsample(off_stimuli, n, seed=42)
-    in_stimuli, off_stimuli = utils.build_all_pairs(in_stimuli), utils.build_all_pairs(off_stimuli)
+    in_stimuli, off_stimuli = cues[cues['word'].isin(words_in_stimuli)], cues[~cues['word'].isin(words_in_stimuli)]
+    in_stimuli = utils.subsample(in_stimuli, n, seed=42)
+    matched_words = []
+    for log_cnt in in_stimuli['log_cnt']:
+        matched_word = off_stimuli.iloc[(off_stimuli['log_cnt'] - log_cnt).abs().argsort()[:1]]
+        matched_words.append(matched_word['word'].sample(1, random_state=42).values[0])
+        off_stimuli = off_stimuli[off_stimuli['word'] != matched_words[-1]]
+    off_stimuli = cues[cues['word'].isin(matched_words)]
+    in_stimuli, off_stimuli = utils.build_all_pairs(in_stimuli['word']), utils.build_all_pairs(off_stimuli['word'])
     in_stimuli['in_stimuli'], off_stimuli['in_stimuli'] = True, False
 
     gt_similarities = pd.concat([in_stimuli, off_stimuli])
@@ -104,9 +111,9 @@ def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, 
         diff_df = pd.concat([diff_df, mean_diff.to_frame(model_name)], axis=1)
         se_df = pd.concat([se_df, se_diff.to_frame(model_name)], axis=1)
     if error_bars:
-        diff_df.plot.bar(yerr=se_df, capsize=4, ax=ax)
+        diff_df.plot.bar(xlabel='Words present in SWOW-RP', yerr=se_df, capsize=4, ax=ax)
     else:
-        diff_df.plot.bar(xlabel='Words present in stimuli', ax=ax)
+        diff_df.plot.bar(xlabel='Words present in SWOW-RP', ax=ax)
     ax.set_title(title)
     ax.legend()
     ax.set_ylabel('Similarity difference with SWOW-RP embeddings')
@@ -197,14 +204,16 @@ if __name__ == '__main__':
                         help='Subjects free associations to words file to be employed for evaluation')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
                         help='Words associations file to be employed for evaluation')
+    parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/wordsfreq.csv',
+                        help='File containing the frequency of each word in the words associations file')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
     parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
-    sa_file, wa_file = Path(args.subjs_associations), Path(args.words_associations)
+    sa_file, wa_file, wf_file = Path(args.subjs_associations), Path(args.words_associations), Path(args.words_frequency)
     output, stimuli_path, gt_embeddings_file = Path(args.output), Path(args.stimuli), Path(args.embeddings)
     model_path = utils.get_model_path(args.models, args.model_name, args.fraction)
 
-    test(model_path, wa_file, sa_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
+    test(model_path, wa_file, sa_file, wf_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
          gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error)
