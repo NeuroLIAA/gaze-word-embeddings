@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from scripts.utils import apply_threshold, filter_low_frequency_answers
-from test import report_similarity, compare_to_baseline
 
 
 def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, gt_threshold,
@@ -72,3 +71,20 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
         ax.set_ylabel('Similarity diff. to baseline', fontsize=15)
         plt.savefig(save_path / f'{title}.png')
         plt.show()
+
+
+def compare_to_baseline(mean_similarities, se_similarities):
+    baseline_mean, baseline_se = mean_similarities['baseline'], se_similarities['baseline']
+    mean_similarities = mean_similarities.drop(columns=['baseline'])
+    se_similarities = se_similarities.drop(columns=['baseline'])
+    mean_similarities = mean_similarities.subtract(baseline_mean, axis=0)
+    se_similarities = se_similarities.add(baseline_se, axis=0)
+    return mean_similarities, se_similarities
+
+
+def report_similarity(model, similarities_df, axis):
+    mean_subj_similarity = similarities_df.mean(axis=axis)
+    std_subj_similarity = similarities_df.std(axis=axis)
+    se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
+    print(f'{model} mean: {mean_subj_similarity.mean():.4f} (std: {std_subj_similarity.mean():.4f})')
+    return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)

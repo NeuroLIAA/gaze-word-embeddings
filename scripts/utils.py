@@ -18,6 +18,25 @@ def subsample(series, n, seed):
     return series.sample(n, random_state=seed) if len(series) > n else series
 
 
+def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, n=100):
+    words = words_associations['cue'].drop_duplicates()
+    words = words_frequency[words_frequency['word'].isin(words)]
+    in_stimuli, off_stimuli = words[words['word'].isin(words_in_stimuli)], words[~words['word'].isin(words_in_stimuli)]
+    in_stimuli = subsample(in_stimuli, n, seed=42)
+    matched_words = []
+    for log_cnt in in_stimuli['log_cnt']:
+        matched_word = off_stimuli.iloc[(off_stimuli['log_cnt'] - log_cnt).abs().argsort()[:1]]
+        matched_words.append(matched_word['word'].sample(1, random_state=42).values[0])
+        off_stimuli = off_stimuli[off_stimuli['word'] != matched_words[-1]]
+    off_stimuli = words[words['word'].isin(matched_words)]
+    in_stimuli, off_stimuli = build_all_pairs(in_stimuli['word']), build_all_pairs(off_stimuli['word'])
+    in_stimuli['in_stimuli'], off_stimuli['in_stimuli'] = True, False
+    word_pairs = pd.concat([in_stimuli, off_stimuli])
+    word_pairs = word_pairs[word_pairs['cue'] != word_pairs['answer']]
+
+    return word_pairs
+
+
 def filter_low_frequency_answers(words_answers_pairs, min_appearances):
     return words_answers_pairs[words_answers_pairs['n'] >= min_appearances]
 
