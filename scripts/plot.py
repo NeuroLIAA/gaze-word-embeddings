@@ -73,6 +73,16 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
         plt.show()
 
 
+def plot_loss(loss_sg, loss_fix, model_name, save_path):
+    plt.plot(loss_sg, label='W2V')
+    plt.plot(loss_fix, label='Fix duration')
+    plt.legend()
+    plt.xlabel('Batch')
+    plt.ylabel('Loss')
+    plt.title(f'{model_name} loss')
+    plt.savefig(save_path / 'loss.png')
+
+
 def compare_to_baseline(mean_similarities, se_similarities):
     baseline_mean, baseline_se = mean_similarities['baseline'], se_similarities['baseline']
     mean_similarities = mean_similarities.drop(columns=['baseline'])
