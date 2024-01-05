@@ -5,7 +5,7 @@ import torch.optim as optim
 from tqdm import tqdm
 from scripts.corpora import Corpora
 from scripts.data_handling import get_dataloader_and_vocab
-from scripts.utils import get_model_path
+from scripts.utils import get_model_path, plot_loss
 from scripts.w2v_fix import SkipGram
 from gensim.models import Word2Vec
 
@@ -46,6 +46,7 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
     else:
         device = torch.device('cpu')
 
+    loss_sg, loss_fix = [], []
     for epoch in range(epochs):
         print(f'\nEpoch: {epoch + 1}')
         sparse_params = list(skip_gram.parameters())[:2]
@@ -63,9 +64,13 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
                 update_regressor = train_fix and fix_v.sum() > 0
                 opt_sparse.zero_grad(), opt_dense.zero_grad()
                 loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, train_fix)
+                loss_sg.append(loss.item())
                 if update_regressor:
                     fix_loss = torch.nn.L1Loss()(fix_dur, fix_v)
                     loss += fix_loss
+                    loss_fix.append(fix_loss.item())
+                else:
+                    loss_fix.append(loss_fix[-1] if loss_fix else 0)
                 loss.backward()
                 opt_sparse.step()
                 if update_regressor:
@@ -74,6 +79,7 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
 
     save_path.mkdir(exist_ok=True, parents=True)
     skip_gram.save_embedding_vocab(vocab, str(save_path / f'{model_name}.vec'))
+    plot_loss(loss_sg, loss_fix, model_name, save_path)
 
 
 def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len):

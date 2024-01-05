@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from scripts.corpora import Corpus
 
 
@@ -51,3 +52,13 @@ def get_model_path(models, model_name, fraction):
     else:
         model_path = Path(models) / model_name
     return model_path
+
+
+def plot_loss(loss_sg, loss_fix, model_name, save_path):
+    plt.plot(loss_sg, label='W2V')
+    plt.plot(loss_fix, label='Fix duration')
+    plt.legend()
+    plt.xlabel('Batch')
+    plt.ylabel('Loss')
+    plt.title(f'{model_name} loss')
+    plt.savefig(save_path / 'loss.png')
