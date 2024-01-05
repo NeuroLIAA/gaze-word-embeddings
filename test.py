@@ -8,7 +8,7 @@ import scripts.utils as utils
 
 
 def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
-         stimuli_path, save_path, sort_sim_by, error_bars):
+         stimuli_path, save_path, sort_sim_by, error_bars, plot_sims):
     models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -29,9 +29,10 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
     model_basename = model_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
-                    save_path, sort_sim_by, error_bars)
-    plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
+    if plot_sims:
+        plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
+                        save_path, sort_sim_by, error_bars)
+        plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
     plot_distance_to_gt(model_basename, models_results['gt_similarities'], sim_threshold, gt_threshold,
                         save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
@@ -205,6 +206,7 @@ if __name__ == '__main__':
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/wordsfreq.csv',
                         help='File containing the frequency of each word in the words associations file')
+    parser.add_argument('-plt', '--plot', action='store_true', help='Plot similarity to subjects and answers')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
     parser.add_argument('-se', '--standard_error', action='store_false', help='Plot error bars in similarity plots')
@@ -215,4 +217,4 @@ if __name__ == '__main__':
     model_path = utils.get_model_path(args.models, args.model_name, args.fraction)
 
     test(model_path, wa_file, sa_file, wf_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
-         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error)
+         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error, args.plt)
