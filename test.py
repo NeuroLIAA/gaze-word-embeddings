@@ -18,15 +18,13 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     subjs_associations = pd.read_csv(sa_file, index_col=0)
     words_associations, words_frequency = pd.read_csv(wa_file), pd.read_csv(wf_file)
-    words_associations = words_associations[words_associations['cue'].isin(
-        utils.subsample(words_associations['cue'], num_samples, seed=42))]
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = utils.get_words_in_corpus(stimuli_path)
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
         test_model(model_wv, model_dir.name, words_associations, words_frequency, subjs_associations, gt_embeddings,
-                   words_in_stimuli, models_results)
+                   words_in_stimuli, num_samples, models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
@@ -40,7 +38,7 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
 
 
 def test_model(model_wv, model_name, words_associations, words_frequency, subjs_associations, gt_embeddings,
-               words_in_stimuli, models_results):
+               words_in_stimuli, num_samples, models_results):
     answers_sim = utils.similarities(model_wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
@@ -51,7 +49,8 @@ def test_model(model_wv, model_name, words_associations, words_frequency, subjs_
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
-    models_results['gt_similarities'][model_name] = gt_similarities(model_wv, words, words_in_stimuli, gt_embeddings)
+    models_results['gt_similarities'][model_name] = gt_similarities(model_wv, words, words_in_stimuli, gt_embeddings,
+                                                                    num_samples)
 
 
 def gt_similarities(words_vectors, cues, words_in_stimuli, gt_embeddings, n=100):
@@ -188,7 +187,7 @@ if __name__ == '__main__':
                         help='Path to the trained models')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus employed for model training')
-    parser.add_argument('-ws', '--words_samples', type=int, default=8000,
+    parser.add_argument('-ws', '--words_samples', type=int, default=100,
                         help='Number of words to be sampled from the words association file for evaluation')
     parser.add_argument('-mf', '--min_freq', type=int, default=25,
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
