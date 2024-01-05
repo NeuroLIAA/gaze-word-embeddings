@@ -188,13 +188,13 @@ if __name__ == '__main__':
                         help='Path to the trained models')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus employed for model training')
-    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
+    parser.add_argument('-ws', '--words_samples', type=int, default=8000,
                         help='Number of words to be sampled from the words association file for evaluation')
     parser.add_argument('-mf', '--min_freq', type=int, default=25,
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
-    parser.add_argument('-t', '--threshold', type=float, default=0.2,
+    parser.add_argument('-t', '--threshold', type=float, default=0.02,
                         help='Threshold for the similarity values to be considered correct')
-    parser.add_argument('-gt', '--gt_threshold', type=float, default=-0.05,
+    parser.add_argument('-gt', '--gt_threshold', type=float, default=-0.08,
                         help='Threshold for the ground truth embeddings similarity values to be considered correct')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
@@ -202,13 +202,13 @@ if __name__ == '__main__':
                         help='Human derived word embeddings to be used as ground truth for evaluation')
     parser.add_argument('-sa', '--subjs_associations', type=str, default='evaluation/subjects_associations.csv',
                         help='Subjects free associations to words file to be employed for evaluation')
-    parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/words_associations.csv',
+    parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/wordsfreq.csv',
                         help='File containing the frequency of each word in the words associations file')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
-    parser.add_argument('-se', '--standard_error', action='store_true', help='Plot error bars in similarity plots')
+    parser.add_argument('-se', '--standard_error', action='store_false', help='Plot error bars in similarity plots')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     sa_file, wa_file, wf_file = Path(args.subjs_associations), Path(args.words_associations), Path(args.words_frequency)
