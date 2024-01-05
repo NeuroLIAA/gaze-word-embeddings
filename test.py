@@ -17,14 +17,12 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     subjs_associations = pd.read_csv(sa_file, index_col=0)
     words_associations, words_frequency = pd.read_csv(wa_file), pd.read_csv(wf_file)
-    gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
-    words_in_stimuli = get_words_in_corpus(stimuli_path)
-    gt_word_pairs = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, num_samples)
+    gt_word_pairs = load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency,
+                                         num_samples)
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
-        test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_word_pairs, gt_embeddings,
-                   models_results)
+        test_model(model_wv, model_dir.name, words_associations, subjs_associations, gt_word_pairs, models_results)
 
     model_basename = model_path.name
     save_path = save_path / model_basename
@@ -38,8 +36,16 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
-def test_model(model_wv, model_name, words_associations, subjs_associations, gt_word_pairs, gt_embeddings,
-               models_results):
+def load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency, num_samples):
+    gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
+    words_in_stimuli = get_words_in_corpus(stimuli_path)
+    gt_word_pairs = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, num_samples)
+    gt_word_pairs['sim_gt'] = similarities(gt_embeddings, gt_word_pairs['cue'], gt_word_pairs['answer'])
+
+    return gt_word_pairs
+
+
+def test_model(model_wv, model_name, words_associations, subjs_associations, gt_word_pairs, models_results):
     answers_sim = similarities(model_wv, words_associations['cue'], words_associations['answer'])
     wa_model_sim = words_associations.copy()
     wa_model_sim['similarity'] = answers_sim
@@ -48,13 +54,12 @@ def test_model(model_wv, model_name, words_associations, subjs_associations, gt_
     models_results['similarity_to_subjs'][model_name] = sa_subj_sim
     models_results['similarity_to_answers'][model_name] = wa_model_sim
     models_results['word_pairs'][model_name] = evaluate_word_pairs(model_wv, wa_model_sim)
-    models_results['gt_similarities'][model_name] = gt_similarities(gt_word_pairs, model_wv, gt_embeddings)
+    models_results['gt_similarities'][model_name] = gt_similarities(gt_word_pairs, model_wv)
 
 
-def gt_similarities(word_pairs, words_vectors, gt_embeddings):
+def gt_similarities(word_pairs, words_vectors):
     gt_similarities = word_pairs.copy()
     gt_similarities['sim'] = similarities(words_vectors, gt_similarities['cue'], gt_similarities['answer'])
-    gt_similarities['sim_gt'] = similarities(gt_embeddings, gt_similarities['cue'], gt_similarities['answer'])
 
     return gt_similarities
 
