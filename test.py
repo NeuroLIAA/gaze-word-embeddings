@@ -111,9 +111,9 @@ def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, 
         diff_df = pd.concat([diff_df, mean_diff.to_frame(model_name)], axis=1)
         se_df = pd.concat([se_df, se_diff.to_frame(model_name)], axis=1)
     if error_bars:
-        diff_df.plot.bar(xlabel='Words present in SWOW-RP', yerr=se_df, capsize=4, ax=ax)
+        diff_df.plot.bar(xlabel='Words present in stimuli', yerr=se_df, capsize=4, ax=ax)
     else:
-        diff_df.plot.bar(xlabel='Words present in SWOW-RP', ax=ax)
+        diff_df.plot.bar(xlabel='Words present in stimuli', ax=ax)
     ax.set_title(title)
     ax.legend()
     ax.set_ylabel('Similarity difference with SWOW-RP embeddings')
