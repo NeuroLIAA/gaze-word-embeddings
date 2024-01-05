@@ -102,7 +102,7 @@ if __name__ == '__main__':
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--sources', type=str, default='remote+local',
                         help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
-    parser.add_argument('-f', '--fraction', type=float, default=1.0,
+    parser.add_argument('-f', '--fraction', type=float, default=0.3,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-cbow', '--cbow', action='store_true', help='If using Gensim, use CBOW instead of SkipGram')
     parser.add_argument('-r', '--repeats', type=int, default=1,

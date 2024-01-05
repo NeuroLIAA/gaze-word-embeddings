@@ -217,4 +217,4 @@ if __name__ == '__main__':
     model_path = utils.get_model_path(args.models, args.model_name, args.fraction)
 
     test(model_path, wa_file, sa_file, wf_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
-         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error, args.plt)
+         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error, args.plot)
