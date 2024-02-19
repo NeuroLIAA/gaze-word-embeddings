@@ -2,24 +2,10 @@ from datasets import load_dataset, concatenate_datasets
 from torch.utils.data import Dataset
 import regex as re
 
-DEACCENT_MAP = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
-                'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
-                'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
-                'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-                'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
-                'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-                'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
-                'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
-                'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
-                'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
-                'Ç': 'C', 'ç': 'c'}
-
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
              '(': '', ')': '', ';': '', ',': '', ':': '', '.': '', '…': '',
              '¿': '', '?': '', '¡': '', '!': '', '=': ''}
-
-CHARS_MAP.update(DEACCENT_MAP)
 
 
 class Corpora(Dataset):
@@ -90,7 +76,7 @@ def preprocess_str(string, min_token_len, max_token_len):
     for i, token in enumerate(string['text']):
         token = token.translate(chars_map)
         if (min_token_len <= len(token) <= max_token_len and
-                not token.startswith('_') and re.match(r'^[A-Za-zñ]+$', token)):
+                not token.startswith('_') and re.match(r'^[A-Za-zá-úñ]+$', token)):
             tokenized.append(token)
             if 'fix_dur' in string:
                 tokens_fix.append(string['fix_dur'][i])
