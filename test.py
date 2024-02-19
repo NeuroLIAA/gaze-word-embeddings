@@ -108,7 +108,7 @@ if __name__ == '__main__':
                         help='Subjects free associations to words file to be employed for evaluation')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
-    parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/wordsfreq.csv',
+    parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
                         help='File containing the frequency of each word in the words associations file')
     parser.add_argument('-plt', '--plot', action='store_true', help='Plot similarity to subjects and answers')
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
