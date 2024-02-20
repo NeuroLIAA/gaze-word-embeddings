@@ -5,7 +5,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str, default='../stimuli/',
                         help='Path to the items used in the experiment')
-    parser.add_argument('-s', '--scanpaths', type=str, default='../scanpaths/',
+    parser.add_argument('-s', '--scanpaths', type=str, default='../scanpaths_ffd/',
                         help='Path to subjects\' scanpaths, divided by item')
     parser.add_argument('-o', '--output', type=str, default='../texts/')
     args = parser.parse_args()
@@ -21,9 +21,9 @@ if __name__ == '__main__':
         if len(files) > 0:
             item_output = output / item.stem
             item_output.mkdir(exist_ok=True)
-            stimulus = stimuli / item.stem
+            stimulus = stimuli / f'{item.stem}.txt'
             text = stimulus.read_text().replace('\n', ' ')
             text = text.replace('. ', '.\n')
             for i, _ in enumerate(files):
-                with (item_output / f'{i} {stimulus.name}.txt').open('w') as f:
+                with (item_output / f'{i} {stimulus.name}').open('w') as f:
                     f.write(text)
