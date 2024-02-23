@@ -68,6 +68,8 @@ def train_torch(corpora, vector_size, window_size, min_count, negative_samples, 
                 loss_sg.append(loss.item())
                 if update_regressor:
                     fix_loss = torch.nn.L1Loss()(fix_dur, fix_v)
+                    scale_factor = fix_loss.item() * (loss.item() / fix_loss.item())
+                    fix_loss *= scale_factor
                     loss += fix_loss
                     loss_fix.append(fix_loss.item())
                 else:
