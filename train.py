@@ -108,7 +108,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--fraction', type=float, default=0.3,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-cbow', '--cbow', action='store_true', help='If using Gensim, use CBOW instead of SkipGram')
-    parser.add_argument('-r', '--repeats', type=int, default=1,
+    parser.add_argument('-r', '--repeats', type=int, default=200,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
