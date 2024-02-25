@@ -73,8 +73,8 @@ def plot_similarity(model_basename, similarities_to_subjs, sim_threshold, save_p
 
 
 def plot_loss(loss_sg, loss_fix, model_name, save_path):
-    plt.plot(loss_sg, label='W2V')
-    plt.plot(loss_fix, label='Fix duration')
+    plt.plot(loss_sg, label='W2V', alpha=0.7)
+    plt.plot(loss_fix, label='Fix duration', alpha=0.7)
     plt.legend()
     plt.xlabel('Batch')
     plt.ylabel('Loss')
