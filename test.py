@@ -79,9 +79,7 @@ def print_words_pairs_correlations(models_results):
         print(f'{measure}')
         for model in models_results:
             model_correlations = models_results[model][i]
-            print(f'{model}: {model_correlations[0]:.4f}', end=' ')
-            if len(model_correlations) > 1:
-                print(f'(p-value: {model_correlations[1]:.9f})')
+            print(f'{model}: {model_correlations[0]:.4f}')
 
 
 if __name__ == '__main__':
