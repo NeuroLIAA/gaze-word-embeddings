@@ -4,10 +4,9 @@ from matplotlib import pyplot as plt
 from scripts.utils import apply_threshold, filter_low_frequency_answers
 
 
-def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, gt_threshold,
-                        save_path, error_bars=True):
+def plot_distance_to_gt(distances_to_embeddings, sim_threshold, gt_threshold, save_path, error_bars=True):
     fig, ax = plt.subplots(figsize=(10, 6))
-    title = f'Distance to ground truth embeddings ({model_basename}) (lower is better)'
+    title = f'Distance to ground truth embeddings (lower is better)'
     diff_df, se_df = pd.DataFrame(), pd.DataFrame()
     for model_name in distances_to_embeddings:
         model_distances = distances_to_embeddings[model_name]
@@ -26,7 +25,7 @@ def plot_distance_to_gt(model_basename, distances_to_embeddings, sim_threshold, 
     ax.set_title(title)
     ax.legend()
     ax.set_ylabel('Similarity difference with SWOW-RP embeddings')
-    plt.savefig(save_path / f'{title}.png')
+    plt.savefig(save_path / f'distance_to_gt_t{sim_threshold:.2f}_gt{gt_threshold:.2f}.png')
     plt.show()
 
 

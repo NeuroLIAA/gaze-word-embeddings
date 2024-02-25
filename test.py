@@ -31,8 +31,7 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
         plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
                         save_path, sort_sim_by, error_bars)
         plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
-    plot_distance_to_gt(model_basename, models_results['gt_similarities'], sim_threshold, gt_threshold,
-                        save_path, error_bars)
+    plot_distance_to_gt(models_results['gt_similarities'], sim_threshold, gt_threshold, save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
