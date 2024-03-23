@@ -95,7 +95,7 @@ if __name__ == '__main__':
                         help='Minimum number of occurrences for an answer in the words association file for evaluation')
     parser.add_argument('-t', '--threshold', type=float, default=0.02,
                         help='Threshold for the similarity values to be considered correct')
-    parser.add_argument('-gt', '--gt_threshold', type=float, default=-0.08,
+    parser.add_argument('-gt', '--gt_threshold', type=float, default=-0.02,
                         help='Threshold for the ground truth embeddings similarity values to be considered correct')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
