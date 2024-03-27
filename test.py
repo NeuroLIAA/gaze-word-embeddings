@@ -7,7 +7,7 @@ from scripts.plot import plot_distance_to_gt, plot_freq_to_sim, plot_similarity,
 
 
 def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
-         stimuli_path, save_path, sort_sim_by, error_bars, plot_sims):
+         stimuli_path, save_path, sort_sim_by, error_bars, plot_sims, seed):
     models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -18,7 +18,7 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
     subjs_associations = pd.read_csv(sa_file, index_col=0)
     words_associations, words_frequency = pd.read_csv(wa_file), pd.read_csv(wf_file)
     gt_word_pairs = load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency,
-                                         num_samples)
+                                         num_samples, seed)
     models_results = {'similarity_to_subjs': {}, 'similarity_to_answers': {}, 'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
@@ -36,10 +36,10 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
     print_words_pairs_correlations(models_results['word_pairs'])
 
 
-def load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency, num_samples):
+def load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency, num_samples, seed):
     gt_embeddings = KeyedVectors.load_word2vec_format(str(gt_embeddings_file))
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    gt_word_pairs = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, num_samples)
+    gt_word_pairs = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, num_samples, seed)
     gt_word_pairs['sim_gt'] = similarities(gt_embeddings, gt_word_pairs['cue'], gt_word_pairs['answer'])
 
     return gt_word_pairs
@@ -112,6 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('-ss', '--sort_sim_by', type=str, default='texts',
                         help='Sort similarity plots by the specified model values')
     parser.add_argument('-se', '--standard_error', action='store_false', help='Plot error bars in similarity plots')
+    parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     sa_file, wa_file, wf_file = Path(args.subjs_associations), Path(args.words_associations), Path(args.words_frequency)
@@ -119,4 +120,4 @@ if __name__ == '__main__':
     model_path = get_model_path(args.models, args.model_name, args.fraction)
 
     test(model_path, wa_file, sa_file, wf_file, args.min_freq, args.words_samples, args.threshold, args.gt_threshold,
-         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error, args.plot)
+         gt_embeddings_file, stimuli_path, output, args.sort_sim_by, args.standard_error, args.plot, args.seed)
