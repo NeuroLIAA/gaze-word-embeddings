@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, colormaps
+from numpy import linspace
+
 from scripts.utils import apply_threshold, filter_low_frequency_answers
 
 
@@ -97,3 +99,22 @@ def report_similarity(model, similarities_df, axis):
     se_subj_similarity = std_subj_similarity / np.sqrt(similarities_df.shape[1])
     print(f'{model} mean: {mean_subj_similarity.mean():.4f} (std: {std_subj_similarity.mean():.4f})')
     return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
+
+
+def scatterplot_gt_similarities(models_similarities, save_path):
+    num_models = len(models_similarities)
+    colors = colormaps['viridis'](linspace(0, 1, num_models))
+    fig, ax = plt.subplots(num_models, 2, figsize=(15, 6 * num_models), sharex=True, sharey=True)
+    for i, model_name in enumerate(models_similarities):
+        for j, in_stimuli in enumerate([True, False]):
+            title = 'Similarity to in-stimuli words' if in_stimuli else 'Similarity to off-stimuli words'
+            model_similarities = models_similarities[model_name]
+            model_similarities = model_similarities[model_similarities['in_stimuli'] == in_stimuli]
+            ax[i, j].scatter(model_similarities['sim'], model_similarities['sim_gt'], label=model_name,
+                             alpha=0.7, color=colors[i])
+            ax[i, j].set_title(title)
+            ax[i, j].set_xlabel('Model similarity')
+            ax[i, j].set_ylabel('Ground truth similarity')
+            ax[i, j].legend()
+    plt.savefig(save_path / 'scatterplot_similarities.png')
+    plt.show()
