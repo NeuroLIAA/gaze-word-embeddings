@@ -31,6 +31,37 @@ def plot_distance_to_gt(distances_to_embeddings, sim_threshold, gt_threshold, sa
     plt.show()
 
 
+def plot_distance_to_gt_across_thresholds(distances_to_embeddings, sim_thresholds, gt_thresholds, save_path, error_bars=True):
+    fig, ax = plt.subplots(1, 2, figsize=(20, 6))
+    percentiles = np.arange(0, 100, 5)
+    for i, in_stimuli in enumerate([True, False]):
+        title = f'Distance to ground truth embeddings (lower is better) for words {"in" if in_stimuli else "not in"} stimuli'
+        diff_dict = {model_name: [] for model_name in distances_to_embeddings}
+        se_dict = {model_name: [] for model_name in distances_to_embeddings}
+        for sim_threshold, gt_threshold in zip(sim_thresholds, gt_thresholds):
+            for model_name in distances_to_embeddings:
+                model_distances = distances_to_embeddings[model_name]
+                model_distances[['sim']] = apply_threshold(model_distances[['sim']], sim_threshold)
+                model_distances[['sim_gt']] = apply_threshold(model_distances[['sim_gt']], gt_threshold)
+                model_distances['diff'] = abs(model_distances['sim'] - model_distances['sim_gt'])
+                mean_diff = model_distances[model_distances['in_stimuli'] == in_stimuli]['diff'].mean()
+                std_diff = model_distances[model_distances['in_stimuli'] == in_stimuli]['diff'].std()
+                se_diff = std_diff / np.sqrt(model_distances.shape[0])
+                diff_dict[model_name].append(mean_diff)
+                se_dict[model_name].append(se_diff)
+        for model_name in diff_dict:
+            if error_bars:
+                ax[i].errorbar(percentiles, diff_dict[model_name], yerr=se_dict[model_name], label=model_name)
+            else:
+                ax[i].plot(percentiles, diff_dict[model_name], label=model_name)
+        ax[i].set_title(title)
+        ax[i].set_xlabel('Threshold at percentile')
+        ax[i].set_ylabel('Similarity difference with SWOW-RP embeddings')
+        ax[i].legend()
+    plt.savefig(save_path / f'distance_to_gt_across_thresholds.png')
+    plt.show()
+
+
 def plot_freq_to_sim(basename, similarities_to_answers, save_path, min_appearances):
     fig, ax = plt.subplots(figsize=(15, 6))
     title = f'Human frequency to model similarity ({basename})'
