@@ -3,7 +3,8 @@ import pandas as pd
 from pathlib import Path
 from gensim.models import KeyedVectors
 from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs
-from scripts.plot import plot_distance_to_gt, plot_freq_to_sim, plot_similarity, scatterplot_gt_similarities
+from scripts.plot import (plot_distance_to_gt, plot_freq_to_sim, plot_similarity, scatterplot_gt_similarities,
+                          plot_distance_to_gt_across_thresholds)
 
 
 def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_threshold, gt_threshold, gt_embeddings_file,
@@ -32,6 +33,15 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
                         save_path, sort_sim_by, error_bars)
         plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
     scatterplot_gt_similarities(models_results['gt_similarities'], save_path)
+    gt_thresholds = [-0.25584102, -0.05029088, -0.03782241, -0.03011695, -0.02433026, -0.01961701,
+                     -0.01555011, -0.0118527, -0.00845822, -0.005216, -0.0020311, 0.00116537,
+                      0.00445931, 0.00795935, 0.01180585, 0.01620096, 0.02155152, 0.02865453,
+                      0.03971244, 0.06509454]
+    sim_thresholds = [-0.5182156, -0.17888092, -0.13135286, -0.09706547, -0.06829848, -0.04242247,
+                      -0.01816167, 0.00529253, 0.02842446, 0.05169781, 0.07547412, 0.10020889,
+                      0.12632117, 0.15428203, 0.18484216, 0.218885, 0.25775304, 0.30390432,
+                      0.3624946, 0.44852245]
+    plot_distance_to_gt_across_thresholds(models_results['gt_similarities'], sim_thresholds, gt_thresholds, save_path, error_bars)
     plot_distance_to_gt(models_results['gt_similarities'], sim_threshold, gt_threshold, save_path, error_bars)
     print_words_pairs_correlations(models_results['word_pairs'])
 
