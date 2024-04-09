@@ -3,6 +3,7 @@ from functools import partial
 from itertools import islice
 import numpy as np
 import torch
+from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchtext.vocab import vocab
 
@@ -17,7 +18,8 @@ def build_downsample_distribution(word_freq, total_words, downsample_factor):
 
 def build_vocab(corpora, min_count):
     word_freq = Counter()
-    for tokens in corpora:
+    print('Building vocabulary')
+    for tokens in tqdm(corpora):
         word_freq.update(tokens['text'])
     total_words = sum(word_freq.values())
     word_freq = OrderedDict(sorted(word_freq.items(), key=lambda x: x[1], reverse=True))
