@@ -5,7 +5,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str, default='../stimuli/',
                         help='Path to the items used in the experiment')
-    parser.add_argument('-s', '--scanpaths', type=str, default='../scanpaths_ffd/',
+    parser.add_argument('-s', '--scanpaths', type=str, default='../scanpaths/',
                         help='Path to subjects\' scanpaths, divided by item')
     parser.add_argument('-o', '--output', type=str, default='../texts/')
     args = parser.parse_args()
