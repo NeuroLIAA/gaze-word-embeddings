@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from gensim.models import KeyedVectors
 from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs
-from scripts.plot import (plot_distance_to_gt, plot_freq_to_sim, plot_similarity, scatterplot_gt_similarities,
+from scripts.plot import (plot_distance_to_gt, plot_freq_to_sim, plot_similarity, similarity_distributions,
                           plot_distance_to_gt_across_thresholds)
 
 
@@ -32,7 +32,7 @@ def test(model_path, wa_file, sa_file, wf_file, min_freq, num_samples, sim_thres
         plot_similarity(model_basename, models_results['similarity_to_subjs'], sim_threshold,
                         save_path, sort_sim_by, error_bars)
         plot_freq_to_sim(model_basename, models_results['similarity_to_answers'], save_path, min_appearances=min_freq)
-    scatterplot_gt_similarities(models_results['gt_similarities'], save_path)
+    similarity_distributions(models_results['gt_similarities'], save_path)
     gt_thresholds = [-0.25584102, -0.05029088, -0.03782241, -0.03011695, -0.02433026, -0.01961701,
                      -0.01555011, -0.0118527, -0.00845822, -0.005216, -0.0020311, 0.00116537,
                       0.00445931, 0.00795935, 0.01180585, 0.01620096, 0.02155152, 0.02865453,

@@ -135,10 +135,12 @@ def report_similarity(model, similarities_df, axis):
     return mean_subj_similarity.to_frame(model), se_subj_similarity.to_frame(model)
 
 
-def scatterplot_gt_similarities(models_similarities, save_path):
+def similarity_distributions(models_similarities, save_path):
     num_models = len(models_similarities)
     colors = colormaps['viridis'](linspace(0, 1, num_models))
     fig, ax = plt.subplots(num_models, 2, figsize=(15, 6 * num_models), sharex=True, sharey=True)
+    fig_hist, ax_hist = plt.subplots(1, 2, figsize=(15, 6), sharex=True, sharey=True)
+    hist_bins = np.arange(-0.4, 0.8, 0.01)
     for i, model_name in enumerate(models_similarities):
         for j, in_stimuli in enumerate([True, False]):
             title = 'Similarity to in-stimuli words' if in_stimuli else 'Similarity to off-stimuli words'
@@ -147,8 +149,17 @@ def scatterplot_gt_similarities(models_similarities, save_path):
             ax[i, j].scatter(model_similarities['sim'], model_similarities['sim_gt'], label=model_name,
                              alpha=0.7, color=colors[i])
             ax[i, j].set_title(title)
-            ax[i, j].set_xlabel('Model similarity')
-            ax[i, j].set_ylabel('Ground truth similarity')
+            ax[i, j].set_xlabel('Model similarity'), ax[i, j].set_ylabel('Ground truth similarity')
             ax[i, j].legend()
-    plt.savefig(save_path / 'scatterplot_similarities.png')
+            if i == 0:
+                ax_hist[j].hist(model_similarities['sim_gt'], bins=hist_bins, density=True, alpha=0.7, color='blue',
+                                label='SWOW-RP', histtype='step')
+            ax_hist[j].hist(model_similarities['sim'], bins=hist_bins, density=True, alpha=0.7, color=colors[i],
+                            label=model_name, histtype='step')
+            ax_hist[j].set_title(f'Similarity distributions for words {"in" if in_stimuli else "off"} stimuli')
+            ax_hist[j].set_xlabel('Similarity'), ax_hist[j].set_ylabel('Density')
+            ax_hist[j].legend()
+    fig.savefig(save_path / 'similarities_scatter.png')
+    plt.show()
+    fig_hist.savefig(save_path / 'similarities_hist.png')
     plt.show()
