@@ -31,8 +31,7 @@ def plot_distance_to_gt(distances_to_embeddings, sim_threshold, gt_threshold, sa
     plt.show()
 
 
-def plot_distance_to_gt_across_thresholds(distances_to_embeddings, sim_thresholds, gt_thresholds, save_path,
-                                          error_bars=True):
+def plot_distance_to_gt_across_thresholds(distances_to_embeddings, models_thresholds, save_path, error_bars=True):
     fig, ax = plt.subplots(1, 2, figsize=(20, 6))
     percentiles = np.arange(0, 100, 5)
     for i, in_stimuli in enumerate([True, False]):
@@ -40,8 +39,10 @@ def plot_distance_to_gt_across_thresholds(distances_to_embeddings, sim_threshold
                  f' stimuli')
         diff_dict = {model_name: [] for model_name in distances_to_embeddings}
         se_dict = {model_name: [] for model_name in distances_to_embeddings}
-        for sim_threshold, gt_threshold in zip(sim_thresholds, gt_thresholds):
-            for model_name in distances_to_embeddings:
+        gt_thresholds = models_thresholds['SWOW-RP']['in' if in_stimuli else 'off']
+        for model_name in distances_to_embeddings:
+            sim_thresholds = models_thresholds[model_name]['in' if in_stimuli else 'off']
+            for sim_threshold, gt_threshold in zip(sim_thresholds, gt_thresholds):
                 model_similarities = distances_to_embeddings[model_name].copy()
                 model_similarities = model_similarities[model_similarities['in_stimuli'] == in_stimuli]
                 model_similarities[['sim']] = apply_threshold(model_similarities[['sim']], sim_threshold)
@@ -141,6 +142,8 @@ def similarity_distributions(models_similarities, save_path):
     fig, ax = plt.subplots(num_models, 2, figsize=(15, 6 * num_models), sharex=True, sharey=True)
     fig_hist, ax_hist = plt.subplots(1, 2, figsize=(15, 6), sharex=True, sharey=True)
     hist_bins = np.arange(-0.4, 0.8, 0.01)
+    models_thresholds = {model_name: {} for model_name in models_similarities}
+    models_thresholds['SWOW-RP'] = {}
     for i, model_name in enumerate(models_similarities):
         for j, in_stimuli in enumerate([True, False]):
             title = 'Similarity to in-stimuli words' if in_stimuli else 'Similarity to off-stimuli words'
@@ -151,7 +154,11 @@ def similarity_distributions(models_similarities, save_path):
             ax[i, j].set_title(title)
             ax[i, j].set_xlabel('Model similarity'), ax[i, j].set_ylabel('Ground truth similarity')
             ax[i, j].legend()
+            models_thresholds[model_name]['in' if in_stimuli else 'off'] = np.percentile(model_similarities['sim'],
+                                                                                         np.arange(0, 100, 5))
             if i == 0:
+                models_thresholds['SWOW-RP']['in' if in_stimuli else 'off'] = np.percentile(model_similarities['sim_gt'],
+                                                                                                np.arange(0, 100, 5))
                 ax_hist[j].hist(model_similarities['sim_gt'], bins=hist_bins, density=True, alpha=0.7, color='blue',
                                 label='SWOW-RP', histtype='step')
             ax_hist[j].hist(model_similarities['sim'], bins=hist_bins, density=True, alpha=0.7, color=colors[i],
@@ -163,3 +170,5 @@ def similarity_distributions(models_similarities, save_path):
     plt.show()
     fig_hist.savefig(save_path / 'similarities_hist.png')
     plt.show()
+
+    return models_thresholds
