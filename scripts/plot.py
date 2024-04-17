@@ -138,7 +138,7 @@ def report_similarity(model, similarities_df, axis):
 
 def similarity_distributions(models_similarities, save_path):
     num_models = len(models_similarities)
-    colors = colormaps['viridis'](linspace(0, 1, num_models))
+    colors = colormaps['accent'](linspace(0, 1, num_models))
     fig, ax = plt.subplots(num_models, 2, figsize=(15, 6 * num_models), sharex=True, sharey=True)
     fig_hist, ax_hist = plt.subplots(1, 2, figsize=(15, 6), sharex=True, sharey=True)
     hist_bins = np.arange(-0.4, 0.8, 0.01)
