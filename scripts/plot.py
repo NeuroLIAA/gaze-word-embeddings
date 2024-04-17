@@ -147,7 +147,7 @@ def similarity_distributions(models_similarities, save_path):
     for i, model_name in enumerate(models_similarities):
         for j, in_stimuli in enumerate([True, False]):
             title = 'Similarity to in-stimuli words' if in_stimuli else 'Similarity to off-stimuli words'
-            model_similarities = models_similarities[model_name]
+            model_similarities = models_similarities[model_name].copy()
             model_similarities = model_similarities[model_similarities['in_stimuli'] == in_stimuli]
             ax[i, j].scatter(model_similarities['sim'], model_similarities['sim_gt'], label=model_name,
                              alpha=0.7, color=colors[i])
