@@ -33,7 +33,7 @@ def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freque
     word_pairs = pd.concat([in_stimuli, off_stimuli])
     word_pairs = word_pairs[word_pairs['cue'] != word_pairs['answer']]
 
-    return word_pairs
+    return word_pairs, in_stimuli['cue'].unique(), off_stimuli['cue'].unique()
 
 
 def filter_low_frequency_answers(words_answers_pairs, min_appearances):
