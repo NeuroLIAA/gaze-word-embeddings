@@ -1,7 +1,6 @@
 scanpaths/*
 texts/*
 stimuli/*
-models/*
 
 # Pycharm files
 .idea/*
