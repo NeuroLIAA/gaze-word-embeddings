@@ -51,9 +51,11 @@ def test_model(model_wv, model_name, words_associations, gt_word_pairs, in_stimu
     wa_in_stimuli['sim'] = abs(similarities(model_wv, wa_in_stimuli['cue'], wa_in_stimuli['answer']))
     wa_off_stimuli['sim'] = abs(similarities(model_wv, wa_off_stimuli['cue'], wa_off_stimuli['answer']))
     models_results['word_pairs'][model_name] = {'in_stimuli':
-                                                    spearmanr(wa_in_stimuli['freq'], wa_in_stimuli['sim']),
+                                                    spearmanr(wa_in_stimuli['freq'], wa_in_stimuli['sim'],
+                                                              nan_policy='omit'),
                                                 'off_stimuli':
-                                                    spearmanr(wa_off_stimuli['freq'], wa_off_stimuli['sim'])}
+                                                    spearmanr(wa_off_stimuli['freq'], wa_off_stimuli['sim'],
+                                                              nan_policy='omit')}
     models_results['gt_similarities'][model_name] = gt_similarities(gt_word_pairs, model_wv)
 
 
@@ -78,7 +80,8 @@ def print_words_pairs_correlations(models_results):
     for model in models_results:
         in_stimuli_corr = models_results[model]['in_stimuli']
         off_stimuli_corr = models_results[model]['off_stimuli']
-        print(f'{model}:\n     In-stimuli: {in_stimuli_corr:.4f} \n     Off-stimuli: {off_stimuli_corr:.4f}')
+        print(f'{model}:\n     In-stimuli: {in_stimuli_corr.correlation:.4f} (p-value: {in_stimuli_corr.pvalue:.4f} \n'
+              f'     Off-stimuli: {off_stimuli_corr.correlation:.4f} (p-value: {off_stimuli_corr.pvalue:.4f}')
 
 
 if __name__ == '__main__':
