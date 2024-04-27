@@ -61,11 +61,11 @@ class FileCustomTokenizerMaj(FileCustomTokenizer):
         for token in self.rgx.findall(item):
             token: str
             if token.istitle():
-                yield token.lower()
                 yield TK_MAJ
-            elif token.isupper():
                 yield token.lower()
+            elif token.isupper():
                 yield TK_UP
+                yield token.lower()
             else:
                 yield token
 
