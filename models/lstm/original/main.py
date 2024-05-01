@@ -1,4 +1,5 @@
 import numpy as np
+import spacy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,7 +7,8 @@ import argparse
 import timeit
 import warnings
 import pickle
-from fastai.text import *
+from fastai.text.all import *
+import tqdm
 
 from model import Model
 from ntasgd import NTASGD
@@ -62,12 +64,13 @@ log.write("epoch,train_ppl,valid_ppl,test_ppl\n")
 def save_model(model):
     torch.save({'model_state_dict': model.state_dict()}, args.save)
 
-"""--data PTB --save model.tar --layer_num 3 --embed_size 400 --hidden_size 1150 --lstm_type pytorch --w_drop 0.5 --dropout_i 0.4 --dropout_l 0.3 --dropout_o 0.4 --dropout_e 0.1 --winit 0.1 --batch_size 40 --bptt 70 --ar 2 --tar 1 --weight_decay 1.2e-6 --epochs 750 --lr 30 --max_grad_norm 0.25 --non_mono 5 --device gpu --log 100
+"""--data PTB --save model.tar --layer_num 3 --embed_size 400 --hidden_size 1150 --lstm_type pytorch 
+--w_drop 0.5 --dropout_i 0.4 --dropout_l 0.3 --dropout_o 0.4 --dropout_e 0.1 --winit 0.1 
+--batch_size 40 --bptt 70 --ar 2 --tar 1 --weight_decay 1.2e-6 --epochs 750 --lr 30 --max_grad_norm 0.25 --non_mono 5 --device gpu --log 100
    """ 
 def data_init():
-    tokenizer = Tokenizer()
-    tok = SpacyTokenizer('en')
-
+    tokenizer = TokenizeWithRules(SpacyTokenizer())
+    
     with open("./data/train/train.txt".format(args.data), encoding="utf8") as f:
         file = f.read()
         trn = file[1:]
@@ -77,15 +80,33 @@ def data_init():
     with open("./data/test/test.txt".format(args.data), encoding="utf8") as f:
         file = f.read()
         tst = file[1:]
-
-    with open('./data/models/model_vocab.pkl', 'rb') as f:
-        vocab = pickle.load(f)
-    vocabulary = Vocab(vocab)
+        
+    trn = tokenize_texts(trn.splitlines())
+    vld = tokenize_texts(vld.splitlines())
+    tst = tokenize_texts(tst.splitlines())
     
-    trn = vocabulary.numericalize(tokenizer.process_text(trn, tok))
-    vld = vocabulary.numericalize(tokenizer.process_text(vld, tok))
-    tst = vocabulary.numericalize(tokenizer.process_text(tst, tok))
-    return torch.tensor(trn,dtype=torch.int64).reshape(-1, 1), torch.tensor(vld,dtype=torch.int64).reshape(-1, 1), torch.tensor(tst,dtype=torch.int64).reshape(-1, 1), len(vocab)
+    vocab = Numericalize()
+    vocab.setup(trn)
+    
+    trn2 = None
+    for sentence in tqdm.tqdm(trn):
+        sentence = vocab(sentence)
+        trn2 = torch.cat((trn2, sentence)) if trn2 is not None else sentence
+    trn = trn2
+        
+    vld2 = None
+    for sentence in tqdm.tqdm(vld):
+        sentence = vocab(sentence)
+        vld2 = torch.cat((vld2, sentence)) if vld2 is not None else sentence
+    vld = vld2
+        
+    tst2 = None
+    for sentence in tqdm.tqdm(tst):
+        sentence = vocab(sentence)
+        tst2 = torch.cat((tst2, sentence)) if tst2 is not None else sentence
+    tst = tst2
+    
+    return torch.tensor(trn,dtype=torch.int64).reshape(-1, 1), torch.tensor(vld,dtype=torch.int64).reshape(-1, 1), torch.tensor(tst,dtype=torch.int64).reshape(-1, 1), len(vocab.o2i)
 
 def get_seq_len(bptt):
         seq_len = bptt if np.random.random() < 0.95 else bptt/2
@@ -175,7 +196,7 @@ def train(data, model, optimizer):
             trn_perp = perplexity(trn, model)
             tst_perp = perplexity(trn, model)
 
-            log.write("{:d},{:.3f},{:.3f},{:.3f}".format(epoch+1, trn_perp, val_perp, tst_perp))
+            log.write("{:d},{:.3f},{:.3f},{:.3f}\n".format(epoch+1, trn_perp, val_perp, tst_perp))
     
             if val_perp < best_val:
                 best_val = val_perp
