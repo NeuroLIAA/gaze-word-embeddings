@@ -5,11 +5,10 @@ from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
 from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs
-from scripts.plot import plot_distance_to_gt, similarity_distributions, plot_distance_to_gt_across_thresholds
+from scripts.plot import similarity_distributions
 
 
-def test(model_path, wa_file, wf_file, num_samples, sim_threshold, gt_threshold, gt_embeddings_file, stimuli_path,
-         save_path, error_bars, seed):
+def test(model_path, wa_file, wf_file, num_samples, gt_embeddings_file, stimuli_path, save_path, seed):
     models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
@@ -31,8 +30,6 @@ def test(model_path, wa_file, wf_file, num_samples, sim_threshold, gt_threshold,
     save_path.mkdir(exist_ok=True, parents=True)
     print_words_pairs_correlations(models_results['word_pairs'])
     models_thresholds = similarity_distributions(models_results['gt_similarities'], save_path)
-    plot_distance_to_gt_across_thresholds(models_results['gt_similarities'], models_thresholds, save_path, error_bars)
-    plot_distance_to_gt(models_results['gt_similarities'], sim_threshold, gt_threshold, save_path, error_bars)
 
 
 def load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency, num_samples, seed):
@@ -100,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
     parser.add_argument('-e', '--embeddings', type=str, default='evaluation/SWOWRP_embeddings.vec',
-                        help='Human derived word embeddings to be used as ground truth for evaluation')
+                        help='Human derived word embeddings')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
