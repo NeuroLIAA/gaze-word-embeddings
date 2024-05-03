@@ -29,7 +29,7 @@ def test(model_path, wa_file, wf_file, num_samples, gt_embeddings_file, stimuli_
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     print_words_pairs_correlations(models_results['word_pairs'])
-    models_thresholds = similarity_distributions(models_results['gt_similarities'], save_path)
+    similarity_distributions(models_results['gt_similarities'], save_path)
 
 
 def load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations, words_frequency, num_samples, seed):

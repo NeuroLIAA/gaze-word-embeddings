@@ -52,21 +52,14 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path):
 def similarity_distributions(models_similarities, save_path):
     num_models = len(models_similarities)
     colors = colormaps['Accent'](linspace(0, 1, num_models))
-    fig, ax = plt.subplots(num_models, 2, figsize=(15, 6 * num_models), sharex=True, sharey=True)
     fig_hist, ax_hist = plt.subplots(1, 2, figsize=(15, 6), sharex=True, sharey=True)
     hist_bins = np.arange(-0.4, 0.8, 0.01)
     models_thresholds = {model_name: {} for model_name in models_similarities}
     models_thresholds['SWOW-RP'] = {}
     for i, model_name in enumerate(models_similarities):
         for j, in_stimuli in enumerate([True, False]):
-            title = 'Similarity to in-stimuli words' if in_stimuli else 'Similarity to off-stimuli words'
             model_similarities = models_similarities[model_name].copy()
             model_similarities = model_similarities[model_similarities['in_stimuli'] == in_stimuli]
-            ax[i, j].scatter(model_similarities['sim'], model_similarities['sim_gt'], label=model_name,
-                             alpha=0.7, color=colors[i])
-            ax[i, j].set_title(title)
-            ax[i, j].set_xlabel('Model similarity'), ax[i, j].set_ylabel('Ground truth similarity')
-            ax[i, j].legend()
             models_thresholds[model_name]['in' if in_stimuli else 'off'] = np.percentile(model_similarities['sim'],
                                                                                          np.arange(0, 100, 5))
             if i == 0:
@@ -79,8 +72,6 @@ def similarity_distributions(models_similarities, save_path):
             ax_hist[j].set_title(f'Similarity distributions for words {"in" if in_stimuli else "off"} stimuli')
             ax_hist[j].set_xlabel('Similarity'), ax_hist[j].set_ylabel('Density')
             ax_hist[j].legend()
-    fig.savefig(save_path / 'similarities_scatter.png')
-    plt.show()
     fig_hist.savefig(save_path / 'similarities_hist.png')
     plt.show()
 
