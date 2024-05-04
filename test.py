@@ -63,13 +63,15 @@ if __name__ == '__main__':
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
                         help='File containing the frequency of each word in the words associations file')
+    parser.add_argument('-min_freq', '--min_freq', type=int, default=1,
+                        help='Minimum frequency of answer for a cue answer pair to be considered')
     parser.add_argument('-set', '--set', type=str, default='val', help='Set to evaluate')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     words_freq = pd.read_csv(args.words_frequency)
     output, stimuli_path = Path(args.output), Path(args.stimuli)
-    swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.seed)
+    swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.min_freq, args.seed)
     model_path = get_model_path(args.models, args.model_name, args.fraction)
 
     test(model_path, swow, words_freq, args.words_samples, stimuli_path, output, args.seed)

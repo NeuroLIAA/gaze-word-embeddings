@@ -8,19 +8,20 @@ NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
 INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
-def load_swow(wa_file, wf_file, stimuli_path, data_set, seed):
+def load_swow(wa_file, wf_file, stimuli_path, data_set, min_n, seed):
     wa_set_file = Path(f'{wa_file[:-4]}_{data_set}.csv')
     if not wa_set_file.exists():
-        process_swow(wa_file, wf_file, stimuli_path, seed)
+        process_swow(wa_file, wf_file, stimuli_path, min_n, seed)
     return pd.read_csv(wa_set_file)
 
 
-def process_swow(swow_file, words_freq, stimuli_path, seed):
+def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     swow = pd.read_csv(swow_file, delimiter='\t')
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R1': 'n', 'R1.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
+    swow = swow[swow['n'] >= min_n]
 
     for keyword in ['cue', 'answer']:
         swow = remove_composed_words(swow, keyword)
