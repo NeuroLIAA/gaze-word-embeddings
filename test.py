@@ -4,19 +4,19 @@ from numpy import abs
 from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
-from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs, load_swow
+from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs
+from scripts.process_swow import load_swow
 from scripts.plot import similarity_distributions
 
 
-def test(model_path, words_associations, wf_file, num_samples, gt_embeddings_file, stimuli_path, save_path, seed):
+def test(model_path, words_associations, words_freq, num_samples, gt_embeddings_file, stimuli_path, save_path, seed):
     models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {model_path}')
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
-    words_frequency = pd.read_csv(wf_file)
     gt_word_pairs, in_stimuli, off_stimuli = load_and_evaluate_gt(gt_embeddings_file, stimuli_path, words_associations,
-                                                                  words_frequency, num_samples, seed)
+                                                                  words_freq, num_samples, seed)
     models_results = {'word_pairs': {}, 'gt_similarities': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
@@ -99,9 +99,9 @@ if __name__ == '__main__':
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
-    wf_file = Path(args.words_frequency)
+    words_freq = pd.read_csv(args.words_frequency)
     output, stimuli_path, gt_embeddings_file = Path(args.output), Path(args.stimuli), Path(args.embeddings)
-    swow = load_swow(args.wa, wf_file, stimuli_path, args.set, output)
+    swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.seed)
     model_path = get_model_path(args.models, args.model_name, args.fraction)
 
-    test(model_path, swow, wf_file, args.words_samples, gt_embeddings_file, stimuli_path, output, args.seed)
+    test(model_path, swow, words_freq, args.words_samples, gt_embeddings_file, stimuli_path, output, args.seed)

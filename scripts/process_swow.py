@@ -1,13 +1,21 @@
 import pandas as pd
 import numpy as np
-from utils import get_words_in_corpus
+from pathlib import Path
+from scripts.utils import get_words_in_corpus
 from sklearn.model_selection import train_test_split
 
 NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
 INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
-def process_swow(swow_file, words_freq, stimuli_path, savepath):
+def load_swow(wa_file, wf_file, stimuli_path, data_set, seed):
+    wa_set_file = Path(f'{wa_file[:-4]}_{data_set}.csv')
+    if not wa_set_file.exists():
+        process_swow(wa_file, wf_file, stimuli_path, seed)
+    return pd.read_csv(wa_set_file)
+
+
+def process_swow(swow_file, words_freq, stimuli_path, seed):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     swow = pd.read_csv(swow_file, delimiter='\t')
     swow.drop(columns=['N'], inplace=True)
@@ -23,16 +31,16 @@ def process_swow(swow_file, words_freq, stimuli_path, savepath):
         swow = remove_words_not_in_espal(swow, keyword, words_freq)
 
     swow = compute_mean_n(swow)
-    swow_val, swow_test = val_test_split(swow, words_in_stimuli)
-    swow_val.to_csv(savepath / 'SWOWRP_val.csv', index=False)
-    swow_test.to_csv(savepath / 'SWOWRP_test.csv', index=False)
+    swow_val, swow_test = val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=seed)
+    swow_val.to_csv(f'{swow_file[:-4]}_val.csv', index=False)
+    swow_test.to_csv(f'{swow_file[:-4]}_test.csv', index=False)
 
 
-def val_test_split(swow, words_in_stimuli, test_size=0.5):
+def val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=42):
     swow_in_stimuli = swow[(swow['cue'].isin(words_in_stimuli)) & (swow['answer'].isin(words_in_stimuli))]
     swow_off_stimuli = swow[(~swow['cue'].isin(words_in_stimuli)) & (~swow['answer'].isin(words_in_stimuli))]
-    swow_in_val, swow_in_test = train_test_split(swow_in_stimuli, test_size=test_size, random_state=42)
-    swow_off_val, swow_off_test = train_test_split(swow_off_stimuli, test_size=test_size, random_state=42)
+    swow_in_val, swow_in_test = train_test_split(swow_in_stimuli, test_size=test_size, random_state=random_state)
+    swow_off_val, swow_off_test = train_test_split(swow_off_stimuli, test_size=test_size, random_state=random_state)
     swow_val = pd.concat([swow_in_val, swow_off_val])
     swow_test = pd.concat([swow_in_test, swow_off_test])
     swow_val = swow_val.sample(frac=1, random_state=42).reset_index(drop=True)

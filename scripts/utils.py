@@ -2,14 +2,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scripts.corpora import Corpus
-from scripts.process_swow import process_swow
-
-
-def load_swow(wa_file, wf_file, stimuli_path, data_set, output):
-    wa_set_file = Path(f'{wa_file[:-4]}_{data_set}.csv')
-    if not wa_set_file.exists():
-        process_swow(wa_file, wf_file, stimuli_path, output)
-    return pd.read_csv(wa_set_file)
 
 
 def get_words_in_corpus(stimuli_path):
