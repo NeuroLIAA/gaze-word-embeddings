@@ -4,6 +4,19 @@ from scripts.utils import apply_threshold
 from numpy import linspace
 
 
+def plot_correlations(models_results, save_path):
+    fig, ax = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
+    for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
+        title = f'{"in" if stimuli == "in_stimuli" else "off"} stimuli words'
+        data = [models_results[stimuli][model_name] for model_name in models_results[stimuli]]
+        ax[i].boxplot(data, labels=models_results[stimuli].keys())
+        ax[i].set_title(title)
+        ax[i].set_xlabel('Model')
+        ax[i].set_ylabel('Spearman correlation coefficient')
+    plt.savefig(save_path / 'correlations.png')
+    plt.show()
+
+
 def plot_distance_to_gt_across_thresholds(distances_to_embeddings, models_thresholds, save_path, error_bars=True):
     fig, ax = plt.subplots(1, 2, figsize=(20, 6))
     percentiles = np.arange(0, 100, 5)

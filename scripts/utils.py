@@ -18,22 +18,24 @@ def subsample(series, n, seed):
 
 
 def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, n=100, seed=42):
-    words = words_associations['cue'].drop_duplicates()
-    words = words_frequency[words_frequency['word'].isin(words)]
-    in_stimuli, off_stimuli = words[words['word'].isin(words_in_stimuli)], words[~words['word'].isin(words_in_stimuli)]
-    in_stimuli = subsample(in_stimuli, n, seed)
-    matched_words = []
-    for log_cnt in in_stimuli['log_cnt']:
-        matched_word = off_stimuli.iloc[(off_stimuli['log_cnt'] - log_cnt).abs().argsort()[:1]]
-        matched_words.append(matched_word['word'].sample(1, random_state=seed).values[0])
-        off_stimuli = off_stimuli[off_stimuli['word'] != matched_words[-1]]
-    off_stimuli = words[words['word'].isin(matched_words)]
-    in_stimuli, off_stimuli = build_all_pairs(in_stimuli['word']), build_all_pairs(off_stimuli['word'])
-    in_stimuli['in_stimuli'], off_stimuli['in_stimuli'] = True, False
-    word_pairs = pd.concat([in_stimuli, off_stimuli])
-    word_pairs = word_pairs[word_pairs['cue'] != word_pairs['answer']]
+    words_frequency = words_frequency.rename(columns={'word': 'cue', 'log_cnt': 'cue_log_cnt'})
+    words_pairs = words_associations.merge(words_frequency, on='cue', how='left')
+    in_stimuli = words_pairs[(words_pairs['cue'].isin(words_in_stimuli))
+                             & (words_pairs['answer'].isin(words_in_stimuli))]
+    off_stimuli = words_pairs[(~words_pairs['cue'].isin(words_in_stimuli))
+                              & (~words_pairs['answer'].isin(words_in_stimuli))]
+    rng = np.random.default_rng(seed)
+    seeds = rng.integers(0, 10000, size=n)
+    in_stimuli_wp, off_stimuli_wp = [], []
+    for seed in seeds:
+        in_stimuli_wp.append(subsample(in_stimuli, n, seed))
+        matched_words = []
+        for log_cnt in in_stimuli_wp[-1]['cue_log_cnt']:
+            matched_word = off_stimuli.iloc[(off_stimuli['cue_log_cnt'] - log_cnt).abs().argsort()[:1]]
+            matched_words.append(matched_word['cue'].sample(1, random_state=seed).values[0])
+        off_stimuli_wp.append(off_stimuli[off_stimuli['cue'].isin(matched_words)])
 
-    return word_pairs, in_stimuli['cue'].unique(), off_stimuli['cue'].unique()
+    return in_stimuli_wp, off_stimuli_wp
 
 
 def filter_low_frequency_answers(words_answers_pairs, min_appearances):
