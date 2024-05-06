@@ -63,7 +63,7 @@ if __name__ == '__main__':
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
                         help='File containing the frequency of each word in the words associations file')
-    parser.add_argument('-min_freq', '--min_freq', type=int, default=1,
+    parser.add_argument('-min_freq', '--min_freq', type=int, default=2,
                         help='Minimum frequency of answer for a cue answer pair to be considered')
     parser.add_argument('-set', '--set', type=str, default='val', help='Set to evaluate')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
