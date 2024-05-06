@@ -17,7 +17,7 @@ def load_swow(wa_file, wf_file, stimuli_path, data_set, min_n, seed):
 
 def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    swow = pd.read_csv(swow_file, delimiter='\t')
+    swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R1': 'n', 'R1.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
@@ -29,7 +29,8 @@ def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
         swow = remove_regex(swow, keyword, INVALID_INBETWEEN_REGEX)
         swow = remove_short_and_long_words(swow, keyword, 3, 20)
         swow[keyword] = swow[keyword].str.lower()
-        swow = remove_words_not_in_espal(swow, keyword, words_freq)
+        if keyword == 'cue':
+            swow = remove_words_not_in_espal(swow, keyword, words_freq)
 
     swow = compute_mean_n(swow)
     swow_val, swow_test = val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=seed)
