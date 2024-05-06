@@ -21,7 +21,6 @@ def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R1': 'n', 'R1.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
-    swow = swow[swow['n'] >= min_n]
 
     for keyword in ['cue', 'answer']:
         swow = remove_composed_words(swow, keyword)
@@ -33,6 +32,7 @@ def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
             swow = remove_words_not_in_espal(swow, keyword, words_freq)
 
     swow = compute_mean_n(swow)
+    swow = swow[swow['n'] >= min_n]
     swow_val, swow_test = val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=seed)
     swow_val.to_csv(f'{swow_file[:-4]}_val.csv', index=False)
     swow_test.to_csv(f'{swow_file[:-4]}_test.csv', index=False)
