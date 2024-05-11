@@ -8,14 +8,14 @@ NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
 INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
-def load_swow(wa_file, wf_file, stimuli_path, data_set, min_n, seed):
+def load_swow(wa_file, wf_file, stimuli_path, data_set, min_freq, seed):
     wa_set_file = Path(f'{wa_file[:-4]}_{data_set}.csv')
     if not wa_set_file.exists():
-        process_swow(wa_file, wf_file, stimuli_path, min_n, seed)
+        process_swow(wa_file, wf_file, stimuli_path, min_freq, seed)
     return pd.read_csv(wa_set_file)
 
 
-def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
+def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
@@ -32,15 +32,15 @@ def process_swow(swow_file, words_freq, stimuli_path, min_n, seed):
             swow = remove_words_not_in_espal(swow, keyword, words_freq)
 
     swow = compute_mean_n(swow)
-    swow = swow[swow['n'] >= min_n]
+    swow = swow[swow['freq'] >= min_freq]
     swow_val, swow_test = val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=seed)
     swow_val.to_csv(f'{swow_file[:-4]}_val.csv', index=False)
     swow_test.to_csv(f'{swow_file[:-4]}_test.csv', index=False)
 
 
 def val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=42):
-    swow_in_stimuli = swow[(swow['cue'].isin(words_in_stimuli)) & (swow['answer'].isin(words_in_stimuli))]
-    swow_off_stimuli = swow[(~swow['cue'].isin(words_in_stimuli)) & (~swow['answer'].isin(words_in_stimuli))]
+    swow_in_stimuli = swow[(swow['cue'].isin(words_in_stimuli))]
+    swow_off_stimuli = swow[(~swow['cue'].isin(words_in_stimuli))]
     swow_in_val, swow_in_test = train_test_split(swow_in_stimuli, test_size=test_size, random_state=random_state)
     swow_off_val, swow_off_test = train_test_split(swow_off_stimuli, test_size=test_size, random_state=random_state)
     swow_val = pd.concat([swow_in_val, swow_off_val])
