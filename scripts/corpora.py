@@ -1,6 +1,8 @@
 from datasets import load_dataset, concatenate_datasets
 from torch.utils.data import Dataset
 import regex as re
+from fastai.text.all import *
+from data_handling import build_vocab
 
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
@@ -10,7 +12,7 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
 
 class Corpora(Dataset):
 
-    def __init__(self, min_token_len, max_token_len, min_sentence_len):
+    def __init__(self, min_token_len, max_token_len, min_sentence_len, for_llm=False):
         super(Corpora).__init__()
         self.corpora = None
         self.size = {}
@@ -18,13 +20,14 @@ class Corpora(Dataset):
         self.min_token_len = min_token_len
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
+        self.for_llm = for_llm
 
     def add_corpus(self, name, source, fraction, repeats):
         if source == 'remote':
             repeats = 1
         for _ in range(repeats):
             corpus = Corpus(name, source, fraction,
-                            self.min_token_len, self.max_token_len, self.min_sentence_len)
+                            self.min_token_len, self.max_token_len, self.min_sentence_len, self.for_llm)
             self.corpora = corpus.data if self.corpora is None else concatenate_datasets([self.corpora, corpus.data])
             self.size[name] = self.size.get(name, 0) + corpus.size
             self.num_sentences[name] = self.num_sentences.get(name, 0) + corpus.num_sentences
@@ -49,11 +52,12 @@ class Corpora(Dataset):
 
 
 class Corpus:
-    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len):
+    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, for_llm=False):
         self.name = name
         self.is_remote = source == 'remote'
         self.size = 0
         self.num_sentences = 0
+        self.for_llm = for_llm
         self.data = self.load_corpus(min_token_len, max_token_len, min_sentence_len, fraction)
 
     def load_corpus(self, min_token_len, max_token_len, min_sentence_len, fraction):
@@ -63,7 +67,14 @@ class Corpus:
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
-        data = data.map(lambda row: preprocess_str(row, min_token_len, max_token_len), num_proc=1)
+        
+        if self.for_llm:
+            tok = SpacyTokenizer('es')
+            preprocess_fn = partial(preprocess_str_for_llm, tokenizer=tok)
+        else:
+            preprocess_fn = partial(preprocess_str, min_token_len=min_token_len, max_token_len=max_token_len)
+
+        data = data.map(lambda row: preprocess_fn(row), num_proc=12)
         data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=1)
         self.num_sentences = data.num_rows
         return data
@@ -86,6 +97,14 @@ def preprocess_str(string, min_token_len, max_token_len):
     string['fix_dur'] = tokens_fix
     return string
 
+def preprocess_str_for_llm(string, tokenizer):
+    string['text'] = tokenize1(to_unicode(string['text']), tok=tokenizer)
+    tokenized = []
+    for _, token in enumerate(string['text']):
+        if (not token.startswith('_')):
+            tokenized.append(token)
+    string['text'] = tokenized
+    return string
 
 def to_unicode(text, encoding='utf-8'):
     if isinstance(text, str):

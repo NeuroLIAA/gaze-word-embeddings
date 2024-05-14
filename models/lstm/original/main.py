@@ -9,9 +9,16 @@ import warnings
 import pickle
 from fastai.text.all import *
 import tqdm
-
+from chars import CharRemover
 from model import Model
 from ntasgd import NTASGD
+import sys
+
+# Replace '/path/to/directory' with the actual path
+sys.path.append('./scripts')
+
+from corpora import Corpora
+from data_handling import build_vocab
 
 parser = argparse.ArgumentParser(description="Replication of Merity et al. (2017). \n https://arxiv.org/abs/1708.02182")
 parser.add_argument("--data", type=str, choices=["PTB","WT2"], default="PTB", help="The dataset to run the experiment on.")
@@ -58,8 +65,8 @@ setdevice()
 print('Parameters of the model:')
 print('Args:', args)
 print("\n")
-log = open("./data/pytorch_results.csv", "w")
-log.write("epoch,train_ppl,valid_ppl,test_ppl\n")
+log = open("./models/lstm/data/test.csv", "w")
+log.write("epoch,valid_ppl\n")
 
 def save_model(model):
     torch.save({'model_state_dict': model.state_dict()}, args.save)
@@ -69,44 +76,26 @@ def save_model(model):
 --batch_size 40 --bptt 70 --ar 2 --tar 1 --weight_decay 1.2e-6 --epochs 750 --lr 30 --max_grad_norm 0.25 --non_mono 5 --device gpu --log 100
    """ 
 def data_init():
-    tokenizer = TokenizeWithRules(SpacyTokenizer())
+    text = Corpora(1, 20, 5, True)
+    text.add_corpus('all_wikis', 'remote', 0.01, 1)
+    split = text.corpora.train_test_split(test_size=0.2, seed=12345)
     
-    with open("./data/train/train.txt".format(args.data), encoding="utf8") as f:
-        file = f.read()
-        trn = file[1:]
-    with open("./data/valid/valid.txt".format(args.data), encoding="utf8") as f:
-        file = f.read()
-        vld = file[1:]
-    with open("./data/test/test.txt".format(args.data), encoding="utf8") as f:
-        file = f.read()
-        tst = file[1:]
+    trn = split['train']
+    vld = split['test']
         
-    trn = tokenize_texts(trn.splitlines())
-    vld = tokenize_texts(vld.splitlines())
-    tst = tokenize_texts(tst.splitlines())
+    vocab = build_vocab(trn, 5, 30000)[0]
+
+    vocab_size = len(vocab.get_stoi())
+    with open('./models/lstm/data/models/vocabulary.json', 'w') as f:
+        json.dump(vocab.get_stoi(), f)
+           
+    trn = trn.map(lambda row: {"text": vocab.forward(row["text"])}, num_proc=12)
+    trn = [token for text in tqdm.tqdm(trn['text']) for token in text]
     
-    vocab = Numericalize()
-    vocab.setup(trn)
+    vld = vld.map(lambda row: {"text": vocab.forward(row["text"])}, num_proc=12)
+    vld = [token for text in tqdm.tqdm(vld['text']) for token in text]
     
-    trn2 = None
-    for sentence in tqdm.tqdm(trn):
-        sentence = vocab(sentence)
-        trn2 = torch.cat((trn2, sentence)) if trn2 is not None else sentence
-    trn = trn2
-        
-    vld2 = None
-    for sentence in tqdm.tqdm(vld):
-        sentence = vocab(sentence)
-        vld2 = torch.cat((vld2, sentence)) if vld2 is not None else sentence
-    vld = vld2
-        
-    tst2 = None
-    for sentence in tqdm.tqdm(tst):
-        sentence = vocab(sentence)
-        tst2 = torch.cat((tst2, sentence)) if tst2 is not None else sentence
-    tst = tst2
-    
-    return torch.tensor(trn,dtype=torch.int64).reshape(-1, 1), torch.tensor(vld,dtype=torch.int64).reshape(-1, 1), torch.tensor(tst,dtype=torch.int64).reshape(-1, 1), len(vocab.o2i)
+    return torch.tensor(trn,dtype=torch.int64).reshape(-1, 1), torch.tensor(vld,dtype=torch.int64).reshape(-1, 1), vocab_size
 
 def get_seq_len(bptt):
         seq_len = bptt if np.random.random() < 0.95 else bptt/2
@@ -147,7 +136,7 @@ def perplexity(data, model):
     return np.exp(np.mean(losses))
     
 def train(data, model, optimizer):
-    trn, vld, tst = data
+    trn, vld = data
     tic = timeit.default_timer()
     total_words = 0
     print("Starting training.")
@@ -193,10 +182,8 @@ def train(data, model, optimizer):
     
             val_perp = perplexity(vld, model)
             optimizer.check(val_perp)
-            trn_perp = perplexity(trn, model)
-            tst_perp = perplexity(trn, model)
 
-            log.write("{:d},{:.3f},{:.3f},{:.3f}\n".format(epoch+1, trn_perp, val_perp, tst_perp))
+            log.write("{:d},{:.3f}\n".format(epoch+1, val_perp))
     
             if val_perp < best_val:
                 best_val = val_perp
@@ -214,20 +201,16 @@ def train(data, model, optimizer):
     log.close()
     checkpoint = torch.load(args.save)
     model.load_state_dict(checkpoint['model_state_dict'])
-    tst_perp = perplexity(tst, model)
-    print("Test set perplexity of best model: {:.3f}".format(tst_perp))
-
 
 def main():
     warnings.filterwarnings("ignore")
-    trn, vld, tst, vocab_size = data_init()
+    trn, vld, vocab_size = data_init()
     trn = batchify(trn, args.batch_size)
     vld = batchify(vld, args.valid_batch_size)
-    tst = batchify(tst, args.test_batch_size)
     model = Model(vocab_size, args.embed_size, args.hidden_size, args.layer_num, args.w_drop, args.dropout_i, 
                   args.dropout_l, args.dropout_o, args.dropout_e, args.winit, args.lstm_type)
     model.to(args.device)
     optimizer = NTASGD(model.parameters(), lr=args.lr, n=args.non_mono, weight_decay=args.weight_decay, fine_tuning=False)
-    train((trn, vld, tst), model, optimizer)
+    train((trn, vld), model, optimizer)
 
 main()

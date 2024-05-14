@@ -16,13 +16,20 @@ def build_downsample_distribution(word_freq, total_words, downsample_factor):
     return frequency
 
 
-def build_vocab(corpora, min_count):
+def build_vocab(corpora, min_count, max_vocab_size=None):
     word_freq = Counter()
+    
     print('Building vocabulary')
     for tokens in tqdm(corpora):
         word_freq.update(tokens['text'])
+    
     total_words = sum(word_freq.values())
-    word_freq = OrderedDict(sorted(word_freq.items(), key=lambda x: x[1], reverse=True))
+    if max_vocab_size is not None:
+        word_freq = word_freq.most_common(max_vocab_size)
+    else:
+        word_freq = word_freq.items()
+    
+    word_freq = OrderedDict(sorted(word_freq, key=lambda x: x[1], reverse=True))
     vocabulary = vocab(word_freq, min_freq=min_count)
     # Keep only words with frequency >= min_count
     word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
