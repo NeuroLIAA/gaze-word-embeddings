@@ -66,7 +66,7 @@ def build_all_pairs(words):
     return words_pairs
 
 
-def get_model_path(models, model_name, fraction):
+def get_embeddings_path(models, model_name, fraction):
     if fraction < 1.0:
         model_path = Path(models) / f'{model_name}_{int(fraction * 100)}%'
     else:

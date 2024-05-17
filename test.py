@@ -4,15 +4,15 @@ from numpy import abs, random
 from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
-from scripts.utils import similarities, get_model_path, get_words_in_corpus, in_off_stimuli_word_pairs
+from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs
 from scripts.plot import plot_correlations
 from scripts.process_swow import load_swow
 
 
-def test(model_path, words_associations, words_freq, num_samples, stimuli_path, save_path, seed):
-    models = [dir_ for dir_ in sorted(model_path.iterdir()) if dir_.is_dir()]
+def test(embeddings_path, words_associations, words_freq, num_samples, stimuli_path, save_path, seed):
+    models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
-        raise ValueError(f'There are no models in {model_path}')
+        raise ValueError(f'There are no models in {embeddings_path}')
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     rng = random.default_rng(seed)
@@ -23,7 +23,7 @@ def test(model_path, words_associations, words_freq, num_samples, stimuli_path, 
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
         test_model(model_wv, model_dir.name, in_stimuli_words, off_stimuli_words, models_results)
 
-    model_basename = model_path.name
+    model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_correlations(models_results, save_path)
@@ -52,7 +52,7 @@ def test_model(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_resul
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model_name', type=str, help='Model base name')
-    parser.add_argument('-m', '--models', type=str, default='models', help='Path to trained models')
+    parser.add_argument('-e', '--embeddings', type=str, default='embeddings', help='Path to extracted embeddings')
     parser.add_argument('-f', '--fraction', type=float, default=0.3,
                         help='Fraction of baseline corpus employed for model training')
     parser.add_argument('-ws', '--words_samples', type=int, default=100,
@@ -72,6 +72,6 @@ if __name__ == '__main__':
     words_freq = pd.read_csv(args.words_frequency)
     output, stimuli_path = Path(args.output), Path(args.stimuli)
     swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.min_freq, args.seed)
-    model_path = get_model_path(args.models, args.model_name, args.fraction)
+    embeddings_path = get_embeddings_path(args.embeddings, args.model_name, args.fraction)
 
-    test(model_path, swow, words_freq, args.words_samples, stimuli_path, output, args.seed)
+    test(embeddings_path, swow, words_freq, args.words_samples, stimuli_path, output, args.seed)
