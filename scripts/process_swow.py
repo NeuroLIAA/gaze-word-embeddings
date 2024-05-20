@@ -19,7 +19,7 @@ def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
-    swow.rename(columns={'response': 'answer', 'R1': 'n', 'R1.Strength': 'freq'}, inplace=True)
+    swow.rename(columns={'response': 'answer', 'R123': 'n', 'R123.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
 
     for keyword in ['cue', 'answer']:
