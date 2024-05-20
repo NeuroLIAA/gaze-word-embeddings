@@ -16,12 +16,13 @@ def test(embeddings_path, words_associations, words_freq, num_samples, stimuli_p
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     rng = random.default_rng(seed)
-    in_stimuli_words, off_stimuli_words = load_and_evaluate_gt(stimuli_path, words_associations,
-                                                                  words_freq, num_samples, rng)
+    words_in_stimuli = get_words_in_corpus(stimuli_path)
+    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freq,
+                                                              num_samples, rng)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
-        test_model(model_wv, model_dir.name, in_stimuli_words, off_stimuli_words, models_results)
+        test_model(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
@@ -29,23 +30,15 @@ def test(embeddings_path, words_associations, words_freq, num_samples, stimuli_p
     plot_correlations(models_results, save_path)
 
 
-def load_and_evaluate_gt(stimuli_path, words_associations, words_frequency, num_samples, rng):
-    words_in_stimuli = get_words_in_corpus(stimuli_path)
-    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency,
-                                                              num_samples, rng)
-
-    return in_stimuli_wp, off_stimuli_wp
-
-
 def test_model(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
     models_results['in_stimuli'][model_name] = []
     models_results['off_stimuli'][model_name] = []
     for in_stimuli, off_stimuli in zip(in_stimuli_wp, off_stimuli_wp):
-        in_stimuli['sim'] = abs(similarities(model_wv, in_stimuli['cue'], in_stimuli['answer']))
-        off_stimuli['sim'] = abs(similarities(model_wv, off_stimuli['cue'], off_stimuli['answer']))
-        models_results['in_stimuli'][model_name].append(spearmanr(in_stimuli['freq'], in_stimuli['sim'],
+        in_stimuli_sim = abs(similarities(model_wv, in_stimuli['cue'], in_stimuli['answer']))
+        off_stimuli_sim = abs(similarities(model_wv, off_stimuli['cue'], off_stimuli['answer']))
+        models_results['in_stimuli'][model_name].append(spearmanr(in_stimuli['freq'], in_stimuli_sim,
                                                                              nan_policy='omit').statistic)
-        models_results['off_stimuli'][model_name].append(spearmanr(off_stimuli['freq'], off_stimuli['sim'],
+        models_results['off_stimuli'][model_name].append(spearmanr(off_stimuli['freq'], off_stimuli_sim,
                                                                                 nan_policy='omit').statistic)
 
 
