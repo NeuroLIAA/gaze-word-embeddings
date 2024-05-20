@@ -1,7 +1,10 @@
 scanpaths/*
+scanpaths_fd/*
+scanpaths_ffd/*
+scanpaths_gd/*
 texts/*
 stimuli/*
-models/*
+embeddings/*
 
 # Pycharm files
 .idea/*

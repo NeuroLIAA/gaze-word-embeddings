@@ -131,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
     parser.add_argument('-g', '--gensim', action='store_true', help='Use gensim instead of PyTorch')
-    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
+    parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     args = parser.parse_args()
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
