@@ -3,5 +3,13 @@ texts/*
 stimuli/*
 
 # Pycharm files
-.idea/*
+**/.idea/*
 
+# log files, model files, etc
+*.csv
+*.json
+*.txt
+*.tar
+
+# pycache directories
+**/__pycache__/

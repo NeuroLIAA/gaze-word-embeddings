@@ -74,8 +74,8 @@ class Corpus:
         else:
             preprocess_fn = partial(preprocess_str, min_token_len=min_token_len, max_token_len=max_token_len)
 
-        data = data.map(lambda row: preprocess_fn(row), num_proc=12)
-        data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=1)
+        data = data.map(lambda row: preprocess_fn(row), num_proc=12, load_from_cache_file=False)
+        data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=1, load_from_cache_file=False)
         self.num_sentences = data.num_rows
         return data
 
@@ -97,16 +97,18 @@ def preprocess_str(string, min_token_len, max_token_len):
     string['fix_dur'] = tokens_fix
     return string
 
-def preprocess_str_for_llm(string, tokenizer):
-    string['text'] = tokenize1(to_unicode(string['text']), tok=tokenizer)
+def preprocess_str_for_llm(phrase, tokenizer):
+    pattern = r"[A-Za-zá-úñ" + re.escape(string.punctuation) + r"]+$"
+    phrase['text'] = tokenize1(to_unicode(phrase['text']), tok=tokenizer)
     tokenized = []
-    for _, token in enumerate(string['text']):
-        if (not token.startswith('_')):
+    for _, token in enumerate(phrase['text']):
+        if (not token.startswith('_') and token.strip() != '' and re.match(pattern, token)):
             tokenized.append(token)
-    string['text'] = tokenized
-    return string
+    phrase['text'] = tokenized
+    return phrase
 
 def to_unicode(text, encoding='utf-8'):
     if isinstance(text, str):
         return text
     return str(text, encoding, 'ignore')
+
