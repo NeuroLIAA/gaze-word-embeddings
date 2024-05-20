@@ -63,7 +63,8 @@ class Corpus:
     def load_corpus(self, min_token_len, max_token_len, min_sentence_len, fraction):
         if self.is_remote:
             fraction = int(fraction * 100)
-            data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]', num_proc=12)
+            data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]',
+                                num_proc=12)
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes

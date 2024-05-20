@@ -5,7 +5,7 @@ import torch.optim as optim
 from tqdm import tqdm
 from scripts.corpora import Corpora
 from scripts.data_handling import get_dataloader_and_vocab
-from scripts.utils import get_model_path
+from scripts.utils import get_embeddings_path
 from scripts.plot import plot_loss
 from scripts.w2v_fix import SkipGram
 from gensim.models import Word2Vec
@@ -131,12 +131,12 @@ if __name__ == '__main__':
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
     parser.add_argument('-g', '--gensim', action='store_true', help='Use gensim instead of PyTorch')
-    parser.add_argument('-o', '--output', type=str, default='models', help='Where to save the trained models')
+    parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     args = parser.parse_args()
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
-    model_path = get_model_path(args.output, args.model, args.fraction)
+    model_path = get_embeddings_path(args.output, args.model, args.fraction)
 
     train(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
           args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
