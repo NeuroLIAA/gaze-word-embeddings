@@ -9,7 +9,7 @@ from scripts.plot import plot_correlations
 from scripts.process_swow import load_swow
 
 
-def test(embeddings_path, words_associations, words_freq, num_samples, stimuli_path, save_path, seed):
+def test(embeddings_path, words_associations, words_freq, num_samples, resamples, stimuli_path, save_path, seed):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {embeddings_path}')
@@ -18,7 +18,7 @@ def test(embeddings_path, words_associations, words_freq, num_samples, stimuli_p
     rng = random.default_rng(seed)
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freq,
-                                                              num_samples, rng)
+                                                              num_samples, resamples, rng)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
@@ -50,6 +50,7 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus employed for model training')
     parser.add_argument('-ws', '--words_samples', type=int, default=100,
                         help='Number of words to be sampled from the words association file for evaluation')
+    parser.add_argument('-rs', '--resample', type=int, default=100, help='Number of times to resample word pairs')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
@@ -67,4 +68,4 @@ if __name__ == '__main__':
     swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.min_freq, args.seed)
     embeddings_path = get_embeddings_path(args.embeddings, args.model_name, args.fraction)
 
-    test(embeddings_path, swow, words_freq, args.words_samples, stimuli_path, output, args.seed)
+    test(embeddings_path, swow, words_freq, args.words_samples, args.resample, stimuli_path, output, args.seed)

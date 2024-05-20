@@ -17,7 +17,7 @@ def subsample(series, n, seed):
     return series.sample(n, random_state=seed) if len(series) > n else series
 
 
-def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, n=100, seed=42):
+def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_frequency, n, resamples, seed=42):
     words_frequency = words_frequency.rename(columns={'word': 'cue', 'log_cnt': 'cue_log_cnt'})
     words_pairs = words_associations.merge(words_frequency, on='cue', how='left')
     in_stimuli = words_pairs[(words_pairs['cue'].isin(words_in_stimuli))
@@ -25,7 +25,7 @@ def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freque
     off_stimuli = words_pairs[(~words_pairs['cue'].isin(words_in_stimuli))
                               & (~words_pairs['answer'].isin(words_in_stimuli))]
     rng = np.random.default_rng(seed)
-    seeds = rng.integers(0, 10000, size=n)
+    seeds = rng.integers(0, 10000, size=resamples)
     in_stimuli_wp, off_stimuli_wp = [], []
     for seed in seeds:
         in_stimuli_wp.append(subsample(in_stimuli, n, seed))
