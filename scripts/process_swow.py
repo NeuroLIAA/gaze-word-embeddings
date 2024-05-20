@@ -39,8 +39,8 @@ def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
 
 
 def val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=42):
-    swow_in_stimuli = swow[(swow['cue'].isin(words_in_stimuli))]
-    swow_off_stimuli = swow[(~swow['cue'].isin(words_in_stimuli))]
+    swow_in_stimuli = swow[(swow['cue'].isin(words_in_stimuli)) & (swow['answer'].isin(words_in_stimuli))]
+    swow_off_stimuli = swow[(~swow['cue'].isin(words_in_stimuli)) & (~swow['answer'].isin(words_in_stimuli))]
     swow_in_val, swow_in_test = train_test_split(swow_in_stimuli, test_size=test_size, random_state=random_state)
     swow_off_val, swow_off_test = train_test_split(swow_off_stimuli, test_size=test_size, random_state=random_state)
     swow_val = pd.concat([swow_in_val, swow_off_val])
