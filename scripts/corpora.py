@@ -112,3 +112,9 @@ def to_unicode(text, encoding='utf-8'):
         return text
     return str(text, encoding, 'ignore')
 
+def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len, tokenizer=False):
+    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len, tokenizer)
+    for corpus, source in zip(corpora_labels, data_sources):
+        training_corpora.add_corpus(corpus, source, fraction, repeats)
+    return training_corpora
+
