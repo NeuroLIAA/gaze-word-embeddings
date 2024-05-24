@@ -97,22 +97,26 @@ def preprocess_str(string, min_token_len, max_token_len):
     string['fix_dur'] = tokens_fix
     return string
 
+
 def preprocess_str_for_llm(phrase, tokenizer):
     pattern = r"[A-Za-zá-úñ" + re.escape(string.punctuation) + r"]+$"
     phrase['text'] = tokenize1(to_unicode(phrase['text']), tok=tokenizer)
     tokenized = []
     for _, token in enumerate(phrase['text']):
-        if (not token.startswith('_') and token.strip() != '' and re.match(pattern, token)):
+        if not token.startswith('_') and token.strip() != '' and re.match(pattern, token):
             tokenized.append(token)
     phrase['text'] = tokenized
     return phrase
+
 
 def to_unicode(text, encoding='utf-8'):
     if isinstance(text, str):
         return text
     return str(text, encoding, 'ignore')
 
-def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len, tokenizer=False):
+
+def load_corpora(corpora_labels, data_sources, fraction, repeats,
+                 min_token_len, max_token_len, min_sentence_len, tokenizer=False):
     training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len, tokenizer)
     for corpus, source in zip(corpora_labels, data_sources):
         training_corpora.add_corpus(corpus, source, fraction, repeats)

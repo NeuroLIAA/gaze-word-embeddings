@@ -6,6 +6,7 @@ from models.word2vec_gensim.model import Word2vecGensim
 from models.word2vec_torch.model import Word2vecTorch
 from models.lstm.main import AwdLSTM
 
+
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr, batch_size,
                  device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count,
@@ -33,7 +34,6 @@ class Trainer:
         self.tokenizer = tokenizer
         self.max_vocab = max_vocab
 
-
     def train(self):
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -56,15 +56,18 @@ class Trainer:
 
     def get_model(self, corpora, model_name, save_path):
         if self.mode == 'word2vec_gensim':
-            return Word2vecGensim(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples, self.epochs, self.cbow, model_name, save_path)
+            return Word2vecGensim(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
+                                  self.epochs, self.cbow, model_name, save_path)
         elif self.mode == 'word2vec_torch':
-            return Word2vecTorch(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples, self.downsample_factor, self.epochs, self.lr,
-                        self.batch_size, self.train_fix, self.device, model_name, save_path)
+            return Word2vecTorch(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
+                                 self.downsample_factor, self.epochs, self.lr,
+                                 self.batch_size, self.train_fix, self.device, model_name, save_path)
         elif self.mode == 'lstm':
-            return AwdLSTM(corpora, model_name, save_path, embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs, lr=self.lr, 
-                    min_word_count=self.min_count, max_vocab_size=self.max_vocab)
+            return AwdLSTM(corpora, model_name, save_path, embed_size=self.vector_size, batch_size=self.batch_size,
+                           epochs=self.epochs, lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
         else:
             raise ValueError(f'Invalid model type: {self.mode}')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -111,5 +114,6 @@ if __name__ == '__main__':
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
-          args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
-          args.size, args.window, args.min_count, args.mode, args.cbow, args.train_fix, model_path, args.tokenizer, args.max_vocab).train()
+            args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
+            args.size, args.window, args.min_count, args.mode, args.cbow, args.train_fix, model_path, args.tokenizer,
+            args.max_vocab).train()
