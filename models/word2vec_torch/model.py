@@ -26,11 +26,11 @@ class Word2vecTorch:
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples, self.downsample_factor,
                                                     self.window_size, self.batch_size, self.train_fix)
         skip_gram = SkipGram(len(vocab), self.vector_size)
-        if device == 'cuda' and torch.cuda.is_available():
-            device = torch.device('cuda')
+        if self.device == 'cuda' and torch.cuda.is_available():
+            self.device = torch.device('cuda')
             skip_gram.cuda()
         else:
-            device = torch.device('cpu')
+            self.device = torch.device('cpu')
 
         loss_sg, loss_fix = [], []
         for epoch in range(self.epochs):
@@ -42,10 +42,10 @@ class Word2vecTorch:
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt_sparse, len(dataloader))
             for batch in tqdm(dataloader):
                 if len(batch[0]) > 1:
-                    pos_u = batch[0].to(device)
-                    pos_v = batch[1].to(device)
-                    neg_v = batch[2].to(device)
-                    fix_v = batch[3].to(device)
+                    pos_u = batch[0].to(self.device)
+                    pos_v = batch[1].to(self.device)
+                    neg_v = batch[2].to(self.device)
+                    fix_v = batch[3].to(self.device)
 
                     update_regressor = self.train_fix and fix_v.sum() > 0
                     opt_sparse.zero_grad(), opt_dense.zero_grad()
