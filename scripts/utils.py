@@ -24,16 +24,21 @@ def in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freque
                              & (words_pairs['answer'].isin(words_in_stimuli))]
     off_stimuli = words_pairs[(~words_pairs['cue'].isin(words_in_stimuli))
                               & (~words_pairs['answer'].isin(words_in_stimuli))]
+    in_stimuli_word_freq = in_stimuli['cue_log_cnt']
+    matched_words_names, off_stimuli_cp = [], off_stimuli.copy()
+    for log_cnt in in_stimuli_word_freq:
+        matched_words = (off_stimuli_cp['cue_log_cnt'] - log_cnt).abs().argsort()[:1]
+        matched_word_name = off_stimuli_cp.iloc[matched_words.sample(random_state=seed).iloc[0]].name
+        matched_words_names.append(matched_word_name)
+        off_stimuli_cp.drop(matched_word_name, inplace=True)
+    off_stimuli = off_stimuli[off_stimuli.index.isin(matched_words_names)]
+
     rng = np.random.default_rng(seed)
     seeds = rng.integers(0, 10000, size=resamples)
     in_stimuli_wp, off_stimuli_wp = [], []
     for seed in seeds:
         in_stimuli_wp.append(subsample(in_stimuli, n, seed))
-        matched_words = []
-        for log_cnt in in_stimuli_wp[-1]['cue_log_cnt']:
-            matched_word = off_stimuli.iloc[(off_stimuli['cue_log_cnt'] - log_cnt).abs().argsort()[:1]]
-            matched_words.append(matched_word['cue'].sample(1, random_state=seed).values[0])
-        off_stimuli_wp.append(off_stimuli[off_stimuli['cue'].isin(matched_words)])
+        off_stimuli_wp.append(subsample(off_stimuli, n, seed))
 
     return in_stimuli_wp, off_stimuli_wp
 
