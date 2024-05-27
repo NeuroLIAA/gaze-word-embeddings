@@ -21,6 +21,7 @@ def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R123': 'n', 'R123.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
+    swow = swow[swow['cue'] != swow['answer']]
 
     for keyword in ['cue', 'answer']:
         swow = remove_composed_words(swow, keyword)
