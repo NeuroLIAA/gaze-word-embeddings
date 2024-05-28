@@ -11,13 +11,13 @@ from torch.nn import init
 
 class SkipGram(nn.Module):
 
-    def __init__(self, emb_size, emb_dimension):
+    def __init__(self, emb_size, emb_dimension, num_classes=6):
         super(SkipGram, self).__init__()
         self.emb_size = emb_size
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
-        self.duration_regression = nn.Linear(emb_dimension, 1)
+        self.duration_regression = nn.Linear(emb_dimension, num_classes)
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)

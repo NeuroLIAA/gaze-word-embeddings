@@ -5,6 +5,7 @@ from scripts.w2v_fix import SkipGram
 from scripts.plot import plot_loss
 from scripts.data_handling import get_dataloader_and_vocab
 
+
 class Word2vecTorch:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
                  batch_size, train_fix, device, model_name, save_path):
@@ -23,8 +24,9 @@ class Word2vecTorch:
         self.save_path = save_path
 
     def train(self):
-        dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples, self.downsample_factor,
-                                                    self.window_size, self.batch_size, self.train_fix)
+        dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
+                                                     self.downsample_factor, self.window_size, self.batch_size,
+                                                     self.train_fix)
         skip_gram = SkipGram(len(vocab), self.vector_size)
         if self.device == 'cuda' and torch.cuda.is_available():
             self.device = torch.device('cuda')
@@ -52,7 +54,7 @@ class Word2vecTorch:
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
-                        fix_loss = torch.nn.L1Loss()(fix_dur, fix_v)
+                        fix_loss = torch.nn.CrossEntropyLoss()(fix_dur, fix_v)
                         scale_factor = loss_sg[-1] / fix_loss.item()
                         fix_loss *= scale_factor
                         loss += fix_loss

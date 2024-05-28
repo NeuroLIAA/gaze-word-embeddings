@@ -101,7 +101,8 @@ if __name__ == '__main__':
                         help='Sentence minimum length, in tokens')
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
-    parser.add_argument('-m', '--mode', choices=["word2vec_gensim", "word2vec_torch", "lstm"], type=str, help='Model to be used')
+    parser.add_argument('-m', '--mode', choices=["word2vec_gensim", "word2vec_torch", "lstm"], type=str,
+                        help='Model architecture to be trained')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
     parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
