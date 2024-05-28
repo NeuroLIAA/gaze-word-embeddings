@@ -6,7 +6,7 @@ import timeit
 import warnings
 
 from fastai.text.all import *
-import tqdm
+from tqdm import tqdm
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
@@ -48,6 +48,7 @@ class AwdLSTM:
         self.log = log
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
+        torch.autograd.set_detect_anomaly(True)
         
         self.set_device()
         
@@ -83,20 +84,21 @@ class AwdLSTM:
         vld = split['test']
             
         vocab = build_vocab(trn, self.min_word_count, self.max_vocab_size)[0]
-
-        #with open(str(self.save_path / f'{self.name}.json'), 'w') as f:
-        #    json.dump(vocab.get_stoi(), f)
             
         print("Numericalizing Training set")
-        trn = trn.map(lambda row: {"text": vocab.forward(row["text"])}, num_proc=12)
-        trn = [token for text in tqdm.tqdm(trn['text']) for token in text]
+        trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
+        trn_tokens = [token for text in tqdm(trn['text']) for token in text]
+        trn_fix = [token for text in tqdm(trn['fix_dur']) for token in text]
         
         print("Numericalizing Validation set")
-        vld = vld.map(lambda row: {"text": vocab.forward(row["text"])}, num_proc=12)
-        vld = [token for text in tqdm.tqdm(vld['text']) for token in text]
+        vld = vld.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
+        vld_tokens = [token for text in tqdm(vld['text']) for token in text]
+        vld_fix = [token for text in tqdm(vld['fix_dur']) for token in text]
         
-        self.trn = torch.tensor(trn,dtype=torch.int64).reshape(-1, 1)
-        self.vld = torch.tensor(vld,dtype=torch.int64).reshape(-1, 1)
+        self.trn_tokens = torch.tensor(trn_tokens,dtype=torch.int64).reshape(-1, 1)
+        self.trn_fix = torch.tensor(trn_fix,dtype=torch.int64).reshape(-1, 1)
+        self.vld_tokens = torch.tensor(vld_tokens,dtype=torch.int64).reshape(-1, 1)
+        self.vld_fix = torch.tensor(vld_fix,dtype=torch.int64).reshape(-1, 1)
         self.vocab = vocab.get_stoi()
 
     def get_seq_len(self):
@@ -107,29 +109,31 @@ class AwdLSTM:
             seq_len = round(np.random.normal(seq_len, 5))
         return seq_len
 
-    def batchify(self, data, batch_size):
+    def batchify(self, data, fix_data, batch_size):
         num_batches = data.size(0) // batch_size
         data = data[:num_batches * batch_size]
-        return data.reshape(batch_size, -1).transpose(1, 0)
+        fix_data = fix_data[:num_batches * batch_size]
+        return data.reshape(batch_size, -1).transpose(1, 0), fix_data.reshape(batch_size, -1).transpose(1, 0)
 
-    def minibatch(self, data, seq_length):
+    def minibatch(self, data, fix_data, seq_length):
         num_batches = data.size(0)
         dataset = []
         for i in range(0, num_batches-1, seq_length):
             ls = min(i+seq_length, num_batches-1)
             x = data[i:ls,:]
+            fix_x = fix_data[i:ls,:]
             y = data[i+1:ls+1,:]
-            dataset.append((x, y))
+            dataset.append((x, y, fix_x))
         return dataset
 
-    def perplexity(self, data, model):
+    def perplexity(self, data, fix_data, model):
         model.eval()
-        data = self.minibatch(data, self.bptt)
+        data = self.minibatch(data, fix_data, self.bptt)
         with torch.no_grad():
             losses = []
             batch_size = data[0][0].size(1)
             states = model.state_init(batch_size)
-            for x, y in data:
+            for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 scores, states = model(x, states)
@@ -142,45 +146,46 @@ class AwdLSTM:
         total_words = 0
         print("Starting training.")
         best_val = 1e10
-        for epoch in range(self.epochs):        
+        for epoch in range(self.epochs):
+            print("Epoch : {:d}".format(epoch))
             seq_len = self.get_seq_len()
-            num_batch = ((self.trn.size(0) - 1) // seq_len + 1)
             optimizer.lr(seq_len / self.bptt * self.lr)
             states = model.state_init(self.batch_size)
             model.train()
-            for i, (x, y) in enumerate(self.minibatch(self.trn, seq_len)):
+            minibatches = self.minibatch(self.trn_tokens, self.trn_fix, seq_len)
+            for (x, y, fix) in tqdm(minibatches, desc="Training"):
                 x = x.to(self.device)
                 y = y.to(self.device)
+                fix = fix.to(self.device)
                 total_words += x.numel()
                 states = model.detach(states)
-                scores, states, activations = model(x, states)
+                scores, states, activations, fix_pred = model(x, states)
+                
                 loss = F.cross_entropy(scores, y.reshape(-1))
                 h, h_m = activations
                 ar_reg = self.ar * h_m.pow(2).mean()
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
-                loss_reg = loss + ar_reg + tar_reg
+                
+                if fix.sum() > 0:
+                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
+                    scale_factor = loss / fix_loss
+                    fix_loss = fix_loss * scale_factor
+                else:
+                    fix_loss = torch.tensor(0.0)
+                
+                loss_reg = loss + ar_reg + tar_reg + fix_loss
                 loss_reg.backward()
-                norm = nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
+                
+                nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()
-                if i % (self.log) == 0:
-                    toc = timeit.default_timer()
-                    print("batch no = {:d} / {:d}, ".format(i, num_batch) +
-                        "train loss = {:.3f}, ".format(loss.item()) +
-                        "ar val = {:.3f}, ".format(ar_reg.item()) + 
-                        "tar val = {:.3f}, ".format(tar_reg.item()) + 
-                        "wps = {:d}, ".format(round(total_words / (toc - tic))) +
-                        "dw.norm() = {:.3f}, ".format(norm) +
-                        "lr = {:.3f}, ".format(seq_len / self.bptt * self.lr) + 
-                        "since beginning = {:d} mins, ".format(round((toc - tic) / 60)) +
-                        "cuda memory = {:.3f} GBs".format(torch.cuda.max_memory_allocated()/1024/1024/1024))
     
             tmp = {}
             for (prm,st) in optimizer.state.items():
                 tmp[prm] = prm.clone().detach()
                 prm.data = st['ax'].clone().detach()
     
-            val_perp = self.perplexity(self.vld, model)
+            val_perp = self.perplexity(self.vld_tokens, self.vld_fix, model)
             optimizer.check(val_perp)
 
             self.log_file.write("{:d},{:.3f}\n".format(epoch+1, val_perp))
@@ -194,7 +199,10 @@ class AwdLSTM:
             for (prm, st) in optimizer.state.items():
                 prm.data = tmp[prm].clone().detach()
                 
-            print("Epoch : {:d} || Validation set perplexity : {:.3f}".format(epoch+1, val_perp))
+            toc = timeit.default_timer()
+            print("Validation set perplexity : {:.3f}".format(val_perp))
+            print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
+            print("lr : {:.3f}".format(seq_len / self.bptt * self.lr))
             print("*************************************************\n")        
         self.log_file.close()
         self.generate_embeddings(model)
@@ -205,14 +213,14 @@ class AwdLSTM:
         
         with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
             f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
-            for i, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
+            for _, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
                 vector_str = ' '.join(str(x) for x in vector.tolist())
                 f.write(f'{word} {vector_str}\n')
 
     def train(self):
         warnings.filterwarnings("ignore")
-        self.trn = self.batchify(self.trn, self.batch_size)
-        self.vld = self.batchify(self.vld, self.valid_batch_size)
+        self.trn_tokens, self.trn_fix = self.batchify(self.trn_tokens, self.trn_fix, self.batch_size)
+        self.vld_tokens, self.vld_fix = self.batchify(self.vld_tokens, self.vld_fix, self.valid_batch_size)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i, 
                     self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)

@@ -99,13 +99,30 @@ def preprocess_str(string, min_token_len, max_token_len):
 
 
 def preprocess_str_for_llm(phrase, tokenizer):
+    chars_map = str.maketrans(CHARS_MAP)
     pattern = r"[A-Za-zá-úñ" + re.escape(string.punctuation) + r"]+$"
+    
+    splitted_text = [word.translate(chars_map) for word in to_unicode(phrase['text'].lower()).split()]
+    
+    if 'fix_dur' in phrase:
+        fix_dur_associations = dict(zip(splitted_text, phrase["fix_dur"]))
+    else:
+        fix_dur_associations = dict()
+        
     phrase['text'] = tokenize1(to_unicode(phrase['text']), tok=tokenizer)
-    tokenized = []
+    tokenized, tokens_fix = [], []
     for _, token in enumerate(phrase['text']):
         if not token.startswith('_') and token.strip() != '' and re.match(pattern, token):
             tokenized.append(token)
+            
+            if token in fix_dur_associations:
+                tokens_fix.append(fix_dur_associations[token])
+            else:
+                tokens_fix.append(0)
+            
     phrase['text'] = tokenized
+    phrase['fix_dur'] = tokens_fix
+    
     return phrase
 
 

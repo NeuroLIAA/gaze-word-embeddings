@@ -152,6 +152,7 @@ class Model(nn.Module):
                      else WeightDropLSTM(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) for i in range(layer_num)]
         self.rnns = nn.ModuleList(self.rnns)
         self.fc = FC_tied(embed_size, vocab_size, self.embed.W)
+        self.duration_regression = nn.Linear(embed_size, 1)
         self.dropout = VariationalDropout()
         self.dropout_i = dropout_i
         self.dropout_l = dropout_l
@@ -165,8 +166,11 @@ class Model(nn.Module):
             x, states[i] = rnn(x_m, states[i])
             x_m = self.dropout(x, self.dropout_l if i != len(self.rnns)-1 else self.dropout_o)
         scores = self.fc(x_m)
+        
+        duration = self.duration_regression(x.reshape(-1, x.shape[-1])).squeeze()
+        
         if self.training:
-            return scores, states, (x, x_m)
+            return scores, states, (x, x_m), duration
         else:
             return scores, states
     
