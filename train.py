@@ -1,9 +1,8 @@
 import logging
 import argparse
-from scripts.corpora import Corpora, load_corpora
+from scripts.corpora import load_corpora
 from scripts.utils import get_embeddings_path
-from models.word2vec_gensim.model import Word2vecGensim
-from models.word2vec_torch.model import Word2vecTorch
+from models.word2vec.model import Word2Vec
 from models.lstm.main import AwdLSTM
 
 
@@ -55,13 +54,10 @@ class Trainer:
         return model_name, save_path
 
     def get_model(self, corpora, model_name, save_path):
-        if self.mode == 'word2vec_gensim':
-            return Word2vecGensim(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
-                                  self.epochs, self.cbow, model_name, save_path)
-        elif self.mode == 'word2vec_torch':
-            return Word2vecTorch(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
-                                 self.downsample_factor, self.epochs, self.lr,
-                                 self.batch_size, self.train_fix, self.device, model_name, save_path)
+        if self.mode == 'word2vec':
+            return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
+                            self.downsample_factor, self.epochs, self.lr,
+                            self.batch_size, self.train_fix, self.device, model_name, save_path)
         elif self.mode == 'lstm':
             return AwdLSTM(corpora, model_name, save_path, embed_size=self.vector_size, batch_size=self.batch_size,
                            epochs=self.epochs, lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
@@ -101,7 +97,7 @@ if __name__ == '__main__':
                         help='Sentence minimum length, in tokens')
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
-    parser.add_argument('-m', '--mode', choices=["word2vec_gensim", "word2vec_torch", "lstm"], type=str,
+    parser.add_argument('-m', '--mode', choices=["word2vec", "lstm"], type=str,
                         help='Model architecture to be trained')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
