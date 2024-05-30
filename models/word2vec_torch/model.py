@@ -55,8 +55,6 @@ class Word2vecTorch:
                     loss_sg.append(loss.item())
                     if update_regressor:
                         fix_loss = torch.nn.CrossEntropyLoss()(fix_dur, fix_v)
-                        scale_factor = loss_sg[-1] / fix_loss.item()
-                        fix_loss *= scale_factor
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
                     else:
