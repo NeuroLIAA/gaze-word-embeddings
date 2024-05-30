@@ -7,9 +7,9 @@ from models.lstm.main import AwdLSTM
 
 
 class Trainer:
-    def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr, batch_size,
-                 device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size, min_count,
-                 mode, cbow, train_fix, save_path, tokenizer, max_vocab):
+    def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
+                 batch_size, device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size,
+                 min_count, model, train_fix, save_path, tokenizer, max_vocab):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
         self.fraction = fraction
@@ -26,8 +26,7 @@ class Trainer:
         self.vector_size = vector_size
         self.window_size = window_size
         self.min_count = min_count
-        self.mode = mode
-        self.cbow = cbow
+        self.model = model
         self.train_fix = train_fix
         self.save_path = save_path
         self.tokenizer = tokenizer
@@ -54,27 +53,26 @@ class Trainer:
         return model_name, save_path
 
     def get_model(self, corpora, model_name, save_path):
-        if self.mode == 'word2vec':
+        if self.model == 'word2vec':
             return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                             self.downsample_factor, self.epochs, self.lr,
                             self.batch_size, self.train_fix, self.device, model_name, save_path)
-        elif self.mode == 'lstm':
+        elif self.model == 'lstm':
             return AwdLSTM(corpora, model_name, save_path, embed_size=self.vector_size, batch_size=self.batch_size,
                            epochs=self.epochs, lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
         else:
-            raise ValueError(f'Invalid model type: {self.mode}')
+            raise ValueError(f'Invalid model type: {self.model}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model', type=str, help='Model base name')
+    parser.add_argument('data', type=str, help='Training data descriptive name')
     parser.add_argument('-c', '--corpora', type=str, default='all_wikis+scanpaths',
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--sources', type=str, default='remote+local',
                         help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
     parser.add_argument('-f', '--fraction', type=float, default=0.3,
                         help='Fraction of baseline corpus to employ for training')
-    parser.add_argument('-cbow', '--cbow', action='store_true', help='If using Gensim, use CBOW instead of SkipGram')
     parser.add_argument('-r', '--repeats', type=int, default=200,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
@@ -97,7 +95,7 @@ if __name__ == '__main__':
                         help='Sentence minimum length, in tokens')
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
-    parser.add_argument('-m', '--mode', choices=["word2vec", "lstm"], type=str,
+    parser.add_argument('-m', '--model', choices=["word2vec", "lstm"], type=str,
                         help='Model architecture to be trained')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
@@ -106,11 +104,11 @@ if __name__ == '__main__':
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
-    model_path = get_embeddings_path(args.output, args.model, args.fraction)
+    model_path = get_embeddings_path(args.output, args.data, args.fraction)
     
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
-            args.size, args.window, args.min_count, args.mode, args.cbow, args.train_fix, model_path, args.tokenizer,
+            args.size, args.window, args.min_count, args.model, args.train_fix, model_path, args.tokenizer,
             args.max_vocab).train()
