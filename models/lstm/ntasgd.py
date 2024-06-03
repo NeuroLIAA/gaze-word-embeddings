@@ -25,23 +25,24 @@ class NTASGD(optim.Optimizer):
     def step(self):
         for group in self.param_groups:
             for p in group['params']:
-                grad = p.grad.data
-                state = self.state[p]
-                # State initialization
-                if len(state) == 0:
-                    state['step'] = 0
-                    state['mu'] = 1
-                    state['ax'] = torch.zeros_like(p.data)
-                state['step'] += 1
-                # update parameter
-                if group['weight_decay'] != 0:
-                    grad = grad.add(group['weight_decay'], p.data)
-                
-                p.data.add_(-group['lr'], grad)
-                # averaging
-                if state['mu'] != 1:
-                    state['ax'].add_(p.data.sub(state['ax']).mul(state['mu']))
-                else:
-                    state['ax'].copy_(p.data)
-                # update mu
-                state['mu'] = 1 / max(1, state['step'] - group['t0'])
+                if p.grad is not None:
+                    grad = p.grad.data
+                    state = self.state[p]
+                    # State initialization
+                    if len(state) == 0:
+                        state['step'] = 0
+                        state['mu'] = 1
+                        state['ax'] = torch.zeros_like(p.data)
+                    state['step'] += 1
+                    # update parameter
+                    if group['weight_decay'] != 0:
+                        grad = grad.add(group['weight_decay'], p.data)
+                    
+                    p.data.add_(-group['lr'], grad)
+                    # averaging
+                    if state['mu'] != 1:
+                        state['ax'].add_(p.data.sub(state['ax']).mul(state['mu']))
+                    else:
+                        state['ax'].copy_(p.data)
+                    # update mu
+                    state['mu'] = 1 / max(1, state['step'] - group['t0'])
