@@ -8,15 +8,15 @@ NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
 INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
-def load_swow(wa_file, wf_file, stimuli_path, data_set, min_freq, seed):
-    wa_set_file = Path(f'{wa_file[:-4]}_{data_set}.csv')
-    if not wa_set_file.exists():
-        process_swow(wa_file, wf_file, stimuli_path, min_freq, seed)
-    return pd.read_csv(wa_set_file)
+def load_swow(wa_file, wf_file, stimuli_path, data_split, min_freq, seed):
+    wa_split_file = Path(f'{wa_file[:-4]}_{data_split}.csv')
+    if not wa_split_file.exists():
+        processed_wa = process_swow(wa_file, wf_file, min_freq)
+        split_wa(processed_wa, wa_file, stimuli_path, seed)
+    return pd.read_csv(wa_split_file)
 
 
-def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
-    words_in_stimuli = get_words_in_corpus(stimuli_path)
+def process_swow(swow_file, words_freq, min_freq):
     swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R123': 'n', 'R123.Strength': 'freq'}, inplace=True)
@@ -34,9 +34,14 @@ def process_swow(swow_file, words_freq, stimuli_path, min_freq, seed):
 
     swow = compute_mean_n(swow)
     swow = swow[swow['freq'] >= min_freq]
-    swow_val, swow_test = val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=seed)
-    swow_val.to_csv(f'{swow_file[:-4]}_val.csv', index=False)
-    swow_test.to_csv(f'{swow_file[:-4]}_test.csv', index=False)
+    return swow
+
+
+def split_wa(processed_wa, wa_file, stimuli_path, seed):
+    words_in_stimuli = get_words_in_corpus(stimuli_path)
+    swow_val, swow_test = val_test_split(processed_wa, words_in_stimuli, test_size=0.5, random_state=seed)
+    swow_val.to_csv(f'{wa_file[:-4]}_val.csv', index=False)
+    swow_test.to_csv(f'{wa_file[:-4]}_test.csv', index=False)
 
 
 def val_test_split(swow, words_in_stimuli, test_size=0.5, random_state=42):
