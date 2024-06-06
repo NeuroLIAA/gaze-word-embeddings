@@ -55,7 +55,7 @@ class Word2Vec:
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
-                        fix_loss = torch.nn.CrossEntropyLoss()(fix_dur, fix_v)
+                        fix_loss = torch.nn.MSELoss()(torch.argmax(fix_dur, dim=1).to(torch.float), fix_v)
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
                     else:
