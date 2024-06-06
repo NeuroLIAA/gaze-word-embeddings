@@ -143,6 +143,23 @@ class FC_tied(nn.Module):
 
     def __repr__(self):
         return "FC Tied(input: {}, hidden: {})".format(self.input_size, self.hidden_size)
+    
+class DurationRegression(nn.Module):
+    def __init__(self, input_size):
+        super().__init__()
+        self.input_size = input_size
+        self.fc = nn.Linear(input_size, 1)
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        nn.init.constant_(self.fc.weight, 0)
+        nn.init.constant_(self.fc.bias, 0)
+
+    def forward(self, x):
+        return self.fc(x)
+    
+    def __repr__(self):
+        return "DurationRegression(input: {})".format(self.input_size)
 
 class Model(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, layer_num, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, lstm_type):
@@ -152,7 +169,7 @@ class Model(nn.Module):
                      else WeightDropLSTM(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) for i in range(layer_num)]
         self.rnns = nn.ModuleList(self.rnns)
         self.fc = FC_tied(embed_size, vocab_size, self.embed.W)
-        self.duration_regression = nn.Linear(embed_size, 1)
+        self.duration_regression = DurationRegression(embed_size)
         self.dropout = VariationalDropout()
         self.dropout_i = dropout_i
         self.dropout_l = dropout_l

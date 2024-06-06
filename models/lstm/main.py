@@ -13,6 +13,7 @@ from models.lstm.ntasgd import NTASGD
 
 from scripts.corpora import Corpora
 from scripts.data_handling import build_vocab
+from scripts.plot import plot_loss, plot_ppl
 
 class AwdLSTM:
     SEED = 12345
@@ -140,20 +141,37 @@ class AwdLSTM:
                 loss = F.cross_entropy(scores, y.reshape(-1))
                 losses.append(loss.data.item())
         return np.exp(np.mean(losses))
-
+    
+    def perplexity_for_training(self, batches, model):
+        model.eval()
+        with torch.no_grad():
+            losses = []
+            batch_size = batches[0][0].size(1)
+            states = model.state_init(batch_size)
+            for x, y, _ in tqdm(batches, desc="Evaluating perplexity", leave=False):
+                x = x.to(self.device)
+                y = y.to(self.device)
+                scores, states = model(x, states)
+                loss = F.cross_entropy(scores, y.reshape(-1))
+                losses.append(loss.data.item())
+        return np.exp(np.mean(losses))
+        
     def train_model(self, model, optimizer):
         tic = timeit.default_timer()
         total_words = 0
         print("Starting training.")
         best_val = 1e10
+        loss_sg, loss_fix, ppl = [], [], {}
         for epoch in range(self.epochs):
-            print("Epoch : {:d}".format(epoch))
+            print("Epoch : {:d}".format(epoch+1))
             seq_len = self.get_seq_len()
             optimizer.lr(seq_len / self.bptt * self.lr)
             states = model.state_init(self.batch_size)
             model.train()
+            
             minibatches = self.minibatch(self.trn_tokens, self.trn_fix, seq_len)
-            for (x, y, fix) in tqdm(minibatches, desc="Training"):
+            minibatches_for_trn = random.sample(minibatches, int(len(minibatches) * 0.1))
+            for i, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training", total=len(minibatches)):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 fix = fix.to(self.device)
@@ -168,17 +186,23 @@ class AwdLSTM:
                 
                 if fix.sum() > 0:
                     fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                    scale_factor = loss / fix_loss
-                    fix_loss = fix_loss * scale_factor
                 else:
                     fix_loss = torch.tensor(0.0)
                 
                 loss_reg = loss + ar_reg + tar_reg + fix_loss
                 loss_reg.backward()
                 
+                loss_sg.append(loss.item() + ar_reg.item() + tar_reg.item())
+                loss_fix.append(fix_loss.item())
+                
                 nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()
+                
+                if i % self.log == 0:
+                    ppl[i] = self.perplexity_for_training(minibatches_for_trn, model)
+                    model.train()
+                    
     
             tmp = {}
             for (prm,st) in optimizer.state.items():
@@ -205,6 +229,8 @@ class AwdLSTM:
             print("lr : {:.3f}".format(seq_len / self.bptt * self.lr))
             print("*************************************************\n")        
         self.log_file.close()
+        plot_loss(loss_sg, loss_fix, self.name, self.save_path)
+        plot_ppl(ppl, self.name, self.save_path)
         self.generate_embeddings(model)
         
     def generate_embeddings(self, model):

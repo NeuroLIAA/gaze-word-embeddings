@@ -60,6 +60,18 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path):
     plt.ylabel('Loss')
     plt.title(f'{model_name} loss')
     plt.savefig(save_path / 'loss.png')
+    
+def plot_ppl(ppl, model_name, save_path):
+    keys = list(ppl.keys())
+    values = list(ppl.values())
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(keys, values, marker='o')
+    plt.title(model_name)
+    plt.xlabel('Batch')
+    plt.ylabel('Perplexity')
+    plt.grid(True)
+    plt.savefig(save_path / 'ppl.png')
 
 
 def similarity_distributions(models_similarities, save_path):

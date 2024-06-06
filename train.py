@@ -107,6 +107,7 @@ if __name__ == '__main__':
     model_path = get_embeddings_path(args.output, args.data, args.fraction)
     
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
+    #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -max_vocab 30000 -r 1 -t -e 5 
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
