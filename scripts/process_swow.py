@@ -8,15 +8,15 @@ NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
 INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
-def load_swow(wa_file, wf_file, stimuli_path, data_split, min_freq, seed):
+def load_swow(wa_file, words_freq, non_content_cues_file, min_freq, stimuli_path, data_split, seed):
     wa_split_file = Path(f'{wa_file[:-4]}_{data_split}.csv')
     if not wa_split_file.exists():
-        processed_wa = process_swow(wa_file, wf_file, min_freq)
+        processed_wa = process_swow(wa_file, words_freq, non_content_cues_file, min_freq)
         split_wa(processed_wa, wa_file, stimuli_path, seed)
     return pd.read_csv(wa_split_file)
 
 
-def process_swow(swow_file, words_freq, min_freq):
+def process_swow(swow_file, words_freq, non_content_cues_file, min_freq):
     swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
     swow.rename(columns={'response': 'answer', 'R123': 'n', 'R123.Strength': 'freq'}, inplace=True)
@@ -31,6 +31,7 @@ def process_swow(swow_file, words_freq, min_freq):
         swow[keyword] = swow[keyword].str.lower()
         if keyword == 'cue':
             swow = remove_words_not_in_espal(swow, keyword, words_freq)
+            swow = remove_non_content_words(swow, keyword, non_content_cues_file)
 
     swow = compute_mean_n(swow)
     swow = swow[swow['freq'] >= min_freq]
@@ -92,3 +93,8 @@ def remove_short_and_long_words(df, column, min_len, max_len):
 
 def remove_words_not_in_espal(df, column, words_freq):
     return df[df[column].isin(words_freq['word'])]
+
+
+def remove_non_content_words(df, column, non_content_cues_file):
+    non_content_cues = pd.read_csv(non_content_cues_file)['cue']
+    return df[~df[column].isin(non_content_cues)]

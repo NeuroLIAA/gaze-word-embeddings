@@ -55,17 +55,20 @@ if __name__ == '__main__':
                         help='Path to item files employed in the experiment')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
-    parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
-                        help='File containing the frequency of each word in the words associations file')
     parser.add_argument('-min_freq', '--min_freq', type=float, default=0.02,
                         help='Minimum frequency of answer for a cue answer pair to be considered')
+    parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
+                        help='File containing the frequency of each cue in the words associations file')
+    parser.add_argument('-nc', '--non_content', type=str, default='evaluation/non_content_cues.csv',
+                        help='File containing a list of non-content cues to be filtered out')
     parser.add_argument('-set', '--set', type=str, default='val', help='Set to evaluate')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     words_freq = pd.read_csv(args.words_frequency)
     output, stimuli_path = Path(args.output), Path(args.stimuli)
-    swow = load_swow(args.words_associations, words_freq, stimuli_path, args.set, args.min_freq, args.seed)
+    swow = load_swow(args.words_associations, words_freq, args.non_content, args.min_freq, stimuli_path,
+                     args.set, args.seed)
     embeddings_path = get_embeddings_path(args.embeddings, args.model_name, args.fraction)
 
     test(embeddings_path, swow, words_freq, args.words_samples, args.resample, stimuli_path, output, args.seed)
