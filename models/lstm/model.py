@@ -4,8 +4,9 @@ import torch.nn.functional as F
 import math
 import warnings
 
+
 class Embed(nn.Module):
-    def __init__(self, vocab_size, embed_size, dropout = 0, winit = 0.1):
+    def __init__(self, vocab_size, embed_size, dropout=0, winit=0.1):
         super().__init__()
         self.vocab_size = vocab_size
         self.embed_size = embed_size
@@ -30,23 +31,25 @@ class Embed(nn.Module):
     def __repr__(self):
         return "Embedding(vocab: {}, embedding: {}, dropout: {})".format(self.vocab_size, self.embed_size, self.dropout)
 
+
 class VariationalDropout(nn.Module):
     def __init__(self):
         super().__init__()
         
-    def forward(self, input, dropout):
+    def forward(self, input_, dropout):
         if self.training:
-            mask = torch.empty(input.size(1), input.size(2), device = input.device).bernoulli_(1-dropout)/(1-dropout)
-            mask = mask.expand_as(input)
-            return mask * input
+            mask = torch.empty(input_.size(1), input_.size(2), device=input_.device).bernoulli_(1-dropout)/(1-dropout)
+            mask = mask.expand_as(input_)
+            return mask * input_
         else:
-            return input
+            return input_
     
     def __repr__(self):
         return "VariationalDropout()"
 
+
 class WeightDropLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_drop = 0.0):
+    def __init__(self, input_size, hidden_size, weight_drop=0.0):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -74,9 +77,10 @@ class WeightDropLSTM(nn.Module):
     def forward(self, *args):
         self._setweights()
         with warnings.catch_warnings():
-            #To avoid the warning that comes because the weights aren't flattened.
+            # To avoid the warning that comes because the weights aren't flattened.
             warnings.simplefilter("ignore")
             return self.module.forward(*args)
+
 
 class WeightDropLSTMCustom(nn.Module):
     def __init__(self, input_size, hidden_size, weight_drop = 0.0):
@@ -100,7 +104,8 @@ class WeightDropLSTMCustom(nn.Module):
     def __repr__(self):
         return "WeightDropLSTM(input: {}, hidden: {}, weight drop: {})".format(self.input_size, self.hidden_size, self.weight_drop)
 
-    def lstm_step(self, x, h, c, W_x, W_h, b_x, b_h):
+    @staticmethod
+    def lstm_step(x, h, c, W_x, W_h, b_x, b_h):
         gx = torch.addmm(b_x, x, W_x.t())
         gh = torch.addmm(b_h, h, W_h.t())
         xi, xf, xo, xn = gx.chunk(4, 1)
@@ -113,18 +118,19 @@ class WeightDropLSTMCustom(nn.Module):
         h = outputgate * torch.tanh(c)
         return h, c
 
-    #Takes input tensor x with dimensions: [T, B, X].
-    def forward(self, input, states):
+    # Takes input tensor x with dimensions: [T, B, X].
+    def forward(self, input_, states):
         h, c = states
         outputs = []
-        inputs = input.unbind(0)
+        inputs = input_.unbind(0)
         W_h = F.dropout(self.W_h, self.weight_drop, self.training)
         for x_t in inputs:
             h, c = self.lstm_step(x_t, h, c, self.W_x, W_h, self.b_x, self.b_h)
             outputs.append(h)
         return torch.stack(outputs), (h, c)
 
-class FC_tied(nn.Module):
+
+class FCTied(nn.Module):
     def __init__(self, input_size, hidden_size, weight):
         super().__init__()
         self.input_size = input_size
@@ -143,7 +149,8 @@ class FC_tied(nn.Module):
 
     def __repr__(self):
         return "FC Tied(input: {}, hidden: {})".format(self.input_size, self.hidden_size)
-    
+
+
 class DurationRegression(nn.Module):
     def __init__(self, input_size):
         super().__init__()
@@ -161,6 +168,7 @@ class DurationRegression(nn.Module):
     def __repr__(self):
         return "DurationRegression(input: {})".format(self.input_size)
 
+
 class Model(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, layer_num, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, lstm_type):
         super().__init__()
@@ -168,7 +176,7 @@ class Model(nn.Module):
         self.rnns = [WeightDropLSTMCustom(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) if lstm_type == "custom"
                      else WeightDropLSTM(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) for i in range(layer_num)]
         self.rnns = nn.ModuleList(self.rnns)
-        self.fc = FC_tied(embed_size, vocab_size, self.embed.W)
+        self.fc = FCTied(embed_size, vocab_size, self.embed.W)
         self.duration_regression = DurationRegression(embed_size)
         self.dropout = VariationalDropout()
         self.dropout_i = dropout_i
@@ -197,6 +205,7 @@ class Model(nn.Module):
                   else (torch.zeros(1, batch_size, layer.hidden_size, device = dev), torch.zeros(1, batch_size, layer.hidden_size, device = dev)) for layer in self.rnns]
         return states
             
-    def detach(self, states):
-        return [(h.detach(), c.detach()) for (h,c) in states]
+    @staticmethod
+    def detach(states):
+        return [(h.detach(), c.detach()) for (h, c) in states]
     

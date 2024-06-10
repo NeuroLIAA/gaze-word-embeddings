@@ -10,7 +10,6 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
 
 
 class Corpora(Dataset):
-
     def __init__(self, min_token_len, max_token_len, min_sentence_len, for_llm=False):
         super(Corpora).__init__()
         self.corpora = None
@@ -70,7 +69,7 @@ class Corpus:
         
         if self.for_llm:
             tok = SpacyTokenizer('es')
-            preprocess_fn = partial(preprocess_str_for_llm, tokenizer=tok)
+            preprocess_fn = partial(preprocess_str_for_lm, tokenizer=tok)
         else:
             preprocess_fn = partial(preprocess_str, min_token_len=min_token_len, max_token_len=max_token_len)
 
@@ -98,12 +97,10 @@ def preprocess_str(string, min_token_len, max_token_len):
     return string
 
 
-def preprocess_str_for_llm(phrase, tokenizer):
+def preprocess_str_for_lm(phrase, tokenizer):
     chars_map = str.maketrans(CHARS_MAP)
     pattern = r"[A-Za-zá-úñ" + re.escape(string.punctuation) + r"]+$"
-    
     splitted_text = [word.translate(chars_map) for word in to_unicode(phrase['text'].lower()).split()]
-    
     if 'fix_dur' in phrase:
         fix_dur_associations = dict(zip(splitted_text, phrase["fix_dur"]))
     else:
@@ -119,10 +116,8 @@ def preprocess_str_for_llm(phrase, tokenizer):
                 tokens_fix.append(fix_dur_associations[token])
             else:
                 tokens_fix.append(0)
-            
     phrase['text'] = tokenized
     phrase['fix_dur'] = tokens_fix
-    
     return phrase
 
 

@@ -47,7 +47,8 @@ class Trainer:
         
         print(f'Training completed. Model saved at {save_path}')
 
-    def get_path(self, save_path, corpora_labels, data_sources):
+    @staticmethod
+    def get_path(save_path, corpora_labels, data_sources):
         model_name = corpora_labels[-1] if 'local' in data_sources else 'baseline'
         save_path = save_path / model_name
         return model_name, save_path
