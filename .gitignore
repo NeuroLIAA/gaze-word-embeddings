@@ -10,7 +10,6 @@ embeddings/*
 **/.idea/*
 
 # log files, model files, etc
-*.csv
 *.json
 *.txt
 *.tar
