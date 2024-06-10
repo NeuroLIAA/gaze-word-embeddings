@@ -5,7 +5,7 @@ from numpy import linspace
 
 
 def plot_correlations(models_results, save_path):
-    fig, ax = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
     for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
         title = f'{"in" if stimuli == "in_stimuli" else "off"} stimuli words'
         data = [models_results[stimuli][model_name] for model_name in models_results[stimuli]]
@@ -13,6 +13,8 @@ def plot_correlations(models_results, save_path):
         ax[i].set_title(title)
         ax[i].set_xlabel('Model')
         ax[i].set_ylabel('Spearman correlation coefficient')
+        plt.setp(ax[i].xaxis.get_majorticklabels(), rotation=45)
+    plt.tight_layout()
     plt.savefig(save_path / 'correlations.png')
     plt.show()
 
@@ -60,7 +62,8 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path):
     plt.ylabel('Loss')
     plt.title(f'{model_name} loss')
     plt.savefig(save_path / 'loss.png')
-    
+
+
 def plot_ppl(ppl, model_name, save_path):
     keys = list(ppl.keys())
     values = list(ppl.values())
