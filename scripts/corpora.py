@@ -1,7 +1,8 @@
 from datasets import load_dataset, concatenate_datasets
 from torch.utils.data import Dataset
+from functools import partial
+from fastai.text.all import SpacyTokenizer, tokenize1, string
 import regex as re
-from fastai.text.all import *
 
 CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
              '“': '', '”': '', '\'': '', '\"': '', '‘': '', '’': '',
@@ -10,7 +11,7 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
 
 
 class Corpora(Dataset):
-    def __init__(self, min_token_len, max_token_len, min_sentence_len, for_llm=False):
+    def __init__(self, min_token_len, max_token_len, min_sentence_len, for_lm=False):
         super(Corpora).__init__()
         self.corpora = None
         self.size = {}
@@ -18,14 +19,14 @@ class Corpora(Dataset):
         self.min_token_len = min_token_len
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
-        self.for_llm = for_llm
+        self.for_lm = for_lm
 
     def add_corpus(self, name, source, fraction, repeats):
         if source == 'remote':
             repeats = 1
         for _ in range(repeats):
             corpus = Corpus(name, source, fraction,
-                            self.min_token_len, self.max_token_len, self.min_sentence_len, self.for_llm)
+                            self.min_token_len, self.max_token_len, self.min_sentence_len, self.for_lm)
             self.corpora = corpus.data if self.corpora is None else concatenate_datasets([self.corpora, corpus.data])
             self.size[name] = self.size.get(name, 0) + corpus.size
             self.num_sentences[name] = self.num_sentences.get(name, 0) + corpus.num_sentences
@@ -50,12 +51,12 @@ class Corpora(Dataset):
 
 
 class Corpus:
-    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, for_llm=False):
+    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, for_lm=False):
         self.name = name
         self.is_remote = source == 'remote'
         self.size = 0
         self.num_sentences = 0
-        self.for_llm = for_llm
+        self.for_lm = for_lm
         self.data = self.load_corpus(min_token_len, max_token_len, min_sentence_len, fraction)
 
     def load_corpus(self, min_token_len, max_token_len, min_sentence_len, fraction):
@@ -66,8 +67,7 @@ class Corpus:
         else:
             data = load_dataset(self.name)['train']
         self.size = data.info.size_in_bytes
-        
-        if self.for_llm:
+        if self.for_lm:
             tok = SpacyTokenizer('es')
             preprocess_fn = partial(preprocess_str_for_lm, tokenizer=tok)
         else:
