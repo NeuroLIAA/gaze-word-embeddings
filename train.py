@@ -35,26 +35,23 @@ class Trainer:
     def train(self):
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-        
         corpora = load_corpora(self.corpora_labels, self.data_sources, self.fraction, self.repeats, self.min_token_len, 
                                self.max_token_len, self.min_sentence_len, self.tokenizer)
         corpora.print_size()
-        
-        model_name, save_path = self.get_path(self.save_path, self.corpora_labels, self.data_sources)
-        
+
+        model_name, save_path = self.get_path()
         model = self.get_model(corpora, model_name, save_path)
         model.train()
-        
         print(f'Training completed. Model saved at {save_path}')
 
-    @staticmethod
-    def get_path(save_path, corpora_labels, data_sources):
-        model_name = corpora_labels[-1] if 'local' in data_sources else 'baseline'
-        save_path = save_path / model_name
+    def get_path(self):
+        model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
+        model_name = f'{self.model}_{model_name}'
+        save_path = self.save_path / model_name
         return model_name, save_path
 
     def get_model(self, corpora, model_name, save_path):
-        if self.model == 'word2vec':
+        if self.model == 'w2v':
             return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                             self.downsample_factor, self.epochs, self.lr,
                             self.batch_size, self.train_fix, self.device, model_name, save_path)
@@ -96,7 +93,7 @@ if __name__ == '__main__':
                         help='Sentence minimum length, in tokens')
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
-    parser.add_argument('-m', '--model', choices=["word2vec", "lstm"], type=str,
+    parser.add_argument('-m', '--model', choices=['w2v', 'lstm'], type=str,
                         help='Model architecture to be trained')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
