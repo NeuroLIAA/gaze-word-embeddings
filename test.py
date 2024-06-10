@@ -44,7 +44,7 @@ def test_model(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_resul
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_name', type=str, help='Model base name')
+    parser.add_argument('data', type=str, help='Training data descriptive name')
     parser.add_argument('-e', '--embeddings', type=str, default='embeddings', help='Path to extracted embeddings')
     parser.add_argument('-f', '--fraction', type=float, default=0.3,
                         help='Fraction of baseline corpus employed for model training')
@@ -69,6 +69,6 @@ if __name__ == '__main__':
     output, stimuli_path = Path(args.output), Path(args.stimuli)
     swow = load_swow(args.words_associations, words_freq, args.non_content, args.min_freq, stimuli_path,
                      args.set, args.seed)
-    embeddings_path = get_embeddings_path(args.embeddings, args.model_name, args.fraction)
+    embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
 
     test(embeddings_path, swow, words_freq, args.words_samples, args.resample, stimuli_path, output, args.seed)
