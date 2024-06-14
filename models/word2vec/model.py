@@ -28,7 +28,7 @@ class Word2Vec:
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
                                                      self.train_fix)
-        skip_gram = SkipGram(len(vocab), self.lr, self.vector_size)
+        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr)
         if self.device == 'cuda' and torch.cuda.is_available():
             self.device = torch.device('cuda')
             skip_gram.cuda()
@@ -104,8 +104,8 @@ class SkipGram(nn.Module):
         return torch.mean(score + neg_score), duration
 
     def init_optimizers(self, lr):
-        optimizers = {'embeddings': optim.SparseAdam(self.u_embeddings.parameters(), lr=lr),
-                        'fix_duration': optim.AdamW(self.duration_regression.parameters(), lr=lr)}
+        optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
+                        'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=lr)}
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
