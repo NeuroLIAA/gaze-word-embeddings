@@ -38,6 +38,7 @@ class Word2Vec:
         loss_sg, loss_fix = [], []
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(skip_gram.optimizers['embeddings'],
                                                                len(dataloader) * self.epochs)
+        self.save_path.mkdir(exist_ok=True, parents=True)
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
             for batch in tqdm(dataloader):
@@ -65,7 +66,6 @@ class Word2Vec:
                     scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
 
-        self.save_path.mkdir(exist_ok=True, parents=True)
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
 
@@ -79,7 +79,7 @@ class SkipGram(nn.Module):
         self.u_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
-        self.init_optimizers(lr)
+        self.optimizers = self.init_optimizers(lr)
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
@@ -104,8 +104,9 @@ class SkipGram(nn.Module):
         return torch.mean(score + neg_score), duration
 
     def init_optimizers(self, lr):
-        self.optimizers = {'embeddings': optim.SparseAdam(self.u_embeddings.parameters(), lr=lr),
-                           'fix_duration': optim.AdamW(self.duration_regression.parameters(), lr=lr)}
+        optimizers = {'embeddings': optim.SparseAdam(self.u_embeddings.parameters(), lr=lr),
+                        'fix_duration': optim.AdamW(self.duration_regression.parameters(), lr=lr)}
+        return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
         embedding = self.u_embeddings.weight.cpu().data.numpy()
@@ -127,7 +128,6 @@ class SkipGram(nn.Module):
     def load_checkpoint(self, file_name):
         checkpoint = torch.load(file_name)
         self.load_state_dict(checkpoint['model_state_dict'])
-        self.init_optimizers(0)
         for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
             self.optimizers[opt].load_state_dict(state)
         return checkpoint['epoch'], checkpoint['loss_sg'], checkpoint['loss_fix']
