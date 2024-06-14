@@ -36,8 +36,6 @@ class Word2Vec:
             self.device = torch.device('cpu')
 
         loss_sg, loss_fix = [], []
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(skip_gram.optimizers['embeddings'],
-                                                               len(dataloader) * self.epochs)
         self.save_path.mkdir(exist_ok=True, parents=True)
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
@@ -63,7 +61,6 @@ class Word2Vec:
                     skip_gram.optimizers['embeddings'].step()
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
-                    scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
