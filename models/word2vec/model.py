@@ -28,7 +28,7 @@ class Word2Vec:
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
                                                      self.train_fix)
-        skip_gram = SkipGram(len(vocab), self.vector_size)
+        skip_gram = SkipGram(len(vocab), self.lr, self.vector_size)
         if self.device == 'cuda' and torch.cuda.is_available():
             self.device = torch.device('cuda')
             skip_gram.cuda()
@@ -36,13 +36,10 @@ class Word2Vec:
             self.device = torch.device('cpu')
 
         loss_sg, loss_fix = [], []
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(skip_gram.optimizers['embeddings'],
+                                                               len(dataloader) * self.epochs)
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
-            sparse_params = list(skip_gram.parameters())[:2]
-            dense_params = list(skip_gram.parameters())[2:]
-            opt_sparse = optim.SparseAdam(sparse_params, lr=self.lr)
-            opt_dense = optim.AdamW(dense_params, lr=self.lr)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt_sparse, len(dataloader))
             for batch in tqdm(dataloader):
                 if len(batch[0]) > 1:
                     pos_u = batch[0].to(self.device)
@@ -51,7 +48,8 @@ class Word2Vec:
                     fix_v = batch[3].to(self.device)
 
                     update_regressor = self.train_fix and fix_v.sum() > 0
-                    opt_sparse.zero_grad(), opt_dense.zero_grad()
+                    skip_gram.optimizers['embeddings'].zero_grad()
+                    skip_gram.optimizers['fix_duration'].zero_grad()
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
@@ -61,10 +59,11 @@ class Word2Vec:
                     else:
                         loss_fix.append(loss_fix[-1] if loss_fix else 0)
                     loss.backward()
-                    opt_sparse.step()
+                    skip_gram.optimizers['embeddings'].step()
                     if update_regressor:
-                        opt_dense.step()
+                        skip_gram.optimizers['fix_duration'].step()
                     scheduler.step()
+            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
 
         self.save_path.mkdir(exist_ok=True, parents=True)
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
@@ -73,13 +72,14 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, emb_size, emb_dimension, num_classes=6):
+    def __init__(self, emb_size, emb_dimension, lr, num_classes=6):
         super(SkipGram, self).__init__()
         self.emb_size = emb_size
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
+        self.init_optimizers(lr)
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
@@ -103,6 +103,10 @@ class SkipGram(nn.Module):
 
         return torch.mean(score + neg_score), duration
 
+    def init_optimizers(self, lr):
+        self.optimizers = {'embeddings': optim.SparseAdam(self.u_embeddings.parameters(), lr=lr),
+                           'fix_duration': optim.AdamW(self.duration_regression.parameters(), lr=lr)}
+
     def save_embedding_vocab(self, vocab, file_name):
         embedding = self.u_embeddings.weight.cpu().data.numpy()
         with open(file_name, 'w') as f:
@@ -110,3 +114,20 @@ class SkipGram(nn.Module):
             for wid, w in enumerate(vocab.get_itos()):
                 e = ' '.join(map(lambda x: str(x), embedding[wid]))
                 f.write('%s %s\n' % (w, e))
+
+    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix):
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers],
+            'loss_sg': loss_sg,
+            'loss_fix': loss_fix,
+        }, file_name)
+
+    def load_checkpoint(self, file_name):
+        checkpoint = torch.load(file_name)
+        self.load_state_dict(checkpoint['model_state_dict'])
+        self.init_optimizers(0)
+        for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
+            self.optimizers[opt].load_state_dict(state)
+        return checkpoint['epoch'], checkpoint['loss_sg'], checkpoint['loss_fix']
