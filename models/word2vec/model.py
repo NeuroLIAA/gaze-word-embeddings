@@ -9,7 +9,7 @@ from scripts.data_handling import get_dataloader_and_vocab
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 batch_size, train_fix, device, model_name, save_path):
+                 batch_size, train_fix, device, model_name, pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
         self.window_size = window_size
@@ -22,6 +22,7 @@ class Word2Vec:
         self.train_fix = train_fix
         self.device = device
         self.model_name = model_name
+        self.pretrained_path = pretrained_path
         self.save_path = save_path
 
     def train(self):
@@ -29,6 +30,8 @@ class Word2Vec:
                                                      self.downsample_factor, self.window_size, self.batch_size,
                                                      self.train_fix)
         skip_gram = SkipGram(len(vocab), self.vector_size, self.lr)
+        if self.pretrained_path:
+            skip_gram.load_checkpoint(self.pretrained_path)
         if self.device == 'cuda' and torch.cuda.is_available():
             self.device = torch.device('cuda')
             skip_gram.cuda()
@@ -61,7 +64,8 @@ class Word2Vec:
                     skip_gram.optimizers['embeddings'].step()
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
-            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
+            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix,
+                                      vocab)
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
@@ -113,13 +117,14 @@ class SkipGram(nn.Module):
                 e = ' '.join(map(lambda x: str(x), embedding[wid]))
                 f.write('%s %s\n' % (w, e))
 
-    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix):
+    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix, vocab):
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.state_dict(),
             'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers],
             'loss_sg': loss_sg,
             'loss_fix': loss_fix,
+            'vocab': vocab
         }, file_name)
 
     def load_checkpoint(self, file_name):
