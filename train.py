@@ -9,7 +9,7 @@ from models.lstm.main import AwdLSTM
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
                  batch_size, device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size,
-                 min_count, model, train_fix, save_path, pretrained_path, tokenizer, max_vocab):
+                 min_count, model, train_fix, save_path, pretrained_path, tokenizer, max_vocab, stimuli_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
         self.fraction = fraction
@@ -32,6 +32,7 @@ class Trainer:
         self.pretrained_path = pretrained_path
         self.tokenizer = tokenizer
         self.max_vocab = max_vocab
+        self.stimuli_path = stimuli_path
 
     def train(self):
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
@@ -39,29 +40,28 @@ class Trainer:
         corpora = load_corpora(self.corpora_labels, self.data_sources, self.fraction, self.repeats, self.min_token_len, 
                                self.max_token_len, self.min_sentence_len, self.tokenizer)
         corpora.print_size()
-
-        model_name = self.get_model_name()
-        model = self.get_model(corpora, model_name)
+        model = self.get_model(corpora)
         model.train()
         print(f'Training completed. Model saved at {self.save_path}')
 
-    def get_model_name(self):
-        model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
-        model_name = f'{self.model}_{model_name}'
-        self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
-        self.save_path = self.save_path / model_name
-        return model_name
-
-    def get_model(self, corpora, model_name):
+    def get_model(self, corpora):
+        model_name = self.set_paths()
         if self.model == 'w2v':
             return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                             self.downsample_factor, self.epochs, self.lr, self.batch_size, self.train_fix,
-                            self.device, model_name, self.pretrained_path, self.save_path)
+                            self.stimuli_path, self.device, model_name, self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM(corpora, model_name, self.save_path, embed_size=self.vector_size, batch_size=self.batch_size,
                            epochs=self.epochs, lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
         else:
             raise ValueError(f'Invalid model type: {self.model}')
+
+    def set_paths(self):
+        model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
+        model_name = f'{self.model}_{model_name}'
+        self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
+        self.save_path = self.save_path / model_name
+        return model_name
 
 
 if __name__ == '__main__':
@@ -93,6 +93,10 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=4,
                         help='Sentence minimum length, in tokens')
+    parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
+    parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
+    parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
+                        help='Path to text files employed in the experiment')
     parser.add_argument('-tf', '--train_fix', type=str, default='input',
                         help='Train fixation duration regressor of input or output words. Options: input, output.')
     parser.add_argument('-m', '--model', choices=['w2v', 'lstm'], type=str,
@@ -100,8 +104,6 @@ if __name__ == '__main__':
     parser.add_argument('-ft', '--finetune', type=str, default=None,
                         help='Path to pre-trained model to be fine-tuned')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
-    parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
-    parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
     args = parser.parse_args()
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
@@ -114,4 +116,4 @@ if __name__ == '__main__':
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
             args.size, args.window, args.min_count, args.model, args.train_fix, model_path, args.finetune,
-            args.tokenizer, args.max_vocab).train()
+            args.tokenizer, args.max_vocab, args.stimuli).train()
