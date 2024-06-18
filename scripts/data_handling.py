@@ -34,11 +34,15 @@ def build_vocab(corpora, min_count, words_in_stimuli=None, max_vocab_size=None):
     word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
     vocabulary.insert_token('<unk>', 0)
     vocabulary.set_default_index(vocabulary['<unk>'])
-    # Add base vocabulary
-    for word in words_in_stimuli:
-        if word not in vocabulary:
-            vocabulary.append_token(word)
+    add_base_vocab(words_in_stimuli, vocabulary)
     return vocabulary, word_freq, total_words
+
+
+def add_base_vocab(words_in_stimuli, vocabulary):
+    if words_in_stimuli is not None:
+        for word in words_in_stimuli:
+            if word not in vocabulary:
+                vocabulary.append_token(word)
 
 
 def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix,
