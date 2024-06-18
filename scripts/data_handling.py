@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchtext.vocab import vocab
+from scripts.utils import get_words_in_corpus
 
 
 def build_downsample_distribution(word_freq, total_words, downsample_factor):
@@ -16,13 +17,11 @@ def build_downsample_distribution(word_freq, total_words, downsample_factor):
     return frequency
 
 
-def build_vocab(corpora, min_count, max_vocab_size=None):
+def build_vocab(corpora, min_count, words_in_stimuli=None, max_vocab_size=None):
     word_freq = Counter()
-    
     print('Building vocabulary')
     for tokens in tqdm(corpora):
         word_freq.update(tokens['text'])
-    
     total_words = sum(word_freq.values())
     if max_vocab_size is not None:
         word_freq = word_freq.most_common(max_vocab_size)
@@ -35,12 +34,17 @@ def build_vocab(corpora, min_count, max_vocab_size=None):
     word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
     vocabulary.insert_token('<unk>', 0)
     vocabulary.set_default_index(vocabulary['<unk>'])
-
+    # Add base vocabulary
+    for word in words_in_stimuli:
+        if word not in vocabulary:
+            vocabulary.append_token(word)
     return vocabulary, word_freq, total_words
 
 
-def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix):
-    vocabulary, word_freq, total_words = build_vocab(corpora, min_count)
+def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix,
+                             stimuli_path):
+    words_in_stimuli = get_words_in_corpus(stimuli_path)
+    vocabulary, word_freq, total_words = build_vocab(corpora, min_count, words_in_stimuli)
     negative_samples_set = Samples(word_freq)
     downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor)
 
@@ -55,7 +59,6 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            n_negatives=n_negatives,
                            predict_fix=train_fix),
     )
-
     return dataloader, vocabulary
 
 

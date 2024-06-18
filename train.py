@@ -1,5 +1,6 @@
 import logging
 import argparse
+from pathlib import Path
 from scripts.corpora import load_corpora
 from scripts.utils import get_embeddings_path
 from models.word2vec.model import Word2Vec
@@ -116,4 +117,4 @@ if __name__ == '__main__':
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
             args.size, args.window, args.min_count, args.model, args.train_fix, model_path, args.finetune,
-            args.tokenizer, args.max_vocab, args.stimuli).train()
+            args.tokenizer, args.max_vocab, Path(args.stimuli)).train()

@@ -9,7 +9,7 @@ from scripts.data_handling import get_dataloader_and_vocab
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 batch_size, train_fix, device, model_name, pretrained_path, save_path):
+                 batch_size, train_fix, stimuli_path, device, model_name, pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
         self.window_size = window_size
@@ -22,13 +22,14 @@ class Word2Vec:
         self.train_fix = train_fix
         self.device = device
         self.model_name = model_name
+        self.stimuli_path = stimuli_path
         self.pretrained_path = pretrained_path
         self.save_path = save_path
 
     def train(self):
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
-                                                     self.train_fix)
+                                                     self.train_fix, self.stimuli_path)
         skip_gram = SkipGram(len(vocab), self.vector_size, self.lr)
         if self.pretrained_path:
             skip_gram.load_checkpoint(self.pretrained_path)
@@ -128,8 +129,8 @@ class SkipGram(nn.Module):
         }, file_name)
 
     def load_checkpoint(self, file_name):
-        checkpoint = torch.load(file_name)
+        checkpoint = torch.load(file_name, map_location=torch.device('cpu'))
         self.load_state_dict(checkpoint['model_state_dict'])
         for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
             self.optimizers[opt].load_state_dict(state)
-        return checkpoint['epoch'], checkpoint['loss_sg'], checkpoint['loss_fix']
+        return checkpoint['vocab']
