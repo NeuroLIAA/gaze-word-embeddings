@@ -1,12 +1,13 @@
 from collections import Counter, OrderedDict
+from torch.utils.data import DataLoader
+from torchtext.vocab import vocab, build_vocab_from_iterator
+from scripts.utils import get_words_in_corpus
+from gensim.models import KeyedVectors
 from functools import partial
 from itertools import islice
+from tqdm import tqdm
 import numpy as np
 import torch
-from tqdm import tqdm
-from torch.utils.data import DataLoader
-from torchtext.vocab import vocab
-from scripts.utils import get_words_in_corpus
 
 
 def build_downsample_distribution(word_freq, total_words, downsample_factor):
@@ -45,13 +46,20 @@ def add_base_vocab(words_in_stimuli, vocabulary):
                 vocabulary.append_token(word)
 
 
+def load_vocab_from_checkpoint(pretrained_path):
+    print('Loading vocabulary from checkpoint')
+    model_wv = KeyedVectors.load_word2vec_format(str(pretrained_path.parent / f'{pretrained_path.name[:-4]}.vec'))
+    return build_vocab_from_iterator([model_wv.index_to_key])
+
+
 def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix,
-                             stimuli_path):
+                             stimuli_path, pretrained_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocabulary, word_freq, total_words = build_vocab(corpora, min_count, words_in_stimuli)
     negative_samples_set = Samples(word_freq)
     downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor)
-
+    if pretrained_path:
+        vocabulary = load_vocab_from_checkpoint(pretrained_path)
     dataloader = DataLoader(
         corpora,
         batch_size=batch_size,

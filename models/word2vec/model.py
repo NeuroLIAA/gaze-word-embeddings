@@ -29,7 +29,7 @@ class Word2Vec:
     def train(self):
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
-                                                     self.train_fix, self.stimuli_path)
+                                                     self.train_fix, self.stimuli_path, self.pretrained_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
         skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, device)
         if self.pretrained_path:
@@ -127,4 +127,3 @@ class SkipGram(nn.Module):
         self.load_state_dict(checkpoint['model_state_dict'])
         for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
             self.optimizers[opt].load_state_dict(state)
-        return checkpoint['vocab']
