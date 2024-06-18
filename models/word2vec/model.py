@@ -30,14 +30,10 @@ class Word2Vec:
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
                                                      self.train_fix, self.stimuli_path)
-        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr)
+        device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
+        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, device)
         if self.pretrained_path:
-            skip_gram.load_checkpoint(self.pretrained_path)
-        if self.device == 'cuda' and torch.cuda.is_available():
-            self.device = torch.device('cuda')
-            skip_gram.cuda()
-        else:
-            self.device = torch.device('cpu')
+            skip_gram.load_checkpoint(self.pretrained_path, device)
 
         loss_sg, loss_fix = [], []
         self.save_path.mkdir(exist_ok=True, parents=True)
@@ -45,10 +41,10 @@ class Word2Vec:
             print(f'\nEpoch: {epoch + 1}')
             for batch in tqdm(dataloader):
                 if len(batch[0]) > 1:
-                    pos_u = batch[0].to(self.device)
-                    pos_v = batch[1].to(self.device)
-                    neg_v = batch[2].to(self.device)
-                    fix_v = batch[3].to(self.device)
+                    pos_u = batch[0].to(device)
+                    pos_v = batch[1].to(device)
+                    neg_v = batch[2].to(device)
+                    fix_v = batch[3].to(device)
 
                     update_regressor = self.train_fix and fix_v.sum() > 0
                     skip_gram.optimizers['embeddings'].zero_grad()
@@ -65,8 +61,7 @@ class Word2Vec:
                     skip_gram.optimizers['embeddings'].step()
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
-            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix,
-                                      vocab)
+            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
@@ -74,13 +69,14 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, num_classes=6):
+    def __init__(self, vocab_size, emb_dimension, lr, device, num_classes=6):
         super(SkipGram, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr)
+        self.to(device)
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
@@ -126,8 +122,8 @@ class SkipGram(nn.Module):
             'loss_fix': loss_fix
         }, file_name)
 
-    def load_checkpoint(self, file_name):
-        checkpoint = torch.load(file_name, map_location=torch.device('cpu'))
+    def load_checkpoint(self, file_name, device):
+        checkpoint = torch.load(file_name, map_location=device)
         self.load_state_dict(checkpoint['model_state_dict'])
         for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
             self.optimizers[opt].load_state_dict(state)
