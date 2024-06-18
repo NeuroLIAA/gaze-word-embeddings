@@ -74,12 +74,11 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, emb_size, emb_dimension, lr, num_classes=6):
+    def __init__(self, vocab_size, emb_dimension, lr, num_classes=6):
         super(SkipGram, self).__init__()
-        self.emb_size = emb_size
         self.emb_dimension = emb_dimension
-        self.u_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
-        self.v_embeddings = nn.Embedding(emb_size, emb_dimension, sparse=True)
+        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
+        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr)
 
@@ -118,14 +117,13 @@ class SkipGram(nn.Module):
                 e = ' '.join(map(lambda x: str(x), embedding[wid]))
                 f.write('%s %s\n' % (w, e))
 
-    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix, vocab):
+    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix):
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.state_dict(),
             'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers],
             'loss_sg': loss_sg,
-            'loss_fix': loss_fix,
-            'vocab': vocab
+            'loss_fix': loss_fix
         }, file_name)
 
     def load_checkpoint(self, file_name):
