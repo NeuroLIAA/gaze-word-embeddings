@@ -86,6 +86,30 @@ class AwdLSTM:
         for sentence in examples['fix_dur']:
             fix_dur += sentence
         return {'text': text, 'fix_dur': fix_dur}
+    
+    def collate(self, batch, batch_size):
+        text = batch['text']
+        fix_dur = batch['fix_dur']
+        should_train_with_batch = True
+        
+        if text.size(0) < batch_size * 2:
+            should_train_with_batch = False
+            return [], [], [], should_train_with_batch
+        
+        num_batches = text.size(0) // batch_size
+        text = text[:num_batches * batch_size]
+        fix_dur = fix_dur[:num_batches * batch_size]
+        
+        text = text.reshape(batch_size, -1).transpose(1, 0)
+        fix_dur = fix_dur.reshape(batch_size, -1).transpose(1, 0)
+        
+        min_seq_len = text.size(0) - 1
+        
+        x = text[:min_seq_len, :]
+        y = text[1: min_seq_len + 1, :]
+        fix_x = fix_dur[:min_seq_len, :]
+        
+        return x, y, fix_x, should_train_with_batch
 
     def data_init(self):
         text = self.corpora
@@ -94,7 +118,7 @@ class AwdLSTM:
         trn = split['train']
         vld = split['test']
 
-        vocab = build_vocab(trn, self.min_word_count, self.max_vocab_size)[0]
+        vocab = build_vocab(trn, self.min_word_count, None, self.max_vocab_size)[0]
 
         print("Numericalizing Training set")
         trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
@@ -106,14 +130,8 @@ class AwdLSTM:
         vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names, num_proc=12)
         vld = vld.with_format("torch")
         
-        print("Loading training tokens...")
-        self.trn_tokens = trn["text"].reshape(-1, 1)
-        print("Loading training fix durations...")
-        self.trn_fix = trn["fix_dur"].reshape(-1, 1)
-        print("Loading validation tokens...")
-        self.vld_tokens = vld["text"].reshape(-1, 1)
-        print("Loading validation fix durations...")
-        self.vld_fix = vld["fix_dur"].reshape(-1, 1)
+        self.trn = trn
+        self.vld = vld
         self.vocab = vocab.get_stoi()
 
     def get_seq_len(self):
@@ -141,28 +159,18 @@ class AwdLSTM:
             dataset.append((x, y, fix_x))
         return dataset
 
-    def perplexity(self, data, fix_data, model):
+    def perplexity(self, data, model, batch_size):
         model.eval()
-        data = self.minibatch(data, fix_data, self.bptt)
+        dataloader = DataLoader(data, batch_size=batch_size*(self.bptt + 1), num_workers=12)
         with torch.no_grad():
             losses = []
-            batch_size = data[0][0].size(1)
             states = model.state_init(batch_size)
-            for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
-                x = x.to(self.device)
-                y = y.to(self.device)
-                scores, states = model(x, states)
-                loss = F.cross_entropy(scores, y.reshape(-1))
-                losses.append(loss.data.item())
-        return np.exp(np.mean(losses))
-
-    def perplexity_for_training(self, batches, model):
-        model.eval()
-        with torch.no_grad():
-            losses = []
-            batch_size = batches[0][0].size(1)
-            states = model.state_init(batch_size)
-            for x, y, _ in tqdm(batches, desc="Evaluating perplexity", leave=False):
+            for batch in tqdm(dataloader, desc="Evaluating perplexity"):
+                x, y, _, should_train_with_batch = self.collate(batch, batch_size)
+                
+                if not should_train_with_batch:
+                    continue
+                
                 x = x.to(self.device)
                 y = y.to(self.device)
                 scores, states = model(x, states)
@@ -183,9 +191,17 @@ class AwdLSTM:
             states = model.state_init(self.batch_size)
             model.train()
 
-            minibatches = self.minibatch(self.trn_tokens, self.trn_fix, seq_len)
-            minibatches_for_trn = random.sample(minibatches, int(len(minibatches) * 0.1))
-            for i, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training", total=len(minibatches)):
+            dataloader = DataLoader(
+                self.trn, 
+                batch_size=self.batch_size*(seq_len + 1), 
+                num_workers=12
+            )
+            for batch in tqdm(dataloader, desc="Training"):
+                x, y, fix, should_train_with_batch = self.collate(batch, self.batch_size)
+                
+                if not should_train_with_batch:
+                    continue
+                
                 x = x.to(self.device)
                 y = y.to(self.device)
                 fix = fix.to(self.device)
@@ -213,16 +229,12 @@ class AwdLSTM:
                 optimizer.step()
                 optimizer.zero_grad()
 
-                if i % self.log == 0:
-                    ppl[i] = self.perplexity_for_training(minibatches_for_trn, model)
-                    model.train()
-
             tmp = {}
             for (prm, st) in optimizer.state.items():
                 tmp[prm] = prm.clone().detach()
                 prm.data = st['ax'].clone().detach()
 
-            val_perp = self.perplexity(self.vld_tokens, self.vld_fix, model)
+            val_perp = self.perplexity(self.vld, model, self.valid_batch_size)
             optimizer.check(val_perp)
 
             self.log_file.write("{:d},{:.3f}\n".format(epoch + 1, val_perp))
@@ -243,7 +255,6 @@ class AwdLSTM:
             print("*************************************************\n")
         self.log_file.close()
         plot_loss(loss_sg, loss_fix, self.name, self.save_path)
-        plot_ppl(ppl, self.name, self.save_path)
         self.generate_embeddings(model)
 
     def generate_embeddings(self, model):
@@ -258,8 +269,6 @@ class AwdLSTM:
 
     def train(self):
         warnings.filterwarnings("ignore")
-        self.trn_tokens, self.trn_fix = self.batchify(self.trn_tokens, self.trn_fix, self.batch_size)
-        self.vld_tokens, self.vld_fix = self.batchify(self.vld_tokens, self.vld_fix, self.valid_batch_size)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
                       self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
