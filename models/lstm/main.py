@@ -22,7 +22,7 @@ class AwdLSTM:
     def __init__(self, corpora, name, save_path, layer_num=3, embed_size=400, hidden_size=1150, lstm_type="pytorch",
                  w_drop=0.5, dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                  batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1, weight_decay=1.2e-6,
-                 epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=5000, min_word_count=5,
+                 epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000, min_word_count=5,
                  max_vocab_size=None):
         self.corpora = corpora
         self.name = name
@@ -79,6 +79,14 @@ class AwdLSTM:
     def save_model(self, model):
         torch.save({'model_state_dict': model.state_dict()}, str(self.save_path / f'{self.name}.tar'))
 
+    def chunk_examples(self, examples):
+        text, fix_dur = [], []
+        for sentence in examples['text']:
+            text += sentence
+        for sentence in examples['fix_dur']:
+            fix_dur += sentence
+        return {'text': text, 'fix_dur': fix_dur}
+
     def data_init(self):
         text = self.corpora
         split = text.corpora.train_test_split(test_size=0.2, seed=self.SEED)
@@ -90,18 +98,22 @@ class AwdLSTM:
 
         print("Numericalizing Training set")
         trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
-        trn_tokens = [token for text in tqdm(trn['text']) for token in text]
-        trn_fix = [token for text in tqdm(trn['fix_dur']) for token in text]
-
+        trn = trn.map(self.chunk_examples, batched=True, remove_columns=trn.column_names, num_proc=12)
+        trn = trn.with_format("torch")
+        
         print("Numericalizing Validation set")
         vld = vld.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
-        vld_tokens = [token for text in tqdm(vld['text']) for token in text]
-        vld_fix = [token for text in tqdm(vld['fix_dur']) for token in text]
-
-        self.trn_tokens = torch.tensor(trn_tokens, dtype=torch.int64).reshape(-1, 1)
-        self.trn_fix = torch.tensor(trn_fix, dtype=torch.int64).reshape(-1, 1)
-        self.vld_tokens = torch.tensor(vld_tokens, dtype=torch.int64).reshape(-1, 1)
-        self.vld_fix = torch.tensor(vld_fix, dtype=torch.int64).reshape(-1, 1)
+        vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names, num_proc=12)
+        vld = vld.with_format("torch")
+        
+        print("Loading training tokens...")
+        self.trn_tokens = trn["text"].reshape(-1, 1)
+        print("Loading training fix durations...")
+        self.trn_fix = trn["fix_dur"].reshape(-1, 1)
+        print("Loading validation tokens...")
+        self.vld_tokens = vld["text"].reshape(-1, 1)
+        print("Loading validation fix durations...")
+        self.vld_fix = vld["fix_dur"].reshape(-1, 1)
         self.vocab = vocab.get_stoi()
 
     def get_seq_len(self):
@@ -254,6 +266,3 @@ class AwdLSTM:
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
                            fine_tuning=False)
         self.train_model(model, optimizer)
-
-# model = AWD_LSTM_Model("pytorch_spanish_spacy_30000", epochs=200)
-# model.train()
