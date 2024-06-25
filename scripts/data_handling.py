@@ -59,7 +59,8 @@ def load_vocab_from_checkpoint(file_path):
 
 
 def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath):
-    if vocab_savepath.exists() and is_baseline:
+    vec_file = vocab_savepath.parent / f'{vocab_savepath.parent.name[:-4]}.vec'
+    if (vocab_savepath.exists() or vec_file.exists()) and is_baseline:
         vocabulary = load_vocab_from_checkpoint(vocab_savepath)
         _, word_freq, total_words = torch.load(vocab_savepath).values()
     else:
