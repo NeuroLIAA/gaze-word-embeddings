@@ -10,15 +10,19 @@ import numpy as np
 import torch
 
 
-def build_downsample_distribution(word_freq, total_words, downsample_factor):
-    frequency = np.array(list(word_freq.values())) / total_words
+def build_downsample_distribution(word_freq, total_words, downsample_factor, base_vocab_tokensids, eps=1e-5):
+    words_freqs = np.array(list(word_freq.values()) + [eps] * len(base_vocab_tokensids))
+    frequency = words_freqs / total_words
     frequency = np.sqrt(downsample_factor / frequency) + (downsample_factor / frequency)
     # Insert <unk> index and make it so that it is always discarded
     frequency = np.insert(frequency, 0, 0.0)
+    if len(base_vocab_tokensids) > 0:
+        for base_vocab_token in base_vocab_tokensids:
+            frequency[base_vocab_token] = 0.0
     return frequency
 
 
-def build_vocab(corpora, min_count, words_in_stimuli=None, max_vocab_size=None):
+def build_vocab(corpora, min_count, max_vocab_size=None, words_in_stimuli=None):
     word_freq = Counter()
     print('Building vocabulary')
     for tokens in tqdm(corpora):
@@ -35,16 +39,18 @@ def build_vocab(corpora, min_count, words_in_stimuli=None, max_vocab_size=None):
     word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
     vocabulary.insert_token('<unk>', 0)
     vocabulary.set_default_index(vocabulary['<unk>'])
-    add_base_vocab(words_in_stimuli, vocabulary, word_freq)
-    return vocabulary, word_freq, total_words
+    base_vocab_tokensids = add_base_vocab(words_in_stimuli, vocabulary)
+    return vocabulary, word_freq, total_words, base_vocab_tokensids
 
 
-def add_base_vocab(words_in_stimuli, vocabulary, word_freq, eps=1e-5):
+def add_base_vocab(words_in_stimuli, vocabulary):
+    base_vocab_tokensids = []
     if words_in_stimuli is not None:
         for word in words_in_stimuli:
             if word not in vocabulary:
                 vocabulary.append_token(word)
-                word_freq[word] = eps
+                base_vocab_tokensids.append(vocabulary[word])
+    return base_vocab_tokensids
 
 
 def load_vocab_from_checkpoint(file_path):
@@ -62,22 +68,24 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath)
     vec_file = vocab_savepath.parent / f'{vocab_savepath.parent.name[:-4]}.vec'
     if (vocab_savepath.exists() or vec_file.exists()) and is_baseline:
         vocabulary = load_vocab_from_checkpoint(vocab_savepath)
-        _, word_freq, total_words = torch.load(vocab_savepath).values()
+        _, word_freq, total_words, base_vocab_tokensids = torch.load(vocab_savepath).values()
     else:
-        vocabulary, word_freq, total_words = build_vocab(corpora, min_count, words_in_stimuli)
+        vocabulary, word_freq, total_words, base_vocab_tokensids = build_vocab(corpora, min_count, max_vocab_size=None,
+                                                                               words_in_stimuli=words_in_stimuli)
         if is_baseline:
-            torch.save({'vocabulary': vocabulary, 'word_freq': word_freq, 'total_words': total_words}, vocab_savepath)
-    return vocabulary, word_freq, total_words
+            torch.save({'vocabulary': vocabulary, 'word_freq': word_freq, 'total_words': total_words,
+                        'base_vocab_tokensids': base_vocab_tokensids}, vocab_savepath)
+    return vocabulary, word_freq, total_words, base_vocab_tokensids
 
 
 def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix,
                              stimuli_path, pretrained_path, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
-    vocabulary, word_freq, total_words = get_vocab(corpora, min_count, words_in_stimuli, pretrained_path is None,
-                                                   vocab_savepath)
+    vocabulary, word_freq, total_words, base_vocab_tokensids = get_vocab(corpora, min_count, words_in_stimuli,
+                                                                         pretrained_path is None, vocab_savepath)
     negative_samples_set = Samples(word_freq)
-    downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor)
+    downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor, base_vocab_tokensids)
     if pretrained_path:
         vocabulary = load_vocab_from_checkpoint(pretrained_path)
     dataloader = DataLoader(
