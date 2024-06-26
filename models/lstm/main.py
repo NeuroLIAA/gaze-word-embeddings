@@ -1,3 +1,4 @@
+import gc
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,15 +6,15 @@ import torch.nn.functional as F
 import timeit
 import warnings
 
-from fastai.text.all import *
 from tqdm import tqdm
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
 
-from scripts.corpora import Corpora
 from scripts.data_handling import build_vocab
-from scripts.plot import plot_loss, plot_ppl
+from scripts.plot import plot_loss
+
+from torch.utils.data import DataLoader
 
 
 class AwdLSTM:
@@ -118,20 +119,22 @@ class AwdLSTM:
         trn = split['train']
         vld = split['test']
 
-        vocab = build_vocab(trn, self.min_word_count, None, self.max_vocab_size)[0]
+        vocab = build_vocab(trn, self.min_word_count, self.max_vocab_size)[0]
 
         print("Numericalizing Training set")
         trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
-        trn = trn.map(self.chunk_examples, batched=True, remove_columns=trn.column_names, num_proc=12)
-        trn = trn.with_format("torch")
         
         print("Numericalizing Validation set")
         vld = vld.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
-        vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names, num_proc=12)
-        vld = vld.with_format("torch")
+
+        print("Reshaping Training set")
+        trn = trn.map(self.chunk_examples, batched=True, remove_columns=trn.column_names)
+
+        print("Reshaping Validation set")
+        vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names)
         
-        self.trn = trn
-        self.vld = vld
+        self.trn = trn.with_format("torch")
+        self.vld = vld.with_format("torch")
         self.vocab = vocab.get_stoi()
 
     def get_seq_len(self):
@@ -228,6 +231,9 @@ class AwdLSTM:
                 nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()
+                
+                #del x, y, fix, should_train_with_batch
+                #gc.collect()
 
             tmp = {}
             for (prm, st) in optimizer.state.items():
