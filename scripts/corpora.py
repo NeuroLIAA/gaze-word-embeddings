@@ -76,7 +76,7 @@ class Corpus:
             preprocess_fn = partial(preprocess_str, min_token_len=min_token_len, max_token_len=max_token_len)
 
         data = data.map(lambda row: preprocess_fn(row), num_proc=12)
-        data = data.filter(lambda row: min_sentence_len < len(row['text']) < max_sentence_len, num_proc=12)
+        data = data.filter(lambda row: min_sentence_len <= len(row['text']) <= max_sentence_len, num_proc=12)
         self.num_sentences = data.num_rows
         return data
 
