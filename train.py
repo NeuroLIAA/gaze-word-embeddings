@@ -9,8 +9,9 @@ from models.lstm.main import AwdLSTM
 
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
-                 batch_size, device, min_token_len, max_token_len, min_sentence_len, vector_size, window_size,
-                 min_count, model, train_fix, save_path, pretrained_path, tokenizer, max_vocab, stimuli_path):
+                 batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
+                 vector_size, window_size, min_count, model, train_fix, save_path, pretrained_path, tokenizer,
+                 max_vocab, stimuli_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
         self.fraction = fraction
@@ -24,6 +25,7 @@ class Trainer:
         self.min_token_len = min_token_len
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
+        self.max_sentence_len = max_sentence_len
         self.vector_size = vector_size
         self.window_size = window_size
         self.min_count = min_count
@@ -39,7 +41,7 @@ class Trainer:
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
         corpora = load_corpora(self.corpora_labels, self.data_sources, self.fraction, self.repeats, self.min_token_len, 
-                               self.max_token_len, self.min_sentence_len, self.tokenizer)
+                               self.max_token_len, self.min_sentence_len, self.max_sentence_len, self.tokenizer)
         corpora.print_size()
         model = self.get_model(corpora)
         model.train()
@@ -94,6 +96,8 @@ if __name__ == '__main__':
                         help='Word max length, in tokens')
     parser.add_argument('-min_length', '--min_length', type=int, default=4,
                         help='Sentence minimum length, in tokens')
+    parser.add_argument('-max_length', '--max_length', type=int, default=40,
+                        help='Sentence maximum length, in tokens')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
     parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
@@ -116,5 +120,5 @@ if __name__ == '__main__':
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
-            args.size, args.window, args.min_count, args.model, args.train_fix, model_path, args.finetune,
-            args.tokenizer, args.max_vocab, Path(args.stimuli)).train()
+            args.max_length, args.size, args.window, args.min_count, args.model, args.train_fix, model_path,
+            args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()

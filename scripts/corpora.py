@@ -11,7 +11,7 @@ CHARS_MAP = {'—': '', '‒': '', '−': '', '-': '', '«': '', '»': '',
 
 
 class Corpora(Dataset):
-    def __init__(self, min_token_len, max_token_len, min_sentence_len, for_lm=False):
+    def __init__(self, min_token_len, max_token_len, min_sentence_len, max_sentence_len, for_lm=False):
         super(Corpora).__init__()
         self.corpora = None
         self.size = {}
@@ -19,14 +19,15 @@ class Corpora(Dataset):
         self.min_token_len = min_token_len
         self.max_token_len = max_token_len
         self.min_sentence_len = min_sentence_len
+        self.max_sentence_len = max_sentence_len
         self.for_lm = for_lm
 
     def add_corpus(self, name, source, fraction, repeats):
         if source == 'remote':
             repeats = 1
         for _ in range(repeats):
-            corpus = Corpus(name, source, fraction,
-                            self.min_token_len, self.max_token_len, self.min_sentence_len, self.for_lm)
+            corpus = Corpus(name, source, fraction, self.min_token_len, self.max_token_len, self.min_sentence_len,
+                            self.max_sentence_len, self.for_lm)
             self.corpora = corpus.data if self.corpora is None else concatenate_datasets([self.corpora, corpus.data])
             self.size[name] = self.size.get(name, 0) + corpus.size
             self.num_sentences[name] = self.num_sentences.get(name, 0) + corpus.num_sentences
@@ -51,15 +52,16 @@ class Corpora(Dataset):
 
 
 class Corpus:
-    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, for_lm=False):
+    def __init__(self, name, source, fraction, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
+                 for_lm=False):
         self.name = name
         self.is_remote = source == 'remote'
         self.size = 0
         self.num_sentences = 0
         self.for_lm = for_lm
-        self.data = self.load_corpus(min_token_len, max_token_len, min_sentence_len, fraction)
+        self.data = self.load_corpus(min_token_len, max_token_len, min_sentence_len, max_sentence_len, fraction)
 
-    def load_corpus(self, min_token_len, max_token_len, min_sentence_len, fraction):
+    def load_corpus(self, min_token_len, max_token_len, min_sentence_len, max_sentence_len, fraction):
         if self.is_remote:
             fraction = int(fraction * 100)
             data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]',
@@ -74,7 +76,7 @@ class Corpus:
             preprocess_fn = partial(preprocess_str, min_token_len=min_token_len, max_token_len=max_token_len)
 
         data = data.map(lambda row: preprocess_fn(row), num_proc=12)
-        data = data.filter(lambda row: min_sentence_len < len(row['text']), num_proc=1)
+        data = data.filter(lambda row: min_sentence_len < len(row['text']) < max_sentence_len, num_proc=12)
         self.num_sentences = data.num_rows
         return data
 
@@ -127,9 +129,9 @@ def to_unicode(text, encoding='utf-8'):
     return str(text, encoding, 'ignore')
 
 
-def load_corpora(corpora_labels, data_sources, fraction, repeats,
-                 min_token_len, max_token_len, min_sentence_len, tokenizer=False):
-    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len, tokenizer)
+def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len, max_token_len, min_sentence_len,
+                 max_sentence_len, tokenizer=False):
+    training_corpora = Corpora(min_token_len, max_token_len, min_sentence_len, max_sentence_len, tokenizer)
     for corpus, source in zip(corpora_labels, data_sources):
         training_corpora.add_corpus(corpus, source, fraction, repeats)
     return training_corpora
