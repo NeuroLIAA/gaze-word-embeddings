@@ -102,7 +102,7 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             if rnd_generator.random() < downsample_table[word_id]:
                 words.append(word_id)
                 fixs.append(words_fix[i])
-        reduced_window = rnd_generator.integers(1, window_size + 1)
+        reduced_window = rnd_generator.integers(1, min(window_size + 1, len(words)))
         for idx, word_id in enumerate(words):
             context_words = words[max(idx - reduced_window, 0): idx + reduced_window]
             words_fix = fixs[max(idx - reduced_window, 0): idx + reduced_window]
