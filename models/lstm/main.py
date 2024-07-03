@@ -1,10 +1,11 @@
-import gc
+from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timeit
 import warnings
+import random
 
 from tqdm import tqdm
 
@@ -14,7 +15,6 @@ from models.lstm.ntasgd import NTASGD
 from scripts.data_handling import build_vocab
 from scripts.plot import plot_loss
 
-from torch.utils.data import DataLoader
 
 
 class AwdLSTM:
@@ -24,7 +24,7 @@ class AwdLSTM:
                  w_drop=0.5, dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                  batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1, weight_decay=1.2e-6,
                  epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000, min_word_count=5,
-                 max_vocab_size=None):
+                 max_vocab_size=None, shard_count=5):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
@@ -52,6 +52,7 @@ class AwdLSTM:
         self.log = log
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
+        self.shard_count = shard_count
         torch.autograd.set_detect_anomaly(True)
 
         self.set_device()
@@ -95,7 +96,7 @@ class AwdLSTM:
         trn = split['train']
         vld = split['test']
 
-        vocab = build_vocab(trn, self.min_word_count, self.max_vocab_size)[0]
+        vocab = build_vocab(corpora=trn, min_count=self.min_word_count, words_in_stimuli=None, max_vocab_size=self.max_vocab_size)[0]
 
         print("Numericalizing Training set")
         trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
@@ -108,16 +109,17 @@ class AwdLSTM:
 
         print("Reshaping Validation set")
         vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names)
+        self.vocab = vocab.get_stoi()
         
-        print("Loading training tokens...")
-        self.trn_tokens = trn["text"].reshape(-1, 1)
-        print("Loading training fix durations...")
-        self.trn_fix = trn["fix_dur"].reshape(-1, 1)
+        trn = trn.with_format("torch")
+        vld = vld.with_format("torch")
+
+        self.trn = trn
         print("Loading validation tokens...")
         self.vld_tokens = vld["text"].reshape(-1, 1)
         print("Loading validation fix durations...")
         self.vld_fix = vld["fix_dur"].reshape(-1, 1)
-        self.vocab = vocab.get_stoi()
+        
 
     def get_seq_len(self):
         seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
@@ -175,53 +177,54 @@ class AwdLSTM:
 
     def train_model(self, model, optimizer):
         tic = timeit.default_timer()
-        total_words = 0
         print("Starting training.")
         best_val = 1e10
-        loss_sg, loss_fix, ppl = [], [], {}
+        loss_sg, loss_fix = [], []
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             seq_len = self.get_seq_len()
             optimizer.lr(seq_len / self.bptt * self.lr)
             states = model.state_init(self.batch_size)
             model.train()
-
-            minibatches = self.minibatch(self.trn_tokens, self.trn_fix, seq_len)
-            minibatches_for_trn = random.sample(minibatches, int(len(minibatches) * 0.1))
-            for i, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training", total=len(minibatches)):
-                x = x.to(self.device)
-                y = y.to(self.device)
-                fix = fix.to(self.device)
-                total_words += x.numel()
-                states = model.detach(states)
-                scores, states, activations, fix_pred = model(x, states)
-
-                loss = F.cross_entropy(scores, y.reshape(-1))
-                h, h_m = activations
-                ar_reg = self.ar * h_m.pow(2).mean()
-                tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
-
-                if fix.sum() > 0:
-                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                else:
-                    fix_loss = torch.tensor(0.0)
-
-                loss_reg = loss + ar_reg + tar_reg + fix_loss
-                loss_reg.backward()
-
-                loss_sg.append(loss.item() + ar_reg.item() + tar_reg.item())
-                loss_fix.append(fix_loss.item())
-
-                nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-                optimizer.step()
-                optimizer.zero_grad()
+            
+            for i in tqdm(range(self.shard_count), desc="Sharding"):
+                dataset = self.trn.shard(num_shards=self.shard_count, index=i, contiguous=True)
                 
-                #del x, y, fix, should_train_with_batch
-                #gc.collect()
+                print("Loading training tokens...")
+                tokens = dataset["text"].reshape(-1, 1)
+                print("Loading training fix durations...")
+                fix_dur = dataset["fix_dur"].reshape(-1, 1)
+                
+                tokens, fix_dur = self.batchify(tokens, fix_dur, self.batch_size)
+                
+                minibatches = self.minibatch(tokens, fix_dur, seq_len)
 
-                if i % self.log == 0:
-                    ppl[i] = self.perplexity_for_training(minibatches_for_trn, model)
-                    model.train()
+                for j, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
+                    x = x.to(self.device)
+                    y = y.to(self.device)
+                    fix = fix.to(self.device)
+                    states = model.detach(states)
+                    scores, states, activations, fix_pred = model(x, states)
+
+                    loss = F.cross_entropy(scores, y.reshape(-1))
+                    h, h_m = activations
+                    ar_reg = self.ar * h_m.pow(2).mean()
+                    tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
+
+                    if fix.sum() > 0:
+                        fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
+                    else:
+                        fix_loss = torch.tensor(0.0)
+
+                    loss_reg = loss + ar_reg + tar_reg + fix_loss
+                    loss_reg.backward()
+
+                    loss_sg.append(loss.item() + ar_reg.item() + tar_reg.item())
+                    loss_fix.append(fix_loss.item())
+
+                    nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
+                    optimizer.step()
+                    optimizer.zero_grad()
 
             tmp = {}
             for (prm, st) in optimizer.state.items():
@@ -249,7 +252,6 @@ class AwdLSTM:
             print("*************************************************\n")
         self.log_file.close()
         plot_loss(loss_sg, loss_fix, self.name, self.save_path)
-        plot_ppl(ppl, self.name, self.save_path)
         self.generate_embeddings(model)
 
     def generate_embeddings(self, model):
@@ -264,11 +266,9 @@ class AwdLSTM:
 
     def train(self):
         warnings.filterwarnings("ignore")
-        self.trn_tokens, self.trn_fix = self.batchify(self.trn_tokens, self.trn_fix, self.batch_size)
         self.vld_tokens, self.vld_fix = self.batchify(self.vld_tokens, self.vld_fix, self.valid_batch_size)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
                       self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
-                           fine_tuning=False)
+        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=False)
         self.train_model(model, optimizer)
