@@ -66,7 +66,7 @@ class Word2Vec:
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
             scheduler.step()
-            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch, loss_sg, loss_fix)
+            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
@@ -118,13 +118,11 @@ class SkipGram(nn.Module):
                 e = ' '.join(map(lambda x: str(x), embedding[wid]))
                 f.write('%s %s\n' % (w, e))
 
-    def save_checkpoint(self, file_name, epoch, loss_sg, loss_fix):
+    def save_checkpoint(self, file_name, epoch):
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.state_dict(),
-            'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers],
-            'loss_sg': loss_sg,
-            'loss_fix': loss_fix
+            'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers]
         }, file_name)
 
     def load_checkpoint(self, file_name, device):
