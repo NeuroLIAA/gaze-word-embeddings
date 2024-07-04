@@ -9,7 +9,7 @@ from models.lstm.main import AwdLSTM
 
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
-                 batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
+                 min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
                  vector_size, window_size, min_count, model, train_fix, save_path, pretrained_path, tokenizer,
                  max_vocab, stimuli_path):
         self.corpora_labels = corpora_labels
@@ -20,6 +20,7 @@ class Trainer:
         self.downsample_factor = downsample_factor
         self.epochs = epochs
         self.lr = lr
+        self.min_lr = min_lr
         self.batch_size = batch_size
         self.device = device
         self.min_token_len = min_token_len
@@ -51,7 +52,7 @@ class Trainer:
         model_name = self.set_paths()
         if self.model == 'w2v':
             return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
-                            self.downsample_factor, self.epochs, self.lr, self.batch_size, self.train_fix,
+                            self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size, self.train_fix,
                             self.stimuli_path, self.device, model_name, self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM(corpora, model_name, self.save_path, embed_size=self.vector_size, batch_size=self.batch_size,
@@ -78,16 +79,17 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=200,
                         help='Number of times the local corpus will be iterated over for training')
-    parser.add_argument('-ns', '--negative_samples', type=int, default=20,
+    parser.add_argument('-ns', '--negative_samples', type=int, default=10,
                         help='Number of negative samples to be used in training')
     parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-3,
                         help='Downsample factor for frequent words')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
-    parser.add_argument('-lr', '--lr', type=float, default=0.001, help='Initial learning rate')
+    parser.add_argument('-lr', '--lr', type=float, default=0.025, help='Initial learning rate')
+    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('-d', '--device', type=str, default='cuda',
                         help='Device to be used for training (cpu or cuda)')
-    parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
+    parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,
@@ -119,6 +121,6 @@ if __name__ == '__main__':
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -max_vocab 30000 -r 1 -t -e 5 
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
-            args.epochs, args.lr, args.batch_size, args.device, args.min_token, args.max_token, args.min_length,
-            args.max_length, args.size, args.window, args.min_count, args.model, args.train_fix, model_path,
-            args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()
+            args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
+            args.min_length, args.max_length, args.size, args.window, args.min_count, args.model, args.train_fix,
+            model_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()

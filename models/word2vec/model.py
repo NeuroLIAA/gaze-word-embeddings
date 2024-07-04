@@ -9,7 +9,7 @@ from scripts.data_handling import get_dataloader_and_vocab
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 batch_size, train_fix, stimuli_path, device, model_name, pretrained_path, save_path):
+                 min_lr, batch_size, train_fix, stimuli_path, device, model_name, pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
         self.window_size = window_size
@@ -18,6 +18,7 @@ class Word2Vec:
         self.downsample_factor = downsample_factor
         self.epochs = epochs
         self.lr = lr
+        self.min_lr = min_lr
         self.batch_size = batch_size
         self.train_fix = train_fix
         self.device = device
