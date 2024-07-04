@@ -81,7 +81,7 @@ if __name__ == '__main__':
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=10,
                         help='Number of negative samples to be used in training')
-    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-3,
+    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-5,
                         help='Downsample factor for frequent words')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-lr', '--lr', type=float, default=0.025, help='Initial learning rate')
