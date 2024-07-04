@@ -5,7 +5,8 @@ from scripts.corpora import Corpus
 
 
 def get_words_in_corpus(stimuli_path):
-    stimuli = Corpus(stimuli_path.name, 'local', 1.0, min_token_len=2, max_token_len=20, min_sentence_len=1)
+    stimuli = Corpus(stimuli_path.name, 'local', 1.0, min_token_len=2, max_token_len=20,
+                     min_sentence_len=1, max_sentence_len=100)
     words_in_corpus = set()
     for sentence in stimuli.data:
         for word in sentence['text']:
