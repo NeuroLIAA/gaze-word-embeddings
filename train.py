@@ -79,13 +79,13 @@ if __name__ == '__main__':
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=200,
                         help='Number of times the local corpus will be iterated over for training')
-    parser.add_argument('-ns', '--negative_samples', type=int, default=10,
+    parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
-    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-5,
+    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-3,
                         help='Downsample factor for frequent words')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
-    parser.add_argument('-lr', '--lr', type=float, default=0.025, help='Initial learning rate')
-    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
+    parser.add_argument('-lr', '--lr', type=float, default=1e-3, help='Initial learning rate')
+    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-3, help='Minimum learning rate')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('-d', '--device', type=str, default='cuda',
                         help='Device to be used for training (cpu or cuda)')
