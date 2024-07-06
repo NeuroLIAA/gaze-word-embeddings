@@ -80,6 +80,7 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                                                      vocabulary(base_vocab_tokens))
     dataloader = DataLoader(
         corpora,
+        shuffle=True,
         batch_size=batch_size,
         collate_fn=partial(collate_fn,
                            words_mapping=lambda words: vocabulary(words),
