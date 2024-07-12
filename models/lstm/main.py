@@ -1,10 +1,11 @@
-import gc
+from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timeit
 import warnings
+import random
 
 from tqdm import tqdm
 
@@ -14,7 +15,6 @@ from models.lstm.ntasgd import NTASGD
 from scripts.data_handling import build_vocab
 from scripts.plot import plot_loss
 
-from torch.utils.data import DataLoader
 
 
 class AwdLSTM:
@@ -24,7 +24,7 @@ class AwdLSTM:
                  w_drop=0.5, dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                  batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1, weight_decay=1.2e-6,
                  epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000, min_word_count=5,
-                 max_vocab_size=None):
+                 max_vocab_size=None, shard_count=5):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
@@ -52,6 +52,7 @@ class AwdLSTM:
         self.log = log
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
+        self.shard_count = shard_count
         torch.autograd.set_detect_anomaly(True)
 
         self.set_device()
@@ -87,30 +88,6 @@ class AwdLSTM:
         for sentence in examples['fix_dur']:
             fix_dur += sentence
         return {'text': text, 'fix_dur': fix_dur}
-    
-    def collate(self, batch, batch_size):
-        text = batch['text']
-        fix_dur = batch['fix_dur']
-        should_train_with_batch = True
-        
-        if text.size(0) < batch_size * 2:
-            should_train_with_batch = False
-            return [], [], [], should_train_with_batch
-        
-        num_batches = text.size(0) // batch_size
-        text = text[:num_batches * batch_size]
-        fix_dur = fix_dur[:num_batches * batch_size]
-        
-        text = text.reshape(batch_size, -1).transpose(1, 0)
-        fix_dur = fix_dur.reshape(batch_size, -1).transpose(1, 0)
-        
-        min_seq_len = text.size(0) - 1
-        
-        x = text[:min_seq_len, :]
-        y = text[1: min_seq_len + 1, :]
-        fix_x = fix_dur[:min_seq_len, :]
-        
-        return x, y, fix_x, should_train_with_batch
 
     def data_init(self):
         text = self.corpora
@@ -119,7 +96,7 @@ class AwdLSTM:
         trn = split['train']
         vld = split['test']
 
-        vocab = build_vocab(trn, self.min_word_count, self.max_vocab_size)[0]
+        vocab = build_vocab(corpora=trn, min_count=self.min_word_count, words_in_stimuli=None, max_vocab_size=self.max_vocab_size)[0]
 
         print("Numericalizing Training set")
         trn = trn.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
@@ -132,10 +109,17 @@ class AwdLSTM:
 
         print("Reshaping Validation set")
         vld = vld.map(self.chunk_examples, batched=True, remove_columns=vld.column_names)
-        
-        self.trn = trn.with_format("torch")
-        self.vld = vld.with_format("torch")
         self.vocab = vocab.get_stoi()
+        
+        trn = trn.with_format("torch")
+        vld = vld.with_format("torch")
+
+        self.trn = trn
+        print("Loading validation tokens...")
+        self.vld_tokens = vld["text"].reshape(-1, 1)
+        print("Loading validation fix durations...")
+        self.vld_fix = vld["fix_dur"].reshape(-1, 1)
+        
 
     def get_seq_len(self):
         seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
@@ -162,18 +146,28 @@ class AwdLSTM:
             dataset.append((x, y, fix_x))
         return dataset
 
-    def perplexity(self, data, model, batch_size):
+    def perplexity(self, data, fix_data, model):
         model.eval()
-        dataloader = DataLoader(data, batch_size=batch_size*(self.bptt + 1), num_workers=12)
+        data = self.minibatch(data, fix_data, self.bptt)
         with torch.no_grad():
             losses = []
+            batch_size = data[0][0].size(1)
             states = model.state_init(batch_size)
-            for batch in tqdm(dataloader, desc="Evaluating perplexity"):
-                x, y, _, should_train_with_batch = self.collate(batch, batch_size)
-                
-                if not should_train_with_batch:
-                    continue
-                
+            for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
+                x = x.to(self.device)
+                y = y.to(self.device)
+                scores, states = model(x, states)
+                loss = F.cross_entropy(scores, y.reshape(-1))
+                losses.append(loss.data.item())
+        return np.exp(np.mean(losses))
+
+    def perplexity_for_training(self, batches, model):
+        model.eval()
+        with torch.no_grad():
+            losses = []
+            batch_size = batches[0][0].size(1)
+            states = model.state_init(batch_size)
+            for x, y, _ in tqdm(batches, desc="Evaluating perplexity", leave=False):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 scores, states = model(x, states)
@@ -183,64 +177,61 @@ class AwdLSTM:
 
     def train_model(self, model, optimizer):
         tic = timeit.default_timer()
-        total_words = 0
         print("Starting training.")
         best_val = 1e10
-        loss_sg, loss_fix, ppl = [], [], {}
+        loss_sg, loss_fix = [], []
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             seq_len = self.get_seq_len()
             optimizer.lr(seq_len / self.bptt * self.lr)
             states = model.state_init(self.batch_size)
             model.train()
-
-            dataloader = DataLoader(
-                self.trn, 
-                batch_size=self.batch_size*(seq_len + 1), 
-                num_workers=12
-            )
-            for batch in tqdm(dataloader, desc="Training"):
-                x, y, fix, should_train_with_batch = self.collate(batch, self.batch_size)
+            
+            for i in tqdm(range(self.shard_count), desc="Sharding"):
+                dataset = self.trn.shard(num_shards=self.shard_count, index=i, contiguous=True)
                 
-                if not should_train_with_batch:
-                    continue
+                print("Loading training tokens...")
+                tokens = dataset["text"].reshape(-1, 1)
+                print("Loading training fix durations...")
+                fix_dur = dataset["fix_dur"].reshape(-1, 1)
                 
-                x = x.to(self.device)
-                y = y.to(self.device)
-                fix = fix.to(self.device)
-                total_words += x.numel()
-                states = model.detach(states)
-                scores, states, activations, fix_pred = model(x, states)
-
-                loss = F.cross_entropy(scores, y.reshape(-1))
-                h, h_m = activations
-                ar_reg = self.ar * h_m.pow(2).mean()
-                tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
-
-                if fix.sum() > 0:
-                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                else:
-                    fix_loss = torch.tensor(0.0)
-
-                loss_reg = loss + ar_reg + tar_reg + fix_loss
-                loss_reg.backward()
-
-                loss_sg.append(loss.item() + ar_reg.item() + tar_reg.item())
-                loss_fix.append(fix_loss.item())
-
-                nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-                optimizer.step()
-                optimizer.zero_grad()
+                tokens, fix_dur = self.batchify(tokens, fix_dur, self.batch_size)
                 
-                #del x, y, fix, should_train_with_batch
-                #gc.collect()
+                minibatches = self.minibatch(tokens, fix_dur, seq_len)
+
+                for j, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
+                    x = x.to(self.device)
+                    y = y.to(self.device)
+                    fix = fix.to(self.device)
+                    states = model.detach(states)
+                    scores, states, activations, fix_pred = model(x, states)
+
+                    loss = F.cross_entropy(scores, y.reshape(-1))
+                    h, h_m = activations
+                    ar_reg = self.ar * h_m.pow(2).mean()
+                    tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
+
+                    if fix.sum() > 0:
+                        fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
+                    else:
+                        fix_loss = torch.tensor(0.0)
+
+                    loss_reg = loss + ar_reg + tar_reg + fix_loss
+                    loss_reg.backward()
+
+                    loss_sg.append(loss.item() + ar_reg.item() + tar_reg.item())
+                    loss_fix.append(fix_loss.item())
+
+                    nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
+                    optimizer.step()
+                    optimizer.zero_grad()
 
             tmp = {}
             for (prm, st) in optimizer.state.items():
                 tmp[prm] = prm.clone().detach()
                 prm.data = st['ax'].clone().detach()
 
-            val_perp = self.perplexity(self.vld, model, self.valid_batch_size)
+            val_perp = self.perplexity(self.vld_tokens, self.vld_fix, model)
             optimizer.check(val_perp)
 
             self.log_file.write("{:d},{:.3f}\n".format(epoch + 1, val_perp))
@@ -275,9 +266,9 @@ class AwdLSTM:
 
     def train(self):
         warnings.filterwarnings("ignore")
+        self.vld_tokens, self.vld_fix = self.batchify(self.vld_tokens, self.vld_fix, self.valid_batch_size)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
                       self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
-                           fine_tuning=False)
+        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=False)
         self.train_model(model, optimizer)
