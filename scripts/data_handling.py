@@ -52,16 +52,16 @@ def add_base_vocab(words_in_stimuli, vocabulary, word_freq, eps=1e-8):
     return base_vocab_tokens
 
 
-def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath):
+def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath, max_vocab_size=None):
     if vocab_savepath.exists():
         print('Loading vocabulary from checkpoint')
         vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath).values()
         if not is_baseline:
-            _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=None,
+            _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
                                                                              words_in_stimuli=words_in_stimuli)
             word_freq.update(word_freq_ft)
     else:
-        vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=None,
+        vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
                                                                                words_in_stimuli=words_in_stimuli)
         if is_baseline:
             torch.save({'vocabulary': vocabulary, 'word_freq': word_freq, 'total_words': total_words,

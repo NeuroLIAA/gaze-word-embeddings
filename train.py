@@ -55,15 +55,17 @@ class Trainer:
                             self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size, self.train_fix,
                             self.stimuli_path, self.device, model_name, self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
-            return AwdLSTM(corpora, model_name, self.save_path, embed_size=self.vector_size, batch_size=self.batch_size,
-                           epochs=self.epochs, lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
+            return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path, 
+                           embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs, 
+                           lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
         else:
             raise ValueError(f'Invalid model type: {self.model}')
 
     def set_paths(self):
+        finetune_suffix = '_finetuned' if self.pretrained_path else ''
         model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
-        model_name = f'{self.model}_{model_name}'
-        self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
+        model_name = f'{self.model}_{model_name}{finetune_suffix}'
+        self.pretrained_path = Path(self.pretrained_path) if self.pretrained_path else None
         self.save_path = self.save_path / model_name
         return model_name
 
@@ -119,6 +121,7 @@ if __name__ == '__main__':
     
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -max_vocab 30000 -r 1 -t -e 5 
+    #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -r 20 -t -e 5 -st "./stimuli" -ft "./embeddings/test_1%/lstm_baseline/lstm_baseline.tar"
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
