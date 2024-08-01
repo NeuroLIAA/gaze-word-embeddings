@@ -5,7 +5,7 @@ from scripts.utils import get_words_in_corpus
 from sklearn.model_selection import train_test_split
 
 NON_LATIN_REGEX = '[^ \nA-Za-zá-úñ]+'
-INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\sA-Za-zá-úñ][A-Za-zá-úñ]+'
+INVALID_INBETWEEN_REGEX = '[A-Za-zá-úñ]+.*?[^\\sA-Za-zá-úñ][A-Za-zá-úñ]+'
 
 
 def load_swow(wa_file, words_freq, non_content_cues_file, min_freq, stimuli_path, data_split, seed):
