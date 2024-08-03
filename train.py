@@ -77,21 +77,21 @@ if __name__ == '__main__':
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--sources', type=str, default='remote+local',
                         help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
-    parser.add_argument('-f', '--fraction', type=float, default=0.3,
+    parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=200,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
-    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-3,
+    parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-5,
                         help='Downsample factor for frequent words')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-lr', '--lr', type=float, default=1e-3, help='Initial learning rate')
-    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-3, help='Minimum learning rate')
+    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('-d', '--device', type=str, default='cuda',
                         help='Device to be used for training (cpu or cuda)')
-    parser.add_argument('-min', '--min_count', type=int, default=5, help='Minimum number of occurrences for a word')
+    parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,

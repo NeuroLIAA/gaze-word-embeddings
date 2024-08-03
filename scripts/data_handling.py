@@ -1,7 +1,7 @@
 from collections import Counter, OrderedDict
 from torch.utils.data import DataLoader
-from torchtext.vocab import vocab
 from scripts.utils import get_words_in_corpus
+from scripts.vocabulary import Vocabulary
 from functools import partial
 from itertools import islice
 from tqdm import tqdm
@@ -32,11 +32,9 @@ def build_vocab(corpora, min_count, max_vocab_size=None, words_in_stimuli=None):
         word_freq = word_freq.items()
     
     word_freq = OrderedDict(sorted(word_freq, key=lambda x: x[1], reverse=True))
-    vocabulary = vocab(word_freq, min_freq=min_count)
+    vocabulary = Vocabulary(word_freq, min_freq=min_count)
     # Keep only words with frequency >= min_count
     word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
-    vocabulary.insert_token('<unk>', 0)
-    vocabulary.set_default_index(vocabulary['<unk>'])
     base_vocab_tokens = add_base_vocab(words_in_stimuli, vocabulary, word_freq)
     return vocabulary, word_freq, total_words, base_vocab_tokens
 
@@ -46,7 +44,7 @@ def add_base_vocab(words_in_stimuli, vocabulary, word_freq, eps=1e-8):
     if words_in_stimuli is not None:
         for word in words_in_stimuli:
             if word not in vocabulary:
-                vocabulary.append_token(word)
+                vocabulary.add_word(word)
                 base_vocab_tokens.append(word)
                 word_freq[word] = eps
     return base_vocab_tokens
@@ -55,7 +53,7 @@ def add_base_vocab(words_in_stimuli, vocabulary, word_freq, eps=1e-8):
 def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath, max_vocab_size=None):
     if vocab_savepath.exists():
         print('Loading vocabulary from checkpoint')
-        vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath).values()
+        vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath, weights_only=False).values()
         if not is_baseline:
             _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
                                                                              words_in_stimuli=words_in_stimuli)
@@ -89,6 +87,7 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            downsample_table=downsample_table,
                            n_negatives=n_negatives,
                            predict_fix=train_fix),
+        num_workers=8
     )
     return dataloader, vocabulary
 

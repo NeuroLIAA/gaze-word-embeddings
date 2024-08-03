@@ -66,17 +66,15 @@ class Corpus:
         if self.is_remote:
             fraction = int(fraction * 100)
             data = load_dataset('large_spanish_corpus', name=self.name, split=f'train[:{fraction}%]',
-                                num_proc=12)
+                                trust_remote_code=True, num_proc=12)
         else:
             data = load_dataset(self.name)['train']
-            
-        print('shuffling corpus...')
+
+        print('Shuffling corpus...')
         data = data.shuffle(seed=44)
-        
         data = data.flatten_indices()
-        
         self.size = data.info.size_in_bytes
-        
+
         if self.for_lm:
             tok = SpacyTokenizer('es')
             preprocess_fn = partial(preprocess_str_for_lm, tokenizer=tok)
