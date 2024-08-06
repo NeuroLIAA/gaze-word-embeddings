@@ -65,7 +65,7 @@ class Trainer:
         finetune_suffix = '_finetuned' if self.pretrained_path else ''
         model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
         model_name = f'{self.model}_{model_name}{finetune_suffix}'
-        self.pretrained_path = Path(self.pretrained_path) if self.pretrained_path else None
+        self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
         self.save_path = self.save_path / model_name
         return model_name
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
-    model_path = get_embeddings_path(args.output, args.data, args.fraction)
+    save_path = get_embeddings_path(args.output, args.data, args.fraction)
     
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -max_vocab 30000 -r 1 -t -e 5 
@@ -126,4 +126,4 @@ if __name__ == '__main__':
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
             args.min_length, args.max_length, args.size, args.window, args.min_count, args.model, args.train_fix,
-            model_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()
+            save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()

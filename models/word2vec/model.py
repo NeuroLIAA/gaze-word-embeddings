@@ -90,7 +90,10 @@ class SkipGram(nn.Module):
     def forward(self, pos_u, pos_v, neg_v, predict_fix):
         emb_u = self.u_embeddings(pos_u)
         emb_v = self.v_embeddings(pos_v)
-        emb_neg_v = self.v_embeddings(neg_v)
+        try:
+            emb_neg_v = self.v_embeddings(neg_v)
+        except:
+            breakpoint()
 
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
         score = torch.clamp(score, max=10, min=-10)
@@ -125,8 +128,9 @@ class SkipGram(nn.Module):
             'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers]
         }, file_name)
 
-    def load_checkpoint(self, file_name, device):
-        checkpoint = torch.load(file_name, map_location=device)
+    def load_checkpoint(self, checkpoint_path, device):
+        checkpoint = next(checkpoint_path.glob('w2v*.pt'))
+        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
         for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
             self.optimizers[opt].load_state_dict(state)

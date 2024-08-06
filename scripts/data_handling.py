@@ -56,11 +56,14 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
         vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath, weights_only=False).values()
         if not is_baseline:
             _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
-                                                                             words_in_stimuli=words_in_stimuli)
-            word_freq.update(word_freq_ft)
+                                                                          words_in_stimuli=words_in_stimuli)
+            # update word_freq with the fine-tuning corpus, but only if the word is in word_freq
+            for word, freq in word_freq_ft.items():
+                if word in word_freq:
+                    word_freq[word] = freq
     else:
         vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
-                                                                               words_in_stimuli=words_in_stimuli)
+                                                                            words_in_stimuli=words_in_stimuli)
         if is_baseline:
             torch.save({'vocabulary': vocabulary, 'word_freq': word_freq, 'total_words': total_words,
                         'base_vocab_tokens': base_vocab_tokens}, vocab_savepath)
@@ -72,7 +75,7 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
     vocabulary, word_freq, total_words, base_vocab_tokens = get_vocab(corpora, min_count, words_in_stimuli,
-                                                                         pretrained_path is None, vocab_savepath)
+                                                                      pretrained_path is None, vocab_savepath)
     negative_samples_set = Samples(word_freq)
     downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor,
                                                      vocabulary(base_vocab_tokens))
