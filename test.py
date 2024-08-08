@@ -46,9 +46,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='Training data descriptive name')
     parser.add_argument('-e', '--embeddings', type=str, default='embeddings', help='Path to extracted embeddings')
-    parser.add_argument('-f', '--fraction', type=float, default=0.3,
+    parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus employed for model training')
-    parser.add_argument('-ws', '--words_samples', type=int, default=100,
+    parser.add_argument('-ws', '--words_samples', type=int, default=1000,
                         help='Number of words to be sampled from the words association file for evaluation')
     parser.add_argument('-rs', '--resample', type=int, default=100, help='Number of times to resample word pairs')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',

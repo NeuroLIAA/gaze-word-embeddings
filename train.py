@@ -79,7 +79,7 @@ if __name__ == '__main__':
                         help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
-    parser.add_argument('-r', '--repeats', type=int, default=200,
+    parser.add_argument('-r', '--repeats', type=int, default=1,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
                         help='Number of negative samples to be used in training')
