@@ -107,7 +107,7 @@ class SkipGram(nn.Module):
 
     def init_optimizers(self, lr):
         optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
-                        'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=lr)}
+                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=lr)}
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
@@ -121,13 +121,10 @@ class SkipGram(nn.Module):
     def save_checkpoint(self, file_name, epoch):
         torch.save({
             'epoch': epoch,
-            'model_state_dict': self.state_dict(),
-            'optimizer_state_dict': [self.optimizers[opt].state_dict() for opt in self.optimizers]
+            'model_state_dict': self.state_dict()
         }, file_name)
 
     def load_checkpoint(self, checkpoint_path, device):
         checkpoint = next(checkpoint_path.glob('w2v*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
-        for opt, state in zip(self.optimizers, checkpoint['optimizer_state_dict']):
-            self.optimizers[opt].load_state_dict(state)
