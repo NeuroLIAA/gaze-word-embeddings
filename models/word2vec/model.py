@@ -90,10 +90,7 @@ class SkipGram(nn.Module):
     def forward(self, pos_u, pos_v, neg_v, predict_fix):
         emb_u = self.u_embeddings(pos_u)
         emb_v = self.v_embeddings(pos_v)
-        try:
-            emb_neg_v = self.v_embeddings(neg_v)
-        except:
-            breakpoint()
+        emb_neg_v = self.v_embeddings(neg_v)
 
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
         score = torch.clamp(score, max=10, min=-10)
