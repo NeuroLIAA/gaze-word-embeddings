@@ -34,7 +34,7 @@ def build_vocab(corpora, min_count, max_vocab_size=None, words_in_stimuli=None):
     word_freq = OrderedDict(sorted(word_freq, key=lambda x: x[1], reverse=True))
     vocabulary = Vocabulary(word_freq, min_freq=min_count)
     # Keep only words with frequency >= min_count
-    word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary)))
+    word_freq = OrderedDict(islice(word_freq.items(), len(vocabulary) - 1))
     base_vocab_tokens = add_base_vocab(words_in_stimuli, vocabulary, word_freq)
     return vocabulary, word_freq, total_words, base_vocab_tokens
 
