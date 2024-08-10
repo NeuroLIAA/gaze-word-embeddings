@@ -122,7 +122,7 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
     batch_negatives = np.array(batch_negatives)
     batch_fixations = np.array(batch_fixations)
     return (torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives),
-            torch.FloatTensor(batch_fixations))
+            torch.LongTensor(batch_fixations))
 
 
 class Samples:
