@@ -3,6 +3,7 @@ import torch.optim as optim
 from torch import nn as nn
 from torch.nn import init, functional
 from tqdm import tqdm
+from numpy import nanmean, nanstd
 from scipy.stats import spearmanr
 from scripts.plot import plot_loss
 from scripts.data_handling import get_dataloader_and_vocab
@@ -58,7 +59,7 @@ class Word2Vec:
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
-                        fix_loss = torch.nn.functional.l1_loss(fix_dur.to(torch.float), fix_v)
+                        fix_loss = torch.nn.functional.l1_loss(fix_dur, fix_v)
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
                         fix_preds.append(fix_dur.cpu().detach().numpy())
@@ -72,10 +73,10 @@ class Word2Vec:
             scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             if fix_preds:
-                flattened_fix_preds = [item for sublist in fix_preds for item in sublist]
-                flattened_fix_labels = [item for sublist in fix_labels for item in sublist]
-                corr = spearmanr(flattened_fix_preds, flattened_fix_labels)
-                print(f'Fix duration correlation: {corr[0]:.4f} (p-value: {corr[1]:.4f})')
+                fix_preds = [item for sublist in fix_preds for item in sublist]
+                fix_labels = [item for sublist in fix_labels for item in sublist]
+                corr = spearmanr(fix_preds, fix_labels, nan_policy='omit').correlation
+                print(f'Fix duration correlation: {corr:.4f} ')
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
