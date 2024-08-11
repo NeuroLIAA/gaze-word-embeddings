@@ -1,9 +1,12 @@
+from collections import Counter
+
+import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
 from torch.nn import init, functional
 from tqdm import tqdm
-from numpy import nanmean, nanstd
+from sklearn.utils.class_weight import compute_class_weight
 from scipy.stats import spearmanr
 from scripts.plot import plot_loss
 from scripts.data_handling import get_dataloader_and_vocab
@@ -59,10 +62,11 @@ class Word2Vec:
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
-                        fix_loss = torch.nn.functional.l1_loss(fix_dur, fix_v)
+                        fix_weights = calculate_class_weights(fix_v.cpu().detach().numpy(), 6).to(device)
+                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v, weight=fix_weights)
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
-                        fix_preds.append(fix_dur.cpu().detach().numpy())
+                        fix_preds.append(torch.argmax(fix_dur, dim=1).cpu().detach().numpy())
                         fix_labels.append(fix_v.cpu().detach().numpy())
                     else:
                         loss_fix.append(loss_fix[-1] if loss_fix else 0)
@@ -84,12 +88,12 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, device):
+    def __init__(self, vocab_size, emb_dimension, lr, device, num_classes=6):
         super(SkipGram, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
-        self.duration_regression = nn.Linear(emb_dimension, 1)
+        self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr)
         self.to(device)
 
@@ -138,3 +142,14 @@ class SkipGram(nn.Module):
         checkpoint = next(checkpoint_path.glob('w2v*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
+
+
+def calculate_class_weights(labels, num_classes):
+    batch_classes = np.unique(labels)
+    class_weights = compute_class_weight('balanced', classes=batch_classes, y=labels)
+    full_class_weights = np.ones(num_classes, dtype=np.float32)
+
+    for cls, weight in zip(batch_classes, class_weights):
+        full_class_weights[cls] = weight
+
+    return torch.tensor(full_class_weights, dtype=torch.float32)
