@@ -44,6 +44,8 @@ class Word2Vec:
             skip_gram.load_checkpoint(self.pretrained_path, device)
 
         loss_sg, loss_fix = [], []
+        fix_scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['fix_duration'], start_factor=1.0,
+                                                    end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['embeddings'], start_factor=1.0,
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         for epoch in range(self.epochs):
@@ -75,6 +77,8 @@ class Word2Vec:
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
             scheduler.step()
+            if update_regressor:
+                fix_scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             if fix_preds:
                 fix_preds = [item for sublist in fix_preds for item in sublist]
