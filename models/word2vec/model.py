@@ -48,7 +48,7 @@ class Word2Vec:
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
-            fix_preds, fix_labels = [], []
+            fix_corrs, fix_pvalues = [], []
             for batch in tqdm(dataloader):
                 if len(batch[0]) > 1:
                     pos_u = batch[0].to(device)
@@ -66,8 +66,11 @@ class Word2Vec:
                         fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v, weight=fix_weights)
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
-                        fix_preds.append(torch.argmax(fix_dur, dim=1).cpu().detach().numpy())
-                        fix_labels.append(fix_v.cpu().detach().numpy())
+                        fix_preds = torch.argmax(fix_dur, dim=1).cpu().detach().numpy()
+                        fix_labels = fix_v.cpu().detach().numpy()
+                        batch_correlation = spearmanr(fix_preds, fix_labels)
+                        fix_corrs.append(batch_correlation.correlation)
+                        fix_pvalues.append(batch_correlation.pvalue)
                     else:
                         loss_fix.append(loss_fix[-1] if loss_fix else 0)
                     loss.backward()
@@ -77,11 +80,9 @@ class Word2Vec:
             scheduler.step()
             fix_scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
-            if fix_preds:
-                fix_preds = [item for sublist in fix_preds for item in sublist]
-                fix_labels = [item for sublist in fix_labels for item in sublist]
-                corr = spearmanr(fix_preds, fix_labels, nan_policy='omit').correlation
-                print(f'Fix duration correlation: {corr:.4f} ')
+            if fix_corrs:
+                print(f'Fix duration correlation: {np.nanmean(fix_corrs):.4f} (+/- {np.nanstd(fix_corrs):.4f})')
+                print(f'Fix duration p-value: {np.nanmean(fix_pvalues):.4f} (+/- {np.nanstd(fix_pvalues):.4f})')
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
