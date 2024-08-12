@@ -1,5 +1,3 @@
-from collections import Counter
-
 import numpy as np
 import torch
 import torch.optim as optim
@@ -77,8 +75,7 @@ class Word2Vec:
                     if update_regressor:
                         skip_gram.optimizers['fix_duration'].step()
             scheduler.step()
-            if update_regressor:
-                fix_scheduler.step()
+            fix_scheduler.step()
             skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             if fix_preds:
                 fix_preds = [item for sublist in fix_preds for item in sublist]
