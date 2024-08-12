@@ -30,6 +30,9 @@ class Vocabulary:
 
     def get_itos(self):
         return self.idx2word
+    
+    def get_stoi(self):
+        return self.word2idx
 
     def get_word(self, idx):
         return self.idx2word[idx]
