@@ -229,10 +229,14 @@ class AwdLSTM:
         vocab = self.generate_vocab(data)
 
         print("Numericalizing Training set")
-        data = data.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
+        data = data.map(
+            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
+        )
         
         print("Numericalizing Validation set")
-        vld_data = vld_data.map(lambda row: {"text": vocab.forward(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12)
+        vld_data = vld_data.map(
+            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
+        )
 
         print("Reshaping Training set")
         data = data.map(self.chunk_examples, batched=True, remove_columns=data.column_names)
