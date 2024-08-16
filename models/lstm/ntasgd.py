@@ -9,7 +9,7 @@ class NTASGD(optim.Optimizer):
 
     def check(self, v):
         for group in self.param_groups:
-            #Training
+            # Training
             if (not group['fine_tuning'] and group['t0'] == 10e7) or (group['fine_tuning']):
                 if group['t'] > group['n'] and v > min(group['logs'][:-group['n']]):
                     group['t0'] = self.state[next(iter(group['params']))]['step']
@@ -21,7 +21,7 @@ class NTASGD(optim.Optimizer):
     def lr(self, lr):
         for group in self.param_groups:
             group['lr'] = lr
-                               
+
     def step(self):
         for group in self.param_groups:
             for p in group['params']:
@@ -34,15 +34,22 @@ class NTASGD(optim.Optimizer):
                         state['mu'] = 1
                         state['ax'] = torch.zeros_like(p.data)
                     state['step'] += 1
-                    # update parameter
+                    # Update parameter
                     if group['weight_decay'] != 0:
                         grad = grad.add(group['weight_decay'], p.data)
-                    
+
                     p.data.add_(-group['lr'], grad)
-                    # averaging
-                    if state['mu'] != 1:
-                        state['ax'].add_(p.data.sub(state['ax']).mul(state['mu']))
-                    else:
+
+                    # Averaging or copying depending on fine_tuning
+                    if group['fine_tuning']:
+                        # If fine_tuning, directly copy the parameter value
                         state['ax'].copy_(p.data)
-                    # update mu
-                    state['mu'] = 1 / max(1, state['step'] - group['t0'])
+                    else:
+                        # Averaging
+                        if state['mu'] != 1:
+                            state['ax'].add_(p.data.sub(state['ax']).mul(state['mu']))
+                        else:
+                            state['ax'].copy_(p.data)
+                        
+                        # Update mu only if not fine_tuning
+                        state['mu'] = 1 / max(1, state['step'] - group['t0'])
