@@ -62,8 +62,7 @@ class Word2Vec:
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     loss_sg.append(loss.item())
                     if update_regressor:
-                        fix_weights = calculate_class_weights(fix_v.cpu().detach().numpy(), 6).to(device)
-                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v, weight=fix_weights)
+                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v)
                         loss += fix_loss
                         loss_fix.append(fix_loss.item())
                         fix_preds = torch.argmax(fix_dur, dim=1).cpu().detach().numpy()
@@ -90,7 +89,7 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, device, num_classes=6):
+    def __init__(self, vocab_size, emb_dimension, lr, device, num_classes=16):
         super(SkipGram, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
