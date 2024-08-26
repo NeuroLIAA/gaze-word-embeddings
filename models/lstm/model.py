@@ -18,15 +18,14 @@ class Embed(nn.Module):
         nn.init.uniform_(self.W, -winit, winit)
 
     def mask(self):
-        mask = torch.empty(self.vocab_size, 1, device = self.W.device).bernoulli_(1-self.dropout)/(1-self.dropout)
-        return mask.expand(self.vocab_size, self.embed_size)
+        return torch.empty(self.vocab_size, 1, device = self.W.device).bernoulli_(1-self.dropout)/(1-self.dropout)
                      
     def forward(self, x):
+        embeddings = self.W[x]
         if self.training:
-            W = self.mask() * self.W 
-            return W[x]
-        else:
-            return self.W[x]
+            mask = self.mask()[x]
+            embeddings.mul_(mask)
+        return embeddings
 
     def __repr__(self):
         return "Embedding(vocab: {}, embedding: {}, dropout: {})".format(self.vocab_size, self.embed_size, self.dropout)

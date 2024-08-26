@@ -17,38 +17,43 @@ from scripts.data_handling import get_vocab
 from scripts.utils import get_words_in_corpus
 from scripts.plot import plot_loss
 
+from gensim.models import KeyedVectors
+from pandas import read_csv
+
 class AwdLSTM:
     @staticmethod
-    def create_from_args(corpora, name, save_path, pretrained_path, stimuli_path, embed_size=400, batch_size=40, 
-                         epochs=750, lr=30, min_word_count=5, max_vocab_size=None):
-        if pretrained_path:
-            return AwdLSTMForFinetuning(corpora, name, save_path, pretrained_path, stimuli_path, layer_num=3,
+    def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, embed_size=400, batch_size=40, 
+                         epochs=750, lr=30, min_word_count=5, max_vocab_size=None, pretrained_embeddings_path=None):
+        if pretrained_model_path:
+            from models.lstm.finetune import AwdLSTMForFinetuning
+            return AwdLSTMForFinetuning(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,
                                         embed_size=embed_size, hidden_size=1150, lstm_type="pytorch", w_drop=0.5,
                                         dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                                         batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
                                         weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
                                         device="gpu", log=50000, min_word_count=min_word_count, max_vocab_size=max_vocab_size,
-                                        shard_count=1)
+                                        shard_count=1, pretrained_embeddings_path=pretrained_embeddings_path)
         else:
-            return AwdLSTMForTraining(corpora, name, save_path, pretrained_path, stimuli_path, layer_num=3,
+            from models.lstm.train import AwdLSTMForTraining
+            return AwdLSTMForTraining(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,
                                       embed_size=embed_size, hidden_size=1150, lstm_type="pytorch", w_drop=0.5,
                                       dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                                       batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
                                       weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
                                       device="gpu", log=50000, min_word_count=min_word_count, max_vocab_size=max_vocab_size,
-                                      shard_count=5)
+                                      shard_count=5, pretrained_embeddings_path=pretrained_embeddings_path)
         
     SEED = 12345
 
-    def __init__(self, corpora, name, save_path, pretrained_path, stimuli_path, layer_num=3, embed_size=400, hidden_size=1150, lstm_type="pytorch",
+    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3, embed_size=400, hidden_size=1150, lstm_type="pytorch",
                  w_drop=0.5, dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                  batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1, weight_decay=1.2e-6,
                  epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000, min_word_count=5,
-                 max_vocab_size=None, shard_count=5):
+                 max_vocab_size=None, shard_count=5, pretrained_embeddings_path=None):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
-        self.pretrained_path = pretrained_path
+        self.pretrained_model_path = pretrained_model_path
         self.stimuli_path = stimuli_path
         self.layer_num = layer_num
         self.embed_size = embed_size
@@ -75,12 +80,13 @@ class AwdLSTM:
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
         self.shard_count = shard_count
-        torch.autograd.set_detect_anomaly(True)
+        self.pretrained_embeddings_path = pretrained_embeddings_path
 
         self.set_device()
 
         self.save_path.mkdir(exist_ok=True, parents=True)
         self.log_file = self.set_log_file()
+        self.simlex_file = self.set_simlex_file()
 
     def set_device(self):
         if self.device == "gpu" and torch.cuda.is_available():
@@ -93,6 +99,19 @@ class AwdLSTM:
             print("Model will be training on the CPU.\n")
             self.device = torch.device('cpu')
 
+    def set_log_file(self):
+        log = open(str(self.save_path / f'{self.name}.csv'), "w")
+        log.write("epoch,valid_ppl\n")
+        return log
+
+    def plot_loss(self, loss_sg, loss_fix):
+        plot_loss(loss_sg, loss_fix, self.name, self.save_path)
+
+    def set_simlex_file(self):
+        simlex = open(str(self.save_path / f'{self.name}_simlex.csv'), "w")
+        simlex.write("epoch,simlex_corr,simlex_pval\n")
+        return simlex
+
     def chunk_examples(self, examples):
         text, fix_dur = [], []
         for sentence in examples['text']:
@@ -100,6 +119,28 @@ class AwdLSTM:
         for sentence in examples['fix_dur']:
             fix_dur += sentence
         return {'text': text, 'fix_dur': fix_dur}
+    
+    def generate_embeddings(self, model):
+        weights = model.embed.W
+        vocabulary = OrderedDict(sorted(self.vocab.items(), key=lambda x: x[1]))
+
+        with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
+            f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
+            for _, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
+                vector_str = ' '.join(str(x) for x in vector.tolist())
+                f.write(f'{word} {vector_str}\n')
+
+    def save_model(self, model):
+        torch.save({'model_state_dict': model.state_dict()}, str(self.save_path / f'{self.name}.tar'))
+
+    def generate_vocab(self, data, vocab_savepath=None):
+        words_in_stimuli = get_words_in_corpus(self.stimuli_path)
+        return get_vocab(corpora=data, 
+                          min_count=self.min_word_count, 
+                          words_in_stimuli=words_in_stimuli, 
+                          max_vocab_size=self.max_vocab_size, 
+                          is_baseline=self.pretrained_model_path is None,
+                          vocab_savepath=vocab_savepath)[0]
 
     def get_seq_len(self):
         seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
@@ -163,6 +204,8 @@ class AwdLSTM:
             minibatches = self.minibatch(tokens, fix_dur, seq_len)
 
             for j, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
+                torch.cuda.empty_cache()
+
                 x = x.to(self.device)
                 y = y.to(self.device)
                 fix = fix.to(self.device)
@@ -191,215 +234,3 @@ class AwdLSTM:
                 nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()
-
-class AwdLSTMForTraining(AwdLSTM):
-    def __init__(self, corpora, name, save_path, pretrained_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                 lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, 
-                 valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
-                 device, log, min_word_count, max_vocab_size, shard_count):
-        super().__init__(corpora, name, save_path, pretrained_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                         lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, valid_batch_size, 
-                         bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
-                         shard_count)
-        self.data_init()
-
-    def data_init(self):
-        text = self.corpora
-        split = text.corpora.train_test_split(test_size=0.2, seed=self.SEED)
-
-        data = split['train']
-        vld_data = split['test']
-
-        vocab = self.generate_vocab(data)
-
-        print("Numericalizing Training set")
-        data = data.map(
-            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
-        )
-        
-        print("Numericalizing Validation set")
-        vld_data = vld_data.map(
-            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
-        )
-
-        print("Reshaping Training set")
-        data = data.map(self.chunk_examples, batched=True, remove_columns=data.column_names)
-
-        print("Reshaping Validation set")
-        vld_data = vld_data.map(self.chunk_examples, batched=True, remove_columns=vld_data.column_names)
-        self.vocab = vocab.get_stoi()
-        
-        data = data.with_format("torch")
-        vld_data = vld_data.with_format("torch")
-
-        self.data = data
-        print("Loading validation tokens...")
-        self.vld_data_tokens = vld_data["text"].reshape(-1, 1)
-        print("Loading validation fix durations...")
-        self.vld_data_fix = vld_data["fix_dur"].reshape(-1, 1)
-        
-    def generate_vocab(self, data):
-        words_in_stimuli = get_words_in_corpus(self.stimuli_path)
-        vocab_savepath = self.save_path / 'vocab.pt'
-        return get_vocab(corpora=data, 
-                          min_count=self.min_word_count, 
-                          words_in_stimuli=words_in_stimuli, 
-                          max_vocab_size=self.max_vocab_size, 
-                          is_baseline=self.pretrained_path is None,
-                          vocab_savepath=vocab_savepath)[0]
-        
-    def set_log_file(self):
-        log = open(str(self.save_path / f'{self.name}.csv'), "w")
-        log.write("epoch,valid_ppl\n")
-        return log
-        
-    def save_model(self, model):
-        torch.save({'model_state_dict': model.state_dict()}, str(self.save_path / f'{self.name}.tar'))
-        
-    def generate_embeddings(self, model):
-        weights = model.embed.W
-        vocabulary = OrderedDict(sorted(self.vocab.items(), key=lambda x: x[1]))
-
-        with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
-            f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
-            for _, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
-                vector_str = ' '.join(str(x) for x in vector.tolist())
-                f.write(f'{word} {vector_str}\n')
-                
-    def plot_loss(self, loss_sg, loss_fix):
-        plot_loss(loss_sg, loss_fix, self.name, self.save_path)
-
-    def train_model(self, model, optimizer):
-        tic = timeit.default_timer()
-        print("Starting training.")
-        best_val = 1e10
-        metrics = { "loss_sg": [], "loss_fix": [] }
-        for epoch in range(self.epochs):
-            self.train_epoch(model, optimizer, epoch + 1, metrics)
-
-            tmp = {}
-            for (prm, st) in optimizer.state.items():
-                tmp[prm] = prm.clone().detach()
-                prm.data = st['ax'].clone().detach()
-
-            val_perp = self.perplexity(self.vld_data_tokens, self.vld_data_fix, model)
-            optimizer.check(val_perp)
-
-            self.log_file.write("{:d},{:.3f}\n".format(epoch + 1, val_perp))
-
-            if val_perp < best_val:
-                best_val = val_perp
-                print("Best validation perplexity : {:.3f}".format(best_val))
-                self.save_model(model)
-                print("Model saved!")
-
-            for (prm, st) in optimizer.state.items():
-                prm.data = tmp[prm].clone().detach()
-
-            toc = timeit.default_timer()
-            print("Validation set perplexity : {:.3f}".format(val_perp))
-            print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
-            print("*************************************************\n")
-        self.log_file.close()
-        self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
-        self.generate_embeddings(model)
-        
-    def train(self):
-        warnings.filterwarnings("ignore")
-        self.vld_data_tokens, self.vld_data_fix = self.batchify(self.vld_data_tokens, self.vld_data_fix, self.valid_batch_size)
-        model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
-                      self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
-        model.to(self.device)
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=False)
-        self.train_model(model, optimizer)
-        
-class AwdLSTMForFinetuning(AwdLSTM):
-    def __init__(self, corpora, name, save_path, pretrained_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                 lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, 
-                 valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
-                 device, log, min_word_count, max_vocab_size, shard_count):
-        super().__init__(corpora, name, save_path, pretrained_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                         lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, valid_batch_size, 
-                         bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
-                         shard_count)
-        self.data_init()
-
-    def data_init(self):
-        data = self.corpora.corpora
-
-        vocab = self.generate_vocab(data)
-
-        print("Numericalizing Training set")
-        data = data.map(
-            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
-        )
-
-        print("Reshaping Training set")
-        data = data.map(self.chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
-
-        self.vocab = vocab.get_stoi()
-        
-        data = data.with_format("torch")
-
-        self.data = data
-        
-    def generate_vocab(self, data):
-        words_in_stimuli = get_words_in_corpus(self.stimuli_path)
-        vocab_savepath = self.pretrained_path / 'vocab.pt'
-        return get_vocab(corpora=data, 
-                          min_count=self.min_word_count, 
-                          words_in_stimuli=words_in_stimuli, 
-                          max_vocab_size=self.max_vocab_size, 
-                          is_baseline=self.pretrained_path is None,
-                          vocab_savepath=vocab_savepath)[0]
-        
-    def set_log_file(self):
-        log = open(str(self.save_path / f'{self.name}.csv'), "w")
-        log.write("epoch,valid_ppl\n")
-        return log
-    
-    def generate_embeddings(self, model):
-        weights = model.embed.W
-        vocabulary = OrderedDict(sorted(self.vocab.items(), key=lambda x: x[1]))
-
-        with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
-            f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
-            for _, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
-                vector_str = ' '.join(str(x) for x in vector.tolist())
-                f.write(f'{word} {vector_str}\n')
-        
-    def save_model(self, model):
-        torch.save({'model_state_dict': model.state_dict()}, str(self.save_path / f'{self.name}.tar'))
-
-    def train_model(self, model, optimizer):
-        tic = timeit.default_timer()
-        print("Starting finetuning.")
-        metrics = { "loss_sg": [], "loss_fix": [], "fix_corrs": [], "fix_pvalues": [] }
-        for epoch in range(self.epochs):
-            self.train_epoch(model, optimizer, epoch + 1, metrics)
-
-            self.save_model(model)
-            toc = timeit.default_timer()
-            print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
-            print(f'Fix duration correlation: {np.nanmean(metrics['fix_corrs']):.4f} (+/- {np.nanstd(metrics['fix_corrs']):.4f})')
-            print(f'Fix duration p-value: {np.nanmean(metrics['fix_pvalues']):.4f} (+/- {np.nanstd(metrics['fix_pvalues']):.4f})')
-            print("*************************************************\n")
-        self.log_file.close()
-        self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
-        self.generate_embeddings(model)
-        
-    def train(self):
-        warnings.filterwarnings("ignore")
-        model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
-                      self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
-        model.to(self.device)
-        checkpoint = torch.load(self.checkpoint())
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=True)
-        self.train_model(model, optimizer)
-
-    def checkpoint(self):
-        return next(self.pretrained_path.glob('*.tar'))
-        
-    def plot_loss(self, loss_sg, loss_fix):
-        plot_loss(loss_sg, loss_fix, self.name, self.save_path)

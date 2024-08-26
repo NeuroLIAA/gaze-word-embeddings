@@ -5,13 +5,16 @@ from scripts.corpora import load_corpora
 from scripts.utils import get_embeddings_path
 from models.word2vec.model import Word2Vec
 from models.lstm.main import AwdLSTM
+import os
+
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
                  min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
                  vector_size, window_size, min_count, model, train_fix, save_path, pretrained_path, tokenizer,
-                 max_vocab, stimuli_path):
+                 max_vocab, stimuli_path, pretrained_embeddings_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
         self.fraction = fraction
@@ -37,6 +40,7 @@ class Trainer:
         self.tokenizer = tokenizer
         self.max_vocab = max_vocab
         self.stimuli_path = stimuli_path
+        self.pretrained_embeddings_path = pretrained_embeddings_path
 
     def train(self):
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
@@ -57,7 +61,8 @@ class Trainer:
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path, 
                            embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs, 
-                           lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab)
+                           lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab,
+                           pretrained_embeddings_path=self.pretrained_embeddings_path)
         else:
             raise ValueError(f'Invalid model type: {self.model}')
 
@@ -112,6 +117,7 @@ if __name__ == '__main__':
                         help='Model architecture to be trained')
     parser.add_argument('-ft', '--finetune', type=str, default=None,
                         help='Path to pre-trained model to be fine-tuned')
+    parser.add_argument('-pte', '--pretrained_embeddings', type=str, default=None, help='Path to pre-trained embeddings')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     args = parser.parse_args()
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
@@ -121,9 +127,11 @@ if __name__ == '__main__':
     
     #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli"
+    #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
     #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
             args.min_length, args.max_length, args.size, args.window, args.min_count, args.model, args.train_fix,
-            save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli)).train()
+            save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli),
+            Path(args.pretrained_embeddings)).train()
