@@ -204,7 +204,12 @@ class AwdLSTM:
             minibatches = self.minibatch(tokens, fix_dur, seq_len)
 
             for j, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
-                torch.cuda.empty_cache()
+                allocated_memory = torch.cuda.memory_allocated(self.device)
+                reserved_memory = torch.cuda.memory_reserved(self.device)
+                total_memory = torch.cuda.get_device_properties(self.device).total_memory
+
+                if allocated_memory > 0.7 * total_memory or reserved_memory > 0.7 * total_memory:
+                    torch.cuda.empty_cache()
 
                 x = x.to(self.device)
                 y = y.to(self.device)
