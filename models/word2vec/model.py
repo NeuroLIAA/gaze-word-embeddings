@@ -12,7 +12,8 @@ from scripts.data_handling import get_dataloader_and_vocab
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, train_fix, stimuli_path, device, model_name, pretrained_path, save_path):
+                 min_lr, batch_size, train_fix, fix_lr, min_fix_lr, stimuli_path, device, model_name,
+                 pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
         self.window_size = window_size
@@ -24,6 +25,8 @@ class Word2Vec:
         self.min_lr = min_lr
         self.batch_size = batch_size
         self.train_fix = train_fix
+        self.fix_lr = fix_lr
+        self.min_fix_lr = min_fix_lr
         self.device = device
         self.model_name = model_name
         self.stimuli_path = stimuli_path
@@ -37,15 +40,16 @@ class Word2Vec:
                                                      self.train_fix, self.stimuli_path, self.pretrained_path,
                                                      self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
-        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, device)
+        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
         if self.pretrained_path:
             skip_gram.load_checkpoint(self.pretrained_path, device)
 
         fix_scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['fix_duration'], start_factor=1.0,
-                                                    end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
+                                                    end_factor=(self.min_fix_lr / self.fix_lr), total_iters=self.epochs)
         scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['embeddings'], start_factor=1.0,
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
-        writer = SummaryWriter(log_dir=self.save_path / 'logs' / f'e{self.epochs}_lr{str(self.lr).replace(".", "")}')
+        run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
+        writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
             fix_corrs, fix_pvalues = [], []
@@ -91,13 +95,13 @@ class Word2Vec:
 
 class SkipGram(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, device, num_classes=16):
+    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, device, num_classes=16):
         super(SkipGram, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
-        self.optimizers = self.init_optimizers(lr)
+        self.optimizers = self.init_optimizers(lr, fix_lr)
         self.to(device)
 
         initrange = 1.0 / self.emb_dimension
@@ -122,9 +126,9 @@ class SkipGram(nn.Module):
 
         return torch.mean(score + neg_score), duration
 
-    def init_optimizers(self, lr):
+    def init_optimizers(self, lr, fix_lr):
         optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
-                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=lr)}
+                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=fix_lr)}
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
