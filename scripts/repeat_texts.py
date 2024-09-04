@@ -3,11 +3,11 @@ from pathlib import Path
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--path', type=str, default='../stimuli/',
+    parser.add_argument('-p', '--path', type=str, default='stimuli',
                         help='Path to the items used in the experiment')
-    parser.add_argument('-s', '--scanpaths', type=str, default='../scanpaths/',
+    parser.add_argument('-s', '--scanpaths', type=str, default='scanpaths',
                         help='Path to subjects\' scanpaths, divided by item')
-    parser.add_argument('-o', '--output', type=str, default='../texts/')
+    parser.add_argument('-o', '--output', type=str, default='texts')
     args = parser.parse_args()
     stimuli, scanpaths, output = Path(args.path), Path(args.scanpaths), Path(args.output)
     if not (stimuli.exists() and scanpaths.exists()):
