@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from sklearn.utils.class_weight import compute_class_weight
 from scipy.stats import spearmanr
 from scripts.data_handling import get_dataloader_and_vocab
+from scripts.plot import plot_loss
 
 
 class Word2Vec:
@@ -50,6 +51,7 @@ class Word2Vec:
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
+        loss_fix, loss_sg = [], []
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
             fix_corrs, fix_pvalues = [], []
@@ -67,10 +69,13 @@ class Word2Vec:
                     skip_gram.optimizers['fix_duration'].zero_grad()
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
                     writer.add_scalar('Loss/SG', loss.item(), n_step)
+                    loss_sg.append(loss.item())
+                    fix_loss_value = 0.0
                     if update_regressor:
                         fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v)
                         loss += fix_loss
                         writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
+                        fix_loss_value = fix_loss.item()
                         fix_preds = torch.argmax(fix_dur, dim=1).cpu().detach().numpy()
                         fix_labels = fix_v.cpu().detach().numpy()
                         batch_correlation = spearmanr(fix_preds, fix_labels)
@@ -78,6 +83,7 @@ class Word2Vec:
                         fix_pvalues.append(batch_correlation.pvalue)
                         writer.add_scalar('Correlation/Fix', batch_correlation.correlation, n_step)
                         writer.add_scalar('P-value/Fix', batch_correlation.pvalue, n_step)
+                    loss_fix.append(fix_loss_value)
                     loss.backward()
                     skip_gram.optimizers['embeddings'].step()
                     if update_regressor:
@@ -90,6 +96,7 @@ class Word2Vec:
                 print(f'Fix duration p-value: {np.nanmean(fix_pvalues):.4f} (+/- {np.nanstd(fix_pvalues):.4f})')
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
+        plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
         writer.flush()
 
 
