@@ -1,22 +1,16 @@
 from models.lstm.main import AwdLSTM
-from collections import OrderedDict
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch.optim.lr_scheduler import LinearLR
 from scipy.stats import spearmanr
 import timeit
 import warnings
-import random
-
-from tqdm import tqdm
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
 
 from scripts.data_handling import get_vocab
 from scripts.utils import get_words_in_corpus
-from scripts.plot import plot_loss
 
 from gensim.models import KeyedVectors
 from pandas import read_csv
@@ -81,35 +75,18 @@ class AwdLSTMForTraining(AwdLSTM):
                             is_baseline=self.pretrained_model_path is None,
                             vocab_savepath=vocab_savepath)[0]
 
-    def compare_embeddings(self, model, epoch):
-        print("Generating embeddings...")
-        self.generate_embeddings(model)
-
-        print("Loading embeddings...")
-        embeddings = KeyedVectors.load_word2vec_format(str(self.save_path / f'{self.name}.vec'), binary=False)
-
-        simlex = read_csv('evaluation/spa.csv')
-        simlex['word1'] = simlex['word1'].str.lower()
-        simlex['word2'] = simlex['word2'].str.lower()
-
-        simlex['similarity'] = simlex.apply(lambda row: embeddings.similarity(row['word1'], row['word2']) if (row['word1'] in embeddings and row['word2'] in embeddings) else np.nan, axis=1)
-        simlex.dropna(inplace=True)
-
-        corr = spearmanr(simlex['similarity'], simlex['score'])
-
-        self.simlex_file.write("{:d},{:.4f},{:.4f}\n".format(epoch, corr.correlation, corr.pvalue))
-
-        print(f'Simlex correlation: {corr.correlation:.4f}')
-        print(f'Simlex p-value: {corr.pvalue:.4f}')
-        return corr.correlation, corr.pvalue
-
-    def train_model(self, model, optimizer):
+    def train_model(self, model, optimizer, scheduler):
         tic = timeit.default_timer()
         print("Starting training.")
         best_val = 1e10
         metrics = { "loss_sg": [], "loss_fix": [] }
         for epoch in range(self.epochs):
-            self.train_epoch(model, optimizer, epoch + 1, metrics)
+            print("Epoch : {:d}".format(epoch + 1))
+            print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))
+
+            self.train_epoch(model, optimizer, metrics)
+
+            scheduler.step()
 
             tmp = {}
             for (prm, st) in optimizer.state.items():
@@ -119,7 +96,7 @@ class AwdLSTMForTraining(AwdLSTM):
             val_perp = self.perplexity(self.vld_data_tokens, self.vld_data_fix, model)
             optimizer.check(val_perp)
 
-            self.log_file.write("{:d},{:.3f}\n".format(epoch + 1, val_perp))
+            self.log_file.write("{:d},{:.3f},{:.3f}\n".format(epoch + 1, val_perp, scheduler.get_last_lr()[0]))
 
             if val_perp < best_val:
                 best_val = val_perp
@@ -130,7 +107,7 @@ class AwdLSTMForTraining(AwdLSTM):
             for (prm, st) in optimizer.state.items():
                 prm.data = tmp[prm].clone().detach()
 
-            self.compare_embeddings(model, epoch)
+            self.compare_embeddings(model, epoch + 1)
 
             toc = timeit.default_timer()
             print("Validation set perplexity : {:.3f}".format(val_perp))
@@ -139,20 +116,6 @@ class AwdLSTMForTraining(AwdLSTM):
         self.log_file.close()
         self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
         self.generate_embeddings(model)
-    
-    def load_pretrained_embeddings(self, model):
-        if self.pretrained_embeddings_path is not None:
-            print("Loading pretrained embeddings...")
-            pretrained_embeddings_state = torch.load(
-                self.pretrained_embeddings_path / f"{self.pretrained_embeddings_path.name}.pt",
-                map_location=torch.device("cpu")
-            )
-            pretrained_embeddings = pretrained_embeddings_state['model_state_dict']['u_embeddings.weight']
-            
-            model_state = model.state_dict()
-            model_state['embed.W'] = pretrained_embeddings
-
-            model.load_state_dict(model_state) 
         
     def train(self):
         warnings.filterwarnings("ignore")
@@ -162,5 +125,5 @@ class AwdLSTMForTraining(AwdLSTM):
         model.to(self.device)
         self.load_pretrained_embeddings(model)
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=False)
-        self.train_model(model, optimizer)
-        
+        scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)
+        self.train_model(model, optimizer, scheduler)

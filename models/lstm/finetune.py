@@ -1,25 +1,14 @@
 from models.lstm.main import AwdLSTM
-from collections import OrderedDict
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch.optim.lr_scheduler import LinearLR
 from scipy.stats import spearmanr
 import timeit
 import warnings
-import random
 
-from tqdm import tqdm
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
-
-from scripts.data_handling import get_vocab
-from scripts.utils import get_words_in_corpus
-from scripts.plot import plot_loss
-
-from gensim.models import KeyedVectors
-from pandas import read_csv
 
 class AwdLSTMForFinetuning(AwdLSTM):
     def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
@@ -51,12 +40,19 @@ class AwdLSTMForFinetuning(AwdLSTM):
 
         self.data = data
 
-    def train_model(self, model, optimizer):
+    def train_model(self, model, optimizer, scheduler):
         tic = timeit.default_timer()
         print("Starting finetuning.")
         metrics = { "loss_sg": [], "loss_fix": [], "fix_corrs": [], "fix_pvalues": [] }
         for epoch in range(self.epochs):
-            self.train_epoch(model, optimizer, epoch + 1, metrics)
+            print("Epoch : {:d}".format(epoch + 1))
+            print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))
+
+            self.train_epoch(model, optimizer, metrics)
+
+            scheduler.step()
+
+            self.compare_embeddings(model, epoch + 1)
 
             self.save_model(model)
             toc = timeit.default_timer()
@@ -76,7 +72,8 @@ class AwdLSTMForFinetuning(AwdLSTM):
         checkpoint = torch.load(self.checkpoint())
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=True)
-        self.train_model(model, optimizer)
+        scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)
+        self.train_model(model, optimizer, scheduler)
 
     def checkpoint(self):
         return next(self.pretrained_model_path.glob('*.tar'))

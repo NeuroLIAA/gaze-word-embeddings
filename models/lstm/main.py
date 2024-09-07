@@ -9,6 +9,7 @@ import warnings
 import random
 
 from tqdm import tqdm
+from pathlib import Path
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
@@ -80,7 +81,7 @@ class AwdLSTM:
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
         self.shard_count = shard_count
-        self.pretrained_embeddings_path = pretrained_embeddings_path
+        self.pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
 
         self.set_device()
 
@@ -101,7 +102,7 @@ class AwdLSTM:
 
     def set_log_file(self):
         log = open(str(self.save_path / f'{self.name}.csv'), "w")
-        log.write("epoch,valid_ppl\n")
+        log.write("epoch,valid_ppl,lr\n")
         return log
 
     def plot_loss(self, loss_sg, loss_fix):
@@ -182,14 +183,46 @@ class AwdLSTM:
                 losses.append(loss.data.item())
         return np.exp(np.mean(losses))
     
-    def train_epoch(self, model, optimizer, epoch_num, metrics):
+    def load_pretrained_embeddings(self, model):
+        if self.pretrained_embeddings_path is not None:
+            print("Loading pretrained embeddings...")
+            pretrained_embeddings_state = torch.load(
+                self.pretrained_embeddings_path / f"{self.pretrained_embeddings_path.name}.pt",
+                map_location=torch.device("cpu")
+            )
+            pretrained_embeddings = pretrained_embeddings_state['model_state_dict']['u_embeddings.weight']
+            
+            model_state = model.state_dict()
+            model_state['embed.W'] = pretrained_embeddings
+
+            model.load_state_dict(model_state) 
+    
+    def compare_embeddings(self, model, epoch):
+        print("Generating embeddings...")
+        self.generate_embeddings(model)
+
+        print("Loading embeddings...")
+        embeddings = KeyedVectors.load_word2vec_format(str(self.save_path / f'{self.name}.vec'), binary=False)
+
+        simlex = read_csv('evaluation/spa.csv')
+        simlex['word1'] = simlex['word1'].str.lower()
+        simlex['word2'] = simlex['word2'].str.lower()
+
+        simlex['similarity'] = simlex.apply(lambda row: embeddings.similarity(row['word1'], row['word2']) if (row['word1'] in embeddings and row['word2'] in embeddings) else np.nan, axis=1)
+        simlex.dropna(inplace=True)
+
+        corr = spearmanr(simlex['similarity'], simlex['score'])
+
+        self.simlex_file.write("{:d},{:.4f},{:.4f}\n".format(epoch, corr.correlation, corr.pvalue))
+
+        print(f'Simlex correlation: {corr.correlation:.4f}')
+        print(f'Simlex p-value: {corr.pvalue:.4f}')
+        return corr.correlation, corr.pvalue
+    
+    def train_epoch(self, model, optimizer, metrics):
         seq_len = self.get_seq_len()
-        optimizer.lr(seq_len / self.bptt * self.lr)
         states = model.state_init(self.batch_size)
         model.train()
-
-        print("Epoch : {:d}".format(epoch_num))
-        print("Learning rate : {:.3f}".format(seq_len / self.bptt * self.lr))
 
         for i in tqdm(range(self.shard_count), desc="Sharding"):
             dataset = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)
@@ -203,14 +236,7 @@ class AwdLSTM:
             
             minibatches = self.minibatch(tokens, fix_dur, seq_len)
 
-            for j, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
-                allocated_memory = torch.cuda.memory_allocated(self.device)
-                reserved_memory = torch.cuda.memory_reserved(self.device)
-                total_memory = torch.cuda.get_device_properties(self.device).total_memory
-
-                if allocated_memory > 0.7 * total_memory or reserved_memory > 0.7 * total_memory:
-                    torch.cuda.empty_cache()
-
+            for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 fix = fix.to(self.device)
