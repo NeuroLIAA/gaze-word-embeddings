@@ -106,7 +106,7 @@ class AwdLSTM:
         return log
 
     def plot_loss(self, loss_sg, loss_fix):
-        plot_loss(loss_sg, loss_fix, self.name, self.save_path)
+        plot_loss(loss_sg, loss_fix, self.name, self.save_path, 'LSTM')
 
     def set_simlex_file(self):
         simlex = open(str(self.save_path / f'{self.name}_simlex.csv'), "w")
@@ -241,7 +241,7 @@ class AwdLSTM:
                 y = y.to(self.device)
                 fix = fix.to(self.device)
                 states = model.detach(states)
-                scores, states, activations, fix_pred = model(x, states)
+                scores, states, activations, fix_scores = model(x, states)
 
                 loss = F.cross_entropy(scores, y.reshape(-1))
                 h, h_m = activations
@@ -249,10 +249,10 @@ class AwdLSTM:
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
 
                 if fix.sum() > 0:
-                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                    batch_correlation = spearmanr(fix_pred.cpu().detach().numpy(), fix.cpu().detach().numpy().reshape(-1))
-                    metrics['fix_corrs'].append(batch_correlation.correlation)
-                    metrics['fix_pvalues'].append(batch_correlation.pvalue)
+                    fix_loss = F.cross_entropy(fix_scores, fix.reshape(-1))
+                    # batch_correlation = spearmanr(fix_scores.cpu().detach().numpy(), fix.cpu().detach().numpy().reshape(-1))
+                    # metrics['fix_corrs'].append(batch_correlation.correlation)
+                    # metrics['fix_pvalues'].append(batch_correlation.pvalue)
                 else:
                     fix_loss = torch.tensor(0.0)
 

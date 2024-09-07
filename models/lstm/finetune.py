@@ -57,11 +57,11 @@ class AwdLSTMForFinetuning(AwdLSTM):
             self.save_model(model)
             toc = timeit.default_timer()
             print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
-            print(f'Fix duration correlation: {np.nanmean(metrics['fix_corrs']):.4f} (+/- {np.nanstd(metrics['fix_corrs']):.4f})')
-            print(f'Fix duration p-value: {np.nanmean(metrics['fix_pvalues']):.4f} (+/- {np.nanstd(metrics['fix_pvalues']):.4f})')
+            # print(f'Fix duration correlation: {np.nanmean(metrics['fix_corrs']):.4f} (+/- {np.nanstd(metrics['fix_corrs']):.4f})')
+            # print(f'Fix duration p-value: {np.nanmean(metrics['fix_pvalues']):.4f} (+/- {np.nanstd(metrics['fix_pvalues']):.4f})')
             print("*************************************************\n")
         self.log_file.close()
-        self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
+        self.plot_loss(metrics['loss_sg'], metrics['loss_fix']) 
         self.generate_embeddings(model)
         
     def train(self):

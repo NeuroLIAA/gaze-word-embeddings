@@ -96,7 +96,7 @@ class Word2Vec:
                 print(f'Fix duration p-value: {np.nanmean(fix_pvalues):.4f} (+/- {np.nanstd(fix_pvalues):.4f})')
 
         skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
-        plot_loss(loss_sg, loss_fix, self.model_name, self.save_path)
+        plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
         writer.flush()
 
 

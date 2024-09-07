@@ -55,9 +55,9 @@ def plot_distance_to_gt_across_thresholds(distances_to_embeddings, models_thresh
     plt.show()
 
 
-def plot_loss(loss_sg, loss_fix, model_name, save_path):
+def plot_loss(loss_sg, loss_fix, model_name, save_path, model = 'W2V'):
     sns.set_theme()
-    plt.plot(loss_sg, label='W2V', alpha=0.7)
+    plt.plot(loss_sg, label=model, alpha=0.7)
     plt.plot(loss_fix, label='Fix duration', alpha=0.7)
     plt.legend()
     plt.yticks(np.arange(0.0, max(max(loss_sg), max(loss_fix)), 0.5))
