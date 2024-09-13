@@ -62,17 +62,19 @@ class Word2Vec:
                     pos_u = batch[0].to(device)
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
-                    fix_v = batch[3].to(device)
+                    fix_u = batch[3].to(device)
+                    fix_v = batch[4].to(device)
 
-                    update_regressor = self.train_fix and fix_v.sum() > 0
+                    update_regressor = self.train_fix and fix_u.sum() > 0
                     skip_gram.optimizers['embeddings'].zero_grad()
                     skip_gram.optimizers['fix_duration'].zero_grad()
-                    loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, self.train_fix)
+                    loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, fix_u)
                     writer.add_scalar('Loss/SG', loss.item(), n_step)
                     loss_sg.append(loss.item())
                     fix_loss_value = 0.0
                     if update_regressor:
-                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v)
+                        class_weights = calculate_class_weights(fix_v.cpu().detach().numpy(), 16).to(device)
+                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v, weight=class_weights)
                         loss += fix_loss
                         writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
                         fix_loss_value = fix_loss.item()
@@ -107,7 +109,7 @@ class SkipGram(nn.Module):
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
-        self.duration_regression = nn.Linear(emb_dimension, num_classes)
+        self.duration_regression = nn.Linear(emb_dimension + 1, num_classes)
         self.optimizers = self.init_optimizers(lr, fix_lr)
         self.to(device)
 
@@ -115,7 +117,7 @@ class SkipGram(nn.Module):
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
         init.constant_(self.v_embeddings.weight.data, 0)
 
-    def forward(self, pos_u, pos_v, neg_v, predict_fix):
+    def forward(self, pos_u, pos_v, neg_v, fix_u):
         emb_u = self.u_embeddings(pos_u)
         emb_v = self.v_embeddings(pos_v)
         emb_neg_v = self.v_embeddings(neg_v)
@@ -128,8 +130,9 @@ class SkipGram(nn.Module):
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
 
-        duration = self.duration_regression(emb_v).squeeze() if predict_fix == 'output' else self.duration_regression(
-            emb_u).squeeze()
+        fix_u = fix_u.unsqueeze(1).float()
+        fix_u = torch.cat((emb_u, fix_u), dim=1)
+        duration = self.duration_regression(fix_u).squeeze()
 
         return torch.mean(score + neg_score), duration
 

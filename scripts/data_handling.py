@@ -97,7 +97,7 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
 
 def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, predict_fix):
     rnd_generator = np.random.default_rng()
-    batch_input, batch_output, batch_negatives, batch_fixations = [], [], [], []
+    batch_input, batch_output, batch_negatives, batch_fixations, batch_target_fixations = [], [], [], [], []
     for sentence in batch:
         words_ids, words_fix = words_mapping(sentence['text']), sentence['fix_dur']
         words, fixs = [], []
@@ -113,16 +113,18 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             context_words.pop(input_word_idx)
             word_fix = words_fix.pop(input_word_idx)
             batch_input.extend([word_id] * len(context_words))
+            batch_fixations.extend([word_fix] * len(context_words))
             batch_output.extend(context_words)
+            batch_target_fixations.extend(words_fix)
             batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
-            batch_fixations.extend(words_fix if predict_fix == 'output' else [word_fix] * len(context_words))
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)
     batch_negatives = np.array(batch_negatives)
     batch_fixations = np.array(batch_fixations)
+    batch_target_fixations = np.array(batch_target_fixations)
     return (torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives),
-            torch.LongTensor(batch_fixations))
+            torch.LongTensor(batch_fixations), torch.LongTensor(batch_target_fixations))
 
 
 class Samples:
