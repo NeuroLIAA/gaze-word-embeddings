@@ -13,7 +13,7 @@ from scripts.plot import plot_loss
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, train_fix, fix_lr, min_fix_lr, stimuli_path, device, model_name,
+                 min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name,
                  pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
@@ -25,7 +25,6 @@ class Word2Vec:
         self.lr = lr
         self.min_lr = min_lr
         self.batch_size = batch_size
-        self.train_fix = train_fix
         self.fix_lr = fix_lr
         self.min_fix_lr = min_fix_lr
         self.device = device
@@ -38,7 +37,7 @@ class Word2Vec:
         self.save_path.mkdir(exist_ok=True, parents=True)
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
-                                                     self.train_fix, self.stimuli_path, self.pretrained_path,
+                                                     self.stimuli_path, self.pretrained_path,
                                                      self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
         skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
@@ -65,7 +64,7 @@ class Word2Vec:
                     fix_u = batch[3].to(device)
                     fix_v = batch[4].to(device)
 
-                    update_regressor = self.train_fix and fix_u.sum() > 0
+                    update_regressor = fix_u.sum() > 0
                     skip_gram.optimizers['embeddings'].zero_grad()
                     skip_gram.optimizers['fix_duration'].zero_grad()
                     loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, fix_u)

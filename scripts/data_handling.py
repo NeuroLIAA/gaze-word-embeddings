@@ -70,7 +70,7 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
     return vocabulary, word_freq, total_words, base_vocab_tokens
 
 
-def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, train_fix,
+def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size,
                              stimuli_path, pretrained_path, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
@@ -88,14 +88,13 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            window_size=window_size,
                            negative_samples=negative_samples_set,
                            downsample_table=downsample_table,
-                           n_negatives=n_negatives,
-                           predict_fix=train_fix),
+                           n_negatives=n_negatives),
         num_workers=8
     )
     return dataloader, vocabulary
 
 
-def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, predict_fix):
+def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives):
     rnd_generator = np.random.default_rng()
     batch_input, batch_output, batch_negatives, batch_fixations, batch_target_fixations = [], [], [], [], []
     for sentence in batch:
