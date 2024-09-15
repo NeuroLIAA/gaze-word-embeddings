@@ -71,7 +71,7 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
 
 
 def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size,
-                             stimuli_path, pretrained_path, save_path):
+                             stimuli_path, pretrained_path, model_type, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
     vocabulary, word_freq, total_words, base_vocab_tokens = get_vocab(corpora, min_count, words_in_stimuli,
@@ -88,13 +88,14 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            window_size=window_size,
                            negative_samples=negative_samples_set,
                            downsample_table=downsample_table,
-                           n_negatives=n_negatives),
+                           n_negatives=n_negatives,
+                           model_type=model_type),
         num_workers=8
     )
     return dataloader, vocabulary
 
 
-def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives):
+def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, model_type):
     rnd_generator = np.random.default_rng()
     batch_input, batch_output, batch_negatives, batch_fixations, batch_target_fixations = [], [], [], [], []
     for sentence in batch:
@@ -111,11 +112,19 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             input_word_idx = idx if idx < reduced_window else reduced_window
             context_words.pop(input_word_idx)
             word_fix = words_fix.pop(input_word_idx)
-            batch_input.extend([word_id] * len(context_words))
-            batch_fixations.extend([word_fix] * len(context_words))
-            batch_output.extend(context_words)
-            batch_target_fixations.extend(words_fix)
-            batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
+
+            if model_type == 'skip':
+                batch_input.extend([word_id] * len(context_words))
+                batch_fixations.extend([word_fix] * len(context_words))
+                batch_output.extend(context_words)
+                batch_target_fixations.extend(words_fix)
+                batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
+            elif model_type == 'cbow':
+                batch_input.append(context_words)
+                batch_fixations.append(words_fix)
+                batch_output.append(word_id)
+                batch_target_fixations.append(word_fix)
+                batch_negatives.append(negative_samples.sample(n_negatives))
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)

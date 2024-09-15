@@ -13,7 +13,7 @@ from scripts.plot import plot_loss
 
 class Word2Vec:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name,
+                 min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
                  pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
@@ -29,6 +29,7 @@ class Word2Vec:
         self.min_fix_lr = min_fix_lr
         self.device = device
         self.model_name = model_name
+        self.model_type = model_type
         self.stimuli_path = stimuli_path
         self.pretrained_path = pretrained_path
         self.save_path = save_path
@@ -37,7 +38,7 @@ class Word2Vec:
         self.save_path.mkdir(exist_ok=True, parents=True)
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
-                                                     self.stimuli_path, self.pretrained_path,
+                                                     self.stimuli_path, self.pretrained_path, self.model_type,
                                                      self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
         skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
@@ -116,10 +117,10 @@ class SkipGram(nn.Module):
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
         init.constant_(self.v_embeddings.weight.data, 0)
 
-    def forward(self, pos_u, pos_v, neg_v, fix_u):
-        emb_u = self.u_embeddings(pos_u)
-        emb_v = self.v_embeddings(pos_v)
-        emb_neg_v = self.v_embeddings(neg_v)
+    def forward(self, target_word, context_words, neg_words, fix_target):
+        emb_u = self.u_embeddings(target_word)
+        emb_v = self.v_embeddings(context_words)
+        emb_neg_v = self.v_embeddings(neg_words)
 
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
         score = torch.clamp(score, max=10, min=-10)
@@ -129,11 +130,11 @@ class SkipGram(nn.Module):
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
 
-        fix_u = fix_u.unsqueeze(1).float()
-        fix_u = torch.cat((emb_u, fix_u), dim=1)
-        duration = self.duration_regression(fix_u).squeeze()
+        fix_target = fix_target.unsqueeze(1).float()
+        fix_target = torch.cat((emb_u, fix_target), dim=1)
+        predicted_fix = self.duration_regression(fix_target).squeeze()
 
-        return torch.mean(score + neg_score), duration
+        return torch.mean(score + neg_score), predicted_fix
 
     def init_optimizers(self, lr, fix_lr):
         optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
@@ -156,6 +157,62 @@ class SkipGram(nn.Module):
 
     def load_checkpoint(self, checkpoint_path, device):
         checkpoint = next(checkpoint_path.glob('w2v*.pt'))
+        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
+        self.load_state_dict(checkpoint['model_state_dict'])
+
+
+class CBOW(nn.Module):
+
+    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, device, num_classes=16):
+        super(CBOW, self).__init__()
+        self.emb_dimension = emb_dimension
+        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
+        self.duration_regression = nn.Linear(emb_dimension, num_classes)
+        self.optimizers = self.init_optimizers(lr, fix_lr)
+        self.to(device)
+
+        initrange = 1.0 / self.emb_dimension
+        init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
+
+    def forward(self, context_words, target_word, neg_words):
+        emb_context = self.embeddings(context_words)
+        emb_target = self.embeddings(target_word)
+        emb_neg = self.embeddings(neg_words)
+
+        context_mean = torch.mean(emb_context, dim=1)
+        score = torch.sum(torch.mul(context_mean, emb_target), dim=1)
+        score = torch.clamp(score, max=10, min=-10)
+        score = -functional.logsigmoid(score)
+
+        neg_score = torch.bmm(emb_neg, context_mean.unsqueeze(2)).squeeze()
+        neg_score = torch.clamp(neg_score, max=10, min=-10)
+        neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
+
+        predicted_fix = self.duration_regression(context_mean).squeeze()
+
+        return torch.mean(score + neg_score), predicted_fix
+
+    def init_optimizers(self, lr, fix_lr):
+        optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:1], lr=lr),
+                      'fix_duration': optim.AdamW(list(self.parameters())[1:], lr=fix_lr)}
+        return optimizers
+
+    def save_embedding_vocab(self, vocab, file_name):
+        embedding = self.u_embeddings.weight.cpu().data.numpy()
+        with open(file_name, 'w') as f:
+            f.write('%d %d\n' % (len(vocab), self.emb_dimension))
+            for wid, w in enumerate(vocab.get_itos()):
+                e = ' '.join(map(lambda x: str(x), embedding[wid]))
+                f.write('%s %s\n' % (w, e))
+
+    def save_checkpoint(self, file_name, epoch):
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.state_dict()
+        }, file_name)
+
+    def load_checkpoint(self, checkpoint_path, device):
+        checkpoint = next(checkpoint_path.glob('cb*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
 

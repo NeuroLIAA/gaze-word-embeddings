@@ -55,10 +55,10 @@ class Trainer:
 
     def get_model(self, corpora):
         model_name = self.set_paths()
-        if self.model == 'w2v':
+        if self.model == 'skip' or self.model == 'cbow':
             return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                             self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
-                            self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device, model_name,
+                            self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device, model_name, self.model,
                             self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('-fix_lr', '--fix_lr', type=float, default=1e-3, help='Initial learning rate for fix duration')
     parser.add_argument('-min_fix_lr', '--min_fix_lr', type=float, default=1e-4,
                         help='Minimum learning rate for fix duration')
-    parser.add_argument('-m', '--model', choices=['w2v', 'lstm'], type=str,
+    parser.add_argument('-m', '--model', choices=['skip', 'cbow', 'lstm'], type=str,
                         help='Model architecture to be trained')
     parser.add_argument('-ft', '--finetune', type=str, default=None,
                         help='Path to pre-trained model to be fine-tuned')
