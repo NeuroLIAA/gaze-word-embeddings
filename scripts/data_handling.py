@@ -119,12 +119,12 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
                 batch_output.extend(context_words)
                 batch_target_fixations.extend(context_words_fix)
                 batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
-            elif model_type == 'cbow':
-                batch_input.extend(context_words)
+            elif model_type == 'cbow' and len(context_words) > 0:
+                batch_input.extend(context_words + [-1])
                 batch_fixations.extend(context_words_fix)
-                batch_output.extend(word_id)
-                batch_target_fixations.extend(target_word_fix)
-                batch_negatives.extend(negative_samples.sample(n_negatives))
+                batch_output.append(word_id)
+                batch_target_fixations.append(target_word_fix)
+                batch_negatives.append(negative_samples.sample(n_negatives))
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)

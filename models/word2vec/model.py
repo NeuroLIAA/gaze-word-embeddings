@@ -168,28 +168,32 @@ class CBOW(nn.Module):
         super(CBOW, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
+        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr, fix_lr)
+        self.device = device
         self.to(device)
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
+        init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, context_words, target_word, neg_words):
-        emb_context = self.embeddings(context_words)
-        emb_target = self.embeddings(target_word)
-        emb_neg = self.embeddings(neg_words)
+        context_windows = separate_context_windows(context_words)
+        emb_context_windows = [self.u_embeddings(torch.tensor(window).to(self.device)) for window in context_windows]
+        context_means = torch.stack([torch.mean(window, dim=0) for window in emb_context_windows])
+        emb_target = self.v_embeddings(target_word)
+        emb_neg = self.v_embeddings(neg_words)
 
-        context_mean = torch.mean(emb_context, dim=1)
-        score = torch.sum(torch.mul(context_mean, emb_target), dim=1)
+        score = torch.sum(torch.mul(context_means, emb_target), dim=1)
         score = torch.clamp(score, max=10, min=-10)
         score = -functional.logsigmoid(score)
 
-        neg_score = torch.bmm(emb_neg, context_mean.unsqueeze(2)).squeeze()
+        neg_score = torch.bmm(emb_neg, context_means.unsqueeze(2)).squeeze()
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
 
-        predicted_fix = self.duration_regression(context_mean).squeeze()
+        predicted_fix = self.duration_regression(context_means).squeeze()
 
         return torch.mean(score + neg_score), predicted_fix
 
@@ -199,7 +203,7 @@ class CBOW(nn.Module):
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
-        embedding = self.u_embeddings.weight.cpu().data.numpy()
+        embedding = self.embeddings.weight.cpu().data.numpy()
         with open(file_name, 'w') as f:
             f.write('%d %d\n' % (len(vocab), self.emb_dimension))
             for wid, w in enumerate(vocab.get_itos()):
@@ -227,3 +231,18 @@ def calculate_class_weights(labels, num_classes):
         full_class_weights[cls] = weight
 
     return torch.tensor(full_class_weights, dtype=torch.float32)
+
+
+def separate_context_windows(context_words):
+    windows = []
+    current_window = []
+    for word in context_words:
+        if word == -1:
+            if current_window:
+                windows.append(current_window)
+                current_window = []
+        else:
+            current_window.append(word)
+    if current_window:
+        windows.append(current_window)
+    return windows
