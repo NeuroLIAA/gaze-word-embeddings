@@ -203,7 +203,7 @@ class CBOW(nn.Module):
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
-        embedding = self.embeddings.weight.cpu().data.numpy()
+        embedding = self.u_embeddings.weight.cpu().data.numpy()
         with open(file_name, 'w') as f:
             f.write('%d %d\n' % (len(vocab), self.emb_dimension))
             for wid, w in enumerate(vocab.get_itos()):
