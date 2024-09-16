@@ -62,7 +62,7 @@ class Word2Vec:
             writer.add_scalar('lr/Fix', model.optimizers['fix_duration'].param_groups[0]['lr'], epoch)
             for n_step, batch in enumerate(tqdm(dataloader)):
                 if len(batch[0]) > 1:
-                    pos_u = batch[0].to(device)
+                    pos_u = batch[0]
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
                     fix_u = batch[3].to(device)
@@ -112,8 +112,9 @@ class SkipGram(nn.Module):
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
-        self.duration_regression = nn.Linear(emb_dimension + 1, num_classes)
+        self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr, fix_lr)
+        self.device = device
         self.to(device)
 
         initrange = 1.0 / self.emb_dimension
@@ -121,7 +122,7 @@ class SkipGram(nn.Module):
         init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, target_word, context_words, neg_words):
-        emb_u = self.u_embeddings(target_word)
+        emb_u = self.u_embeddings(target_word.to(self.device))
         emb_v = self.v_embeddings(context_words)
         emb_neg_v = self.v_embeddings(neg_words)
 
@@ -179,12 +180,11 @@ class CBOW(nn.Module):
         init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, context_words, target_word, neg_words):
-        context_windows = separate_context_windows(context_words)
-        emb_context_windows = [self.u_embeddings(torch.tensor(window).to(self.device)) for window in context_windows]
-        context_means = torch.stack([torch.mean(window, dim=0) for window in emb_context_windows])
+        emb_context = self.u_embeddings(context_words.to(self.device))
         emb_target = self.v_embeddings(target_word)
         emb_neg = self.v_embeddings(neg_words)
 
+        context_means = torch.mean(emb_context, dim=1)
         score = torch.sum(torch.mul(context_means, emb_target), dim=1)
         score = torch.clamp(score, max=10, min=-10)
         score = -functional.logsigmoid(score)
@@ -198,8 +198,8 @@ class CBOW(nn.Module):
         return torch.mean(score + neg_score), predicted_fix
 
     def init_optimizers(self, lr, fix_lr):
-        optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:1], lr=lr),
-                      'fix_duration': optim.AdamW(list(self.parameters())[1:], lr=fix_lr)}
+        optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
+                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=fix_lr)}
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):

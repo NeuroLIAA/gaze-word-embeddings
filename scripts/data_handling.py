@@ -105,24 +105,26 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             if rnd_generator.random() < downsample_table[word_id]:
                 words.append(word_id)
                 fixs.append(words_fix[i])
-        reduced_window = rnd_generator.integers(1, window_size + 1)
-        for idx, word_id in enumerate(words):
-            context_words = words[max(idx - reduced_window, 0): idx + reduced_window]
-            context_words_fix = fixs[max(idx - reduced_window, 0): idx + reduced_window]
-            target_word_idx = idx if idx < reduced_window else reduced_window
-            context_words.pop(target_word_idx)
-            target_word_fix = context_words_fix.pop(target_word_idx)
+        reduced_window = rnd_generator.integers(1, window_size + 1) if model_type == 'skip' else window_size
+        if len(words) < reduced_window * 2 + 1:
+            continue
+        for idx in range(len(words) - reduced_window * 2):
+            context_words = words[idx: idx + reduced_window * 2 + 1]
+            context_words_fix = fixs[idx: idx + reduced_window * 2 + 1]
+            target_word_id = words[reduced_window]
+            context_words.pop(reduced_window)
+            target_word_fix = context_words_fix.pop(reduced_window)
 
             if model_type == 'skip':
-                batch_input.extend([word_id] * len(context_words))
+                batch_input.extend([target_word_id] * len(context_words))
                 batch_fixations.extend([target_word_fix] * len(context_words))
                 batch_output.extend(context_words)
                 batch_target_fixations.extend(context_words_fix)
                 batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
             elif model_type == 'cbow' and len(context_words) > 0:
-                batch_input.extend(context_words + [-1])
+                batch_input.append(context_words)
                 batch_fixations.extend(context_words_fix)
-                batch_output.append(word_id)
+                batch_output.append(target_word_id)
                 batch_target_fixations.append(target_word_fix)
                 batch_negatives.append(negative_samples.sample(n_negatives))
 
