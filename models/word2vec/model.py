@@ -41,13 +41,16 @@ class Word2Vec:
                                                      self.stimuli_path, self.pretrained_path, self.model_type,
                                                      self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
-        skip_gram = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
+        if self.model_type == 'skip':
+            model = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
+        else:
+            model = CBOW(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
         if self.pretrained_path:
-            skip_gram.load_checkpoint(self.pretrained_path, device)
+            model.load_checkpoint(self.pretrained_path, device)
 
-        fix_scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['fix_duration'], start_factor=1.0,
+        fix_scheduler = optim.lr_scheduler.LinearLR(model.optimizers['fix_duration'], start_factor=1.0,
                                                     end_factor=(self.min_fix_lr / self.fix_lr), total_iters=self.epochs)
-        scheduler = optim.lr_scheduler.LinearLR(skip_gram.optimizers['embeddings'], start_factor=1.0,
+        scheduler = optim.lr_scheduler.LinearLR(model.optimizers['embeddings'], start_factor=1.0,
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
@@ -55,8 +58,8 @@ class Word2Vec:
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
             fix_corrs, fix_pvalues = [], []
-            writer.add_scalar('lr/SG', skip_gram.optimizers['embeddings'].param_groups[0]['lr'], epoch)
-            writer.add_scalar('lr/Fix', skip_gram.optimizers['fix_duration'].param_groups[0]['lr'], epoch)
+            writer.add_scalar('lr/SG', model.optimizers['embeddings'].param_groups[0]['lr'], epoch)
+            writer.add_scalar('lr/Fix', model.optimizers['fix_duration'].param_groups[0]['lr'], epoch)
             for n_step, batch in enumerate(tqdm(dataloader)):
                 if len(batch[0]) > 1:
                     pos_u = batch[0].to(device)
@@ -66,9 +69,9 @@ class Word2Vec:
                     fix_v = batch[4].to(device)
 
                     update_regressor = fix_u.sum() > 0
-                    skip_gram.optimizers['embeddings'].zero_grad()
-                    skip_gram.optimizers['fix_duration'].zero_grad()
-                    loss, fix_dur = skip_gram.forward(pos_u, pos_v, neg_v, fix_u)
+                    model.optimizers['embeddings'].zero_grad()
+                    model.optimizers['fix_duration'].zero_grad()
+                    loss, fix_dur = model.forward(pos_u, pos_v, neg_v)
                     writer.add_scalar('Loss/SG', loss.item(), n_step)
                     loss_sg.append(loss.item())
                     fix_loss_value = 0.0
@@ -87,17 +90,17 @@ class Word2Vec:
                         writer.add_scalar('P-value/Fix', batch_correlation.pvalue, n_step)
                     loss_fix.append(fix_loss_value)
                     loss.backward()
-                    skip_gram.optimizers['embeddings'].step()
+                    model.optimizers['embeddings'].step()
                     if update_regressor:
-                        skip_gram.optimizers['fix_duration'].step()
+                        model.optimizers['fix_duration'].step()
             scheduler.step()
             fix_scheduler.step()
-            skip_gram.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
+            model.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             if fix_corrs:
                 print(f'Fix duration correlation: {np.nanmean(fix_corrs):.4f} (+/- {np.nanstd(fix_corrs):.4f})')
                 print(f'Fix duration p-value: {np.nanmean(fix_pvalues):.4f} (+/- {np.nanstd(fix_pvalues):.4f})')
 
-        skip_gram.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
+        model.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
         writer.flush()
 
@@ -117,7 +120,7 @@ class SkipGram(nn.Module):
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
         init.constant_(self.v_embeddings.weight.data, 0)
 
-    def forward(self, target_word, context_words, neg_words, fix_target):
+    def forward(self, target_word, context_words, neg_words):
         emb_u = self.u_embeddings(target_word)
         emb_v = self.v_embeddings(context_words)
         emb_neg_v = self.v_embeddings(neg_words)
@@ -130,9 +133,7 @@ class SkipGram(nn.Module):
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
 
-        fix_target = fix_target.unsqueeze(1).float()
-        fix_target = torch.cat((emb_u, fix_target), dim=1)
-        predicted_fix = self.duration_regression(fix_target).squeeze()
+        predicted_fix = self.duration_regression(emb_u).squeeze()
 
         return torch.mean(score + neg_score), predicted_fix
 
@@ -156,7 +157,7 @@ class SkipGram(nn.Module):
         }, file_name)
 
     def load_checkpoint(self, checkpoint_path, device):
-        checkpoint = next(checkpoint_path.glob('w2v*.pt'))
+        checkpoint = next(checkpoint_path.glob('skip*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
 
@@ -212,7 +213,7 @@ class CBOW(nn.Module):
         }, file_name)
 
     def load_checkpoint(self, checkpoint_path, device):
-        checkpoint = next(checkpoint_path.glob('cb*.pt'))
+        checkpoint = next(checkpoint_path.glob('cbow*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
 
