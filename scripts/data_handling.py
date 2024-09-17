@@ -111,7 +111,7 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
         for idx in range(len(words) - reduced_window * 2):
             context_words = words[idx: idx + reduced_window * 2 + 1]
             context_words_fix = fixs[idx: idx + reduced_window * 2 + 1]
-            target_word_id = words[reduced_window]
+            target_word_id = context_words[reduced_window]
             context_words.pop(reduced_window)
             target_word_fix = context_words_fix.pop(reduced_window)
 
