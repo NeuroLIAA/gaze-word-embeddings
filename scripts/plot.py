@@ -60,7 +60,6 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path, model = 'W2V'):
     plt.plot(loss_sg, label=model, alpha=0.7)
     plt.plot(loss_fix, label='Fix duration', alpha=0.7)
     plt.legend()
-    plt.yticks(np.arange(0.0, max(max(loss_sg), max(loss_fix)), 0.5))
     plt.xlabel('Step')
     plt.ylabel('Loss')
     plt.title(f'{model_name} loss')
