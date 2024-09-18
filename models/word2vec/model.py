@@ -62,7 +62,7 @@ class Word2Vec:
             writer.add_scalar('lr/Fix', model.optimizers['fix_duration'].param_groups[0]['lr'], epoch)
             for n_step, batch in enumerate(tqdm(dataloader)):
                 if len(batch[0]) > 1:
-                    pos_u = batch[0]
+                    pos_u = batch[0].to(device)
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
                     fix_u = batch[3].to(device)
@@ -122,7 +122,7 @@ class SkipGram(nn.Module):
         init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, target_word, context_words, neg_words):
-        emb_u = self.u_embeddings(target_word.to(self.device))
+        emb_u = self.u_embeddings(target_word)
         emb_v = self.v_embeddings(context_words)
         emb_neg_v = self.v_embeddings(neg_words)
 
@@ -168,8 +168,8 @@ class CBOW(nn.Module):
     def __init__(self, vocab_size, emb_dimension, lr, fix_lr, device, num_classes=16):
         super(CBOW, self).__init__()
         self.emb_dimension = emb_dimension
-        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
-        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
+        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
+        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr, fix_lr)
         self.device = device
@@ -177,14 +177,16 @@ class CBOW(nn.Module):
 
         initrange = 1.0 / self.emb_dimension
         init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
+        init.constant_(self.u_embeddings.weight.data[0], 0)
         init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, context_words, target_word, neg_words):
-        emb_context = self.u_embeddings(context_words.to(self.device))
+        emb_context = self.u_embeddings(context_words)
         emb_target = self.v_embeddings(target_word)
         emb_neg = self.v_embeddings(neg_words)
 
-        context_means = torch.mean(emb_context, dim=1)
+        nonzero_mask = emb_context != 0
+        context_means = torch.sum(emb_context, dim=1) / torch.sum(nonzero_mask, dim=1)
         score = torch.sum(torch.mul(context_means, emb_target), dim=1)
         score = torch.clamp(score, max=10, min=-10)
         score = -functional.logsigmoid(score)
@@ -233,16 +235,12 @@ def calculate_class_weights(labels, num_classes):
     return torch.tensor(full_class_weights, dtype=torch.float32)
 
 
-def separate_context_windows(context_words):
-    windows = []
-    current_window = []
-    for word in context_words:
-        if word == -1:
-            if current_window:
-                windows.append(current_window)
-                current_window = []
-        else:
-            current_window.append(word)
-    if current_window:
-        windows.append(current_window)
-    return windows
+def separate_context_windows(context_words, context_size):
+    # context_windows = []
+    # offset = 0
+    # for size in context_size:
+    #     context_windows.append(context_words[offset:offset + size])
+    #     offset += size
+    mask = torch.arange(context_words.size(0)).unsqueeze(0) < context_size.unsqueeze(1)
+    context_windows = context_words[mask].split(context_size.tolist())
+    return context_windows
