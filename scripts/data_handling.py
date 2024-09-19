@@ -11,7 +11,10 @@ import torch
 
 def build_downsample_distribution(word_freq, total_words, downsample_factor, base_vocab_tokensids):
     frequency = np.array(list(word_freq.values())) / total_words
-    frequency = np.sqrt(downsample_factor / frequency) + (downsample_factor / frequency)
+    if downsample_factor == 0:
+        frequency = np.ones_like(frequency)
+    else:
+        frequency = np.sqrt(downsample_factor / frequency) + (downsample_factor / frequency)
     # Insert <unk> index and make it so that it is always discarded
     frequency = np.insert(frequency, 0, 0.0)
     if len(base_vocab_tokensids) > 0:
