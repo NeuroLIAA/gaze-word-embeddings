@@ -3,7 +3,6 @@ scanpaths_fd/*
 scanpaths_ffd/*
 scanpaths_gd/*
 texts/*
-stimuli/*
 embeddings/*
 
 # Pycharm files
@@ -11,7 +10,6 @@ embeddings/*
 
 # log files, model files, etc
 *.json
-*.txt
 *.tar
 
 # pycache directories
