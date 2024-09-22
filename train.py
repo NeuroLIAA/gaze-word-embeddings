@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 from scripts.corpora import load_corpora
 from scripts.utils import get_embeddings_path
-from models.word2vec.model import Word2Vec
+from models.word2vec.model import W2VTrainer
 from models.lstm.main import AwdLSTM
 import os
 
@@ -56,10 +56,10 @@ class Trainer:
     def get_model(self, corpora):
         model_name = self.set_paths()
         if self.model == 'skip' or self.model == 'cbow':
-            return Word2Vec(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
-                            self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
-                            self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device, model_name, self.model,
-                            self.pretrained_path, self.save_path)
+            return W2VTrainer(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
+                              self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
+                              self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device, model_name, self.model,
+                              self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
                                             embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs,

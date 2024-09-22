@@ -11,7 +11,7 @@ from scripts.data_handling import get_dataloader_and_vocab
 from scripts.plot import plot_loss
 
 
-class Word2Vec:
+class W2VTrainer:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
                  min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
                  pretrained_path, save_path):
@@ -41,10 +41,7 @@ class Word2Vec:
                                                      self.stimuli_path, self.pretrained_path, self.model_type,
                                                      self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
-        if self.model_type == 'skip':
-            model = SkipGram(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
-        else:
-            model = CBOW(len(vocab), self.vector_size, self.lr, self.fix_lr, device)
+        model = Word2Vec(len(vocab), self.vector_size, self.lr, self.fix_lr, self.model_type, device)
         if self.pretrained_path:
             model.load_checkpoint(self.pretrained_path, device)
 
@@ -105,15 +102,16 @@ class Word2Vec:
         writer.flush()
 
 
-class SkipGram(nn.Module):
+class Word2Vec(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, device, num_classes=16):
-        super(SkipGram, self).__init__()
+    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_classes=16):
+        super(Word2Vec, self).__init__()
         self.emb_dimension = emb_dimension
-        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
-        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True)
+        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
+        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.duration_regression = nn.Linear(emb_dimension, num_classes)
         self.optimizers = self.init_optimizers(lr, fix_lr)
+        self.model_type = model_type
         self.device = device
         self.to(device)
 
@@ -126,6 +124,9 @@ class SkipGram(nn.Module):
         emb_v = self.v_embeddings(context_words)
         emb_neg_v = self.v_embeddings(neg_words)
 
+        if self.model_type == 'cbow':
+            nonzero_mask = emb_u != 0
+            emb_u = torch.sum(emb_u, dim=1) / torch.sum(nonzero_mask, dim=1)
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
         score = torch.clamp(score, max=10, min=-10)
         score = -functional.logsigmoid(score)
@@ -158,68 +159,7 @@ class SkipGram(nn.Module):
         }, file_name)
 
     def load_checkpoint(self, checkpoint_path, device):
-        checkpoint = next(checkpoint_path.glob('skip*.pt'))
-        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
-        self.load_state_dict(checkpoint['model_state_dict'])
-
-
-class CBOW(nn.Module):
-
-    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, device, num_classes=16):
-        super(CBOW, self).__init__()
-        self.emb_dimension = emb_dimension
-        self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
-        self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
-        self.duration_regression = nn.Linear(emb_dimension, num_classes)
-        self.optimizers = self.init_optimizers(lr, fix_lr)
-        self.device = device
-        self.to(device)
-
-        initrange = 1.0 / self.emb_dimension
-        init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
-        init.constant_(self.u_embeddings.weight.data[0], 0)
-        init.constant_(self.v_embeddings.weight.data, 0)
-
-    def forward(self, context_words, target_word, neg_words):
-        emb_context = self.u_embeddings(context_words)
-        emb_target = self.v_embeddings(target_word)
-        emb_neg = self.v_embeddings(neg_words)
-
-        nonzero_mask = emb_context != 0
-        context_means = torch.sum(emb_context, dim=1) / torch.sum(nonzero_mask, dim=1)
-        score = torch.sum(torch.mul(context_means, emb_target), dim=1)
-        score = torch.clamp(score, max=10, min=-10)
-        score = -functional.logsigmoid(score)
-
-        neg_score = torch.bmm(emb_neg, context_means.unsqueeze(2)).squeeze()
-        neg_score = torch.clamp(neg_score, max=10, min=-10)
-        neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
-
-        predicted_fix = self.duration_regression(context_means).squeeze()
-
-        return torch.mean(score + neg_score), predicted_fix
-
-    def init_optimizers(self, lr, fix_lr):
-        optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
-                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=fix_lr)}
-        return optimizers
-
-    def save_embedding_vocab(self, vocab, file_name):
-        embedding = self.u_embeddings.weight.cpu().data.numpy()
-        with open(file_name, 'w') as f:
-            f.write('%d %d\n' % (len(vocab), self.emb_dimension))
-            for wid, w in enumerate(vocab.get_itos()):
-                e = ' '.join(map(lambda x: str(x), embedding[wid]))
-                f.write('%s %s\n' % (w, e))
-
-    def save_checkpoint(self, file_name, epoch):
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': self.state_dict()
-        }, file_name)
-
-    def load_checkpoint(self, checkpoint_path, device):
-        checkpoint = next(checkpoint_path.glob('cbow*.pt'))
+        checkpoint = next(checkpoint_path.glob(f'{self.model_type}*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         self.load_state_dict(checkpoint['model_state_dict'])
 
@@ -233,14 +173,3 @@ def calculate_class_weights(labels, num_classes):
         full_class_weights[cls] = weight
 
     return torch.tensor(full_class_weights, dtype=torch.float32)
-
-
-def separate_context_windows(context_words, context_size):
-    # context_windows = []
-    # offset = 0
-    # for size in context_size:
-    #     context_windows.append(context_words[offset:offset + size])
-    #     offset += size
-    mask = torch.arange(context_words.size(0)).unsqueeze(0) < context_size.unsqueeze(1)
-    context_windows = context_words[mask].split(context_size.tolist())
-    return context_windows
