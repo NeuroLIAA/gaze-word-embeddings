@@ -13,8 +13,8 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
                  min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
-                 vector_size, window_size, min_count, model, fix_lr, min_fix_lr, save_path, pretrained_path,
-                 tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
+                 vector_size, window_size, gaze_predict, min_count, model, fix_lr, min_fix_lr, save_path,
+                 pretrained_path, tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
         self.fraction = fraction
@@ -32,6 +32,7 @@ class Trainer:
         self.max_sentence_len = max_sentence_len
         self.vector_size = vector_size
         self.window_size = window_size
+        self.gaze_predict = gaze_predict
         self.min_count = min_count
         self.model = model
         self.fix_lr = fix_lr
@@ -58,8 +59,8 @@ class Trainer:
         if self.model == 'skip' or self.model == 'cbow':
             return W2VTrainer(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                               self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
-                              self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device, model_name, self.model,
-                              self.pretrained_path, self.save_path)
+                              self.gaze_predict, self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device,
+                              model_name, self.model, self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
                                             embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs,
@@ -80,18 +81,18 @@ class Trainer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='Training data descriptive name')
-    parser.add_argument('-c', '--corpora', type=str, default='all_wikis+scanpaths',
+    parser.add_argument('-c', '--corpora', type=str, default='all_wikis',
                         help='Texts to be employed for training')
-    parser.add_argument('-s', '--sources', type=str, default='remote+local',
+    parser.add_argument('-s', '--sources', type=str, default='remote',
                         help='Corpora data sources. If remote, will fetch from huggingface\'s large_spanish_corpus')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus to employ for training')
     parser.add_argument('-r', '--repeats', type=int, default=1,
                         help='Number of times the local corpus will be iterated over for training')
     parser.add_argument('-ns', '--negative_samples', type=int, default=20,
-                        help='Number of negative samples to be used in training')
+                        help='Number of negative samples to be used in training for Word2Vec')
     parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-5,
-                        help='Downsample factor for frequent words')
+                        help='Downsample factor for frequent words in Word2Vec')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-lr', '--lr', type=float, default=1e-3, help='Initial learning rate')
     parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
@@ -101,6 +102,8 @@ if __name__ == '__main__':
     parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
+    parser.add_argument('-gp', '--gaze_predict', type=str, default='output',
+                        help='Predict gaze measures for input or output')
     parser.add_argument('-min_token', '--min_token', type=int, default=2,
                         help='Word min length, in tokens')
     parser.add_argument('-max_token', '--max_token', type=int, default=20,
@@ -135,6 +138,6 @@ if __name__ == '__main__':
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
-            args.min_length, args.max_length, args.size, args.window, args.min_count, args.model,
+            args.min_length, args.max_length, args.size, args.window, args.gaze_predict, args.min_count, args.model,
             args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli),
             Path(args.pretrained_embeddings)).train()
