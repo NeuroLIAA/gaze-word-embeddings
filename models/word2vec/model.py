@@ -73,12 +73,11 @@ class W2VTrainer:
                     loss_sg.append(loss.item())
                     fix_loss_value = 0.0
                     if update_regressor:
-                        class_weights = calculate_class_weights(fix_v.cpu().detach().numpy(), 16).to(device)
-                        fix_loss = torch.nn.functional.cross_entropy(fix_dur, fix_v, weight=class_weights)
+                        fix_loss = nn.functional.l1_loss(fix_dur, fix_v)
                         loss += fix_loss
                         writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
                         fix_loss_value = fix_loss.item()
-                        fix_preds = torch.argmax(fix_dur, dim=1).cpu().detach().numpy()
+                        fix_preds = fix_dur.cpu().detach().numpy()
                         fix_labels = fix_v.cpu().detach().numpy()
                         batch_correlation = spearmanr(fix_preds, fix_labels)
                         fix_corrs.append(batch_correlation.correlation)
@@ -104,7 +103,7 @@ class W2VTrainer:
 
 class Word2Vec(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_classes=16):
+    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_classes=1):
         super(Word2Vec, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
