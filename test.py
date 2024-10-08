@@ -4,12 +4,14 @@ from numpy import abs, random
 from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
-from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs
+from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
+from scripts.CKA import linear_CKA
 from scripts.plot import plot_correlations
 from scripts.process_swow import load_swow
 
 
-def test(embeddings_path, words_associations, words_freq, num_samples, resamples, stimuli_path, save_path, seed):
+def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, resamples, stimuli_path,
+         save_path, seed):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {embeddings_path}')
@@ -17,12 +19,16 @@ def test(embeddings_path, words_associations, words_freq, num_samples, resamples
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     rng = random.default_rng(seed)
     words_in_stimuli = get_words_in_corpus(stimuli_path)
+    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_in_stimuli)
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freq,
                                                               num_samples, resamples, rng)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
-        test_model(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
+        test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
+        model_embeddings = model_wv[corresponding_words]
+        print(f'Linear CKA between {model_dir.name} and SWOW embeddings: '
+              f'{linear_CKA(model_embeddings, embeddings_in_stimuli)}')
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
@@ -30,7 +36,7 @@ def test(embeddings_path, words_associations, words_freq, num_samples, resamples
     plot_correlations(models_results, save_path)
 
 
-def test_model(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
+def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
     models_results['in_stimuli'][model_name] = []
     models_results['off_stimuli'][model_name] = []
     for in_stimuli, off_stimuli in zip(in_stimuli_wp, off_stimuli_wp):
@@ -55,6 +61,8 @@ if __name__ == '__main__':
                         help='Path to item files employed in the experiment')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
+    parser.add_argument('-gt', '--ground_truth', type=str, default='evaluation/SWOWRP_embeddings.vec',
+                        help='Ground truth embeddings for evaluation')
     parser.add_argument('-min_freq', '--min_freq', type=float, default=0.02,
                         help='Minimum frequency of answer for a cue answer pair to be considered')
     parser.add_argument('-wf', '--words_frequency', type=str, default='evaluation/words_freq.csv',
@@ -69,6 +77,8 @@ if __name__ == '__main__':
     output, stimuli_path = Path(args.output), Path(args.stimuli)
     swow = load_swow(args.words_associations, words_freq, args.non_content, args.min_freq, stimuli_path,
                      args.set, args.seed)
+    swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
 
-    test(embeddings_path, swow, words_freq, args.words_samples, args.resample, stimuli_path, output, args.seed)
+    test(embeddings_path, swow, swow_wv, words_freq, args.words_samples, args.resample, stimuli_path, output,
+         args.seed)

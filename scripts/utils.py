@@ -56,6 +56,15 @@ def similarities(words_vectors, words, answers):
     return similarities
 
 
+def embeddings(words_vectors, words):
+    embeddings, corresponding_words = [], []
+    for word in words:
+        if word in words_vectors:
+            embeddings.append(words_vectors[word])
+            corresponding_words.append(word)
+    return np.array(embeddings), corresponding_words
+
+
 def word_similarity(words_vectors, word, answer):
     if answer is None or answer not in words_vectors or word not in words_vectors:
         return np.nan
