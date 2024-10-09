@@ -66,7 +66,7 @@ class W2VTrainer:
                     fix_u = batch[3].to(device)
                     fix_v = batch[4].to(device)
 
-                    fix_labels = fix_v if self.gaze_predict == 'output' else fix_u
+                    fix_labels = fix_v if self.gaze_predict == 'output' else fix_u[fix_u != -1]
                     update_regressor = fix_labels.sum() > 0
                     model.optimizers['embeddings'].zero_grad()
                     model.optimizers['fix_duration'].zero_grad()
@@ -127,7 +127,10 @@ class Word2Vec(nn.Module):
 
         if self.model_type == 'cbow':
             nonzero_mask = emb_u != 0
+            predicted_fix = self.duration_regression(emb_u[nonzero_mask].view(-1, self.emb_dimension)).squeeze()
             emb_u = torch.sum(emb_u, dim=1) / torch.sum(nonzero_mask, dim=1)
+        else:
+            predicted_fix = self.duration_regression(emb_u).squeeze()
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
         score = torch.clamp(score, max=10, min=-10)
         score = -functional.logsigmoid(score)
@@ -135,8 +138,6 @@ class Word2Vec(nn.Module):
         neg_score = torch.bmm(emb_neg_v, emb_u.unsqueeze(2)).squeeze()
         neg_score = torch.clamp(neg_score, max=10, min=-10)
         neg_score = -torch.sum(functional.logsigmoid(-neg_score), dim=1)
-
-        predicted_fix = self.duration_regression(emb_u).squeeze()
 
         return torch.mean(score + neg_score), predicted_fix
 

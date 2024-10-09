@@ -28,7 +28,7 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
         print(f'Linear CKA between {model_dir.name} and SWOW embeddings: '
-              f'{linear_CKA(model_embeddings, embeddings_in_stimuli)}')
+              f'{linear_CKA(model_embeddings, embeddings_in_stimuli):.4f}')
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
@@ -43,9 +43,9 @@ def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_
         in_stimuli_sim = abs(similarities(model_wv, in_stimuli['cue'], in_stimuli['answer']))
         off_stimuli_sim = abs(similarities(model_wv, off_stimuli['cue'], off_stimuli['answer']))
         models_results['in_stimuli'][model_name].append(spearmanr(in_stimuli['freq'], in_stimuli_sim,
-                                                                             nan_policy='omit').statistic)
+                                                                  nan_policy='omit').statistic)
         models_results['off_stimuli'][model_name].append(spearmanr(off_stimuli['freq'], off_stimuli_sim,
-                                                                                nan_policy='omit').statistic)
+                                                                   nan_policy='omit').statistic)
 
 
 if __name__ == '__main__':
