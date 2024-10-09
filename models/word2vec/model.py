@@ -13,7 +13,7 @@ from scripts.plot import plot_loss
 
 class W2VTrainer:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, gaze_predict, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
+                 min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
                  pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
@@ -25,7 +25,6 @@ class W2VTrainer:
         self.lr = lr
         self.min_lr = min_lr
         self.batch_size = batch_size
-        self.gaze_predict = gaze_predict
         self.fix_lr = fix_lr
         self.min_fix_lr = min_fix_lr
         self.device = device
@@ -64,9 +63,8 @@ class W2VTrainer:
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
                     fix_u = batch[3].to(device)
-                    fix_v = batch[4].to(device)
 
-                    fix_labels = fix_v if self.gaze_predict == 'output' else fix_u[fix_u != -1]
+                    fix_labels = fix_u[fix_u != -1]
                     update_regressor = fix_labels.sum() > 0
                     model.optimizers['embeddings'].zero_grad()
                     model.optimizers['fix_duration'].zero_grad()
