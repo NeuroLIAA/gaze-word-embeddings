@@ -25,6 +25,8 @@ class AwdLSTM:
     @staticmethod
     def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, embed_size=400, batch_size=40, 
                          epochs=750, lr=30, min_word_count=5, max_vocab_size=None, pretrained_embeddings_path=None):
+        pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
+
         if pretrained_model_path:
             from models.lstm.finetune import AwdLSTMForFinetuning
             return AwdLSTMForFinetuning(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,

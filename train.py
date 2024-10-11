@@ -120,7 +120,7 @@ if __name__ == '__main__':
                         help='Model architecture to be trained')
     parser.add_argument('-ft', '--finetune', type=str, default=None,
                         help='Path to pre-trained model to be fine-tuned')
-    parser.add_argument('-pte', '--pretrained_embeddings', type=str, default='.', help='Path to pre-trained embeddings')
+    parser.add_argument('-pte', '--pretrained_embeddings', type=str, help='Path to pre-trained embeddings')
     parser.add_argument('-o', '--output', type=str, default='embeddings', help='Where to save the trained embeddings')
     args = parser.parse_args()
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
@@ -128,7 +128,6 @@ if __name__ == '__main__':
         raise ValueError('You must specify from where each corpus will be fetched')
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
     
-    #pepe3 -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -max_vocab 30000 -min 5
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli"
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
     #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
@@ -137,4 +136,4 @@ if __name__ == '__main__':
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
             args.min_length, args.max_length, args.size, args.window, args.min_count, args.model,
             args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli),
-            Path(args.pretrained_embeddings)).train()
+            args.pretrained_embeddings).train()
