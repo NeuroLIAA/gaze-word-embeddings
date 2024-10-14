@@ -1,5 +1,6 @@
 from models.lstm.main import AwdLSTM
 import numpy as np
+import pandas as pd
 import torch
 from torch.optim.lr_scheduler import LinearLR
 from scipy.stats import spearmanr
@@ -25,6 +26,27 @@ class AwdLSTMForTraining(AwdLSTM):
                          bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
                          shard_count, pretrained_embeddings_path)
         self.data_init()
+
+    def set_log_dataset(self):
+        self.log_dataset = pd.DataFrame({
+        "epoch": pd.Series(dtype='int'),
+        "valid_ppl": pd.Series(dtype='float'),
+        "lr": pd.Series(dtype='float'),
+        "simlex_corr": pd.Series(dtype='float'),
+        "simlex_pvalue": pd.Series(dtype='float')
+    })
+
+    def log_data(self, epoch, valid_ppl, lr, simlex_corr, simlex_pvalue):
+        self.log_dataset = self.log_dataset._append({
+            "epoch": epoch,
+            "valid_ppl": valid_ppl,
+            "lr": lr,
+            "simlex_corr": simlex_corr,
+            "simlex_pvalue": simlex_pvalue
+        }, ignore_index=True)
+
+    def save_log(self):
+        self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
 
     def data_init(self):
         text = self.corpora
@@ -86,8 +108,6 @@ class AwdLSTMForTraining(AwdLSTM):
 
             self.train_epoch(model, optimizer, metrics)
 
-            scheduler.step()
-
             tmp = {}
             for (prm, st) in optimizer.state.items():
                 tmp[prm] = prm.clone().detach()
@@ -95,8 +115,6 @@ class AwdLSTMForTraining(AwdLSTM):
 
             val_perp = self.perplexity(self.vld_data_tokens, self.vld_data_fix, model)
             optimizer.check(val_perp)
-
-            self.log_file.write("{:d},{:.3f},{:.3f}\n".format(epoch + 1, val_perp, scheduler.get_last_lr()[0]))
 
             if val_perp < best_val:
                 best_val = val_perp
@@ -107,14 +125,24 @@ class AwdLSTMForTraining(AwdLSTM):
             for (prm, st) in optimizer.state.items():
                 prm.data = tmp[prm].clone().detach()
 
-            self.compare_embeddings(model, epoch + 1)
+            simlex_corr, simlex_pvalue = self.compare_embeddings(model, epoch + 1)
+
+            self.log_data(
+                epoch + 1, 
+                val_perp,
+                scheduler.get_last_lr()[0], 
+                simlex_corr,
+                simlex_pvalue
+            )
+
+            scheduler.step()
 
             toc = timeit.default_timer()
             print("Validation set perplexity : {:.3f}".format(val_perp))
             print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
             print("*************************************************\n")
-        self.log_file.close()
         self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
+        self.save_log()
         self.generate_embeddings(model)
         
     def train(self):

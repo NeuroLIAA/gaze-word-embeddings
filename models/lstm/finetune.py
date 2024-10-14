@@ -1,11 +1,11 @@
 from models.lstm.main import AwdLSTM
 import numpy as np
+import pandas as pd
 import torch
 from torch.optim.lr_scheduler import LinearLR
 from scipy.stats import spearmanr
 import timeit
 import warnings
-
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
@@ -20,6 +20,31 @@ class AwdLSTMForFinetuning(AwdLSTM):
                          bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
                          shard_count, pretrained_embeddings_path)
         self.data_init()
+
+    def set_log_dataset(self):
+        self.log_dataset = pd.DataFrame({
+        "epoch": pd.Series(dtype='int'),
+        "lr": pd.Series(dtype='float'),
+        "fix_corr": pd.Series(dtype='float'),
+        "fix_pvalue": pd.Series(dtype='float'),
+        "fix_std": pd.Series(dtype='float'),
+        "simlex_corr": pd.Series(dtype='float'),
+        "simlex_pvalue": pd.Series(dtype='float')
+    })
+
+    def log_data(self, epoch, lr, fix_corr, fix_pvalue, fix_std, simlex_corr, simlex_pvalue):
+        self.log_dataset = self.log_dataset._append({
+            "epoch": epoch,
+            "lr": lr,
+            "fix_corr": fix_corr,
+            "fix_pvalue": fix_pvalue,
+            "fix_std": fix_std,
+            "simlex_corr": simlex_corr,
+            "simlex_pvalue": simlex_pvalue
+        }, ignore_index=True)
+
+    def save_log(self):
+        self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
 
     def data_init(self):
         data = self.corpora.corpora
@@ -50,18 +75,26 @@ class AwdLSTMForFinetuning(AwdLSTM):
 
             self.train_epoch(model, optimizer, metrics)
 
-            scheduler.step()
+            simlex_corr, simlex_pvalue = self.compare_embeddings(model, epoch + 1)
 
-            self.compare_embeddings(model, epoch + 1)
+            self.log_data(
+                epoch + 1, 
+                scheduler.get_last_lr()[0], 
+                np.nanmean(metrics['fix_corrs']), 
+                np.nanmean(metrics['fix_pvalues']), 
+                np.nanstd(metrics['fix_corrs']),
+                simlex_corr,
+                simlex_pvalue
+            )
+
+            scheduler.step()
 
             self.save_model(model)
             toc = timeit.default_timer()
             print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
-            # print(f'Fix duration correlation: {np.nanmean(metrics['fix_corrs']):.4f} (+/- {np.nanstd(metrics['fix_corrs']):.4f})')
-            # print(f'Fix duration p-value: {np.nanmean(metrics['fix_pvalues']):.4f} (+/- {np.nanstd(metrics['fix_pvalues']):.4f})')
             print("*************************************************\n")
-        self.log_file.close()
         self.plot_loss(metrics['loss_sg'], metrics['loss_fix']) 
+        self.save_log()
         self.generate_embeddings(model)
         
     def train(self):

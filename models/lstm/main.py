@@ -88,8 +88,8 @@ class AwdLSTM:
         self.set_device()
 
         self.save_path.mkdir(exist_ok=True, parents=True)
-        self.log_file = self.set_log_file()
-        self.simlex_file = self.set_simlex_file()
+        
+        self.set_log_dataset()
 
     def set_device(self):
         if self.device == "gpu" and torch.cuda.is_available():
@@ -102,18 +102,8 @@ class AwdLSTM:
             print("Model will be training on the CPU.\n")
             self.device = torch.device('cpu')
 
-    def set_log_file(self):
-        log = open(str(self.save_path / f'{self.name}.csv'), "w")
-        log.write("epoch,valid_ppl,lr\n")
-        return log
-
     def plot_loss(self, loss_sg, loss_fix):
         plot_loss(loss_sg, loss_fix, self.name, self.save_path, 'LSTM')
-
-    def set_simlex_file(self):
-        simlex = open(str(self.save_path / f'{self.name}_simlex.csv'), "w")
-        simlex.write("epoch,simlex_corr,simlex_pval\n")
-        return simlex
 
     def chunk_examples(self, examples):
         text, fix_dur = [], []
@@ -215,8 +205,6 @@ class AwdLSTM:
 
         corr = spearmanr(simlex['similarity'], simlex['score'])
 
-        self.simlex_file.write("{:d},{:.4f},{:.4f}\n".format(epoch, corr.correlation, corr.pvalue))
-
         print(f'Simlex correlation: {corr.correlation:.4f}')
         print(f'Simlex p-value: {corr.pvalue:.4f}')
         return corr.correlation, corr.pvalue
@@ -243,7 +231,7 @@ class AwdLSTM:
                 y = y.to(self.device)
                 fix = fix.to(self.device)
                 states = model.detach(states)
-                scores, states, activations, fix_scores = model(x, states)
+                scores, states, activations, fix_pred = model(x, states)
 
                 loss = F.cross_entropy(scores, y.reshape(-1))
                 h, h_m = activations
@@ -251,10 +239,10 @@ class AwdLSTM:
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
 
                 if fix.sum() > 0:
-                    fix_loss = F.cross_entropy(fix_scores, fix.reshape(-1))
-                    # batch_correlation = spearmanr(fix_scores.cpu().detach().numpy(), fix.cpu().detach().numpy().reshape(-1))
-                    # metrics['fix_corrs'].append(batch_correlation.correlation)
-                    # metrics['fix_pvalues'].append(batch_correlation.pvalue)
+                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
+                    batch_correlation = spearmanr(fix_pred.cpu().detach().numpy(), fix.cpu().detach().numpy().reshape(-1))
+                    metrics['fix_corrs'].append(batch_correlation.correlation)
+                    metrics['fix_pvalues'].append(batch_correlation.pvalue)
                 else:
                     fix_loss = torch.tensor(0.0)
 

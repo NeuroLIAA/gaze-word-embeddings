@@ -154,7 +154,7 @@ class DurationRegression(nn.Module):
     def __init__(self, input_size):
         super().__init__()
         self.input_size = input_size
-        self.fc = nn.Linear(input_size, 16)
+        self.fc = nn.Linear(input_size, 1)
         self.reset_parameters()
     
     def reset_parameters(self):
@@ -191,10 +191,10 @@ class Model(nn.Module):
             x_m = self.dropout(x, self.dropout_l if i != len(self.rnns)-1 else self.dropout_o)
         scores = self.fc(x_m)
         
-        duration_scores = self.duration_regression(x.reshape(-1, x.shape[-1])).squeeze()
+        fix_durations = self.duration_regression(x.reshape(-1, x.shape[-1])).squeeze()
         
         if self.training:
-            return scores, states, (x, x_m), duration_scores
+            return scores, states, (x, x_m), fix_durations
         else:
             return scores, states
     
