@@ -13,7 +13,7 @@ from scripts.plot import plot_loss
 
 class W2VTrainer:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
+                 min_lr, batch_size, gaze_table, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
                  pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
@@ -25,6 +25,7 @@ class W2VTrainer:
         self.lr = lr
         self.min_lr = min_lr
         self.batch_size = batch_size
+        self.gaze_table = gaze_table
         self.fix_lr = fix_lr
         self.min_fix_lr = min_fix_lr
         self.device = device
@@ -38,8 +39,8 @@ class W2VTrainer:
         self.save_path.mkdir(exist_ok=True, parents=True)
         dataloader, vocab = get_dataloader_and_vocab(self.corpora, self.min_count, self.negative_samples,
                                                      self.downsample_factor, self.window_size, self.batch_size,
-                                                     self.stimuli_path, self.pretrained_path, self.model_type,
-                                                     self.save_path)
+                                                     self.gaze_table, self.stimuli_path, self.pretrained_path,
+                                                     self.model_type, self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
         model = Word2Vec(len(vocab), self.vector_size, self.lr, self.fix_lr, self.model_type, device)
         if self.pretrained_path:
@@ -63,6 +64,7 @@ class W2VTrainer:
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
                     fix_u = batch[3].to(device)
+                    # fix_u has shape (batch_size, 9), where 9 is the number of gaze features
 
                     fix_labels = fix_u[fix_u != -1]
                     update_regressor = fix_labels.sum() > 0

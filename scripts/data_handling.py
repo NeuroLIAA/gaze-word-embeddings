@@ -73,7 +73,7 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
     return vocabulary, word_freq, total_words, base_vocab_tokens
 
 
-def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size,
+def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, gaze_table,
                              stimuli_path, pretrained_path, model_type, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
@@ -92,27 +92,31 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            negative_samples=negative_samples_set,
                            downsample_table=downsample_table,
                            n_negatives=n_negatives,
+                           gaze_table=gaze_table,
                            model_type=model_type),
         num_workers=8
     )
     return dataloader, vocabulary
 
 
-def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, model_type):
+def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, gaze_table,
+               model_type):
     rnd_generator = np.random.default_rng()
     batch_input, batch_output, batch_negatives, batch_fixations, batch_target_fixations = [], [], [], [], []
     max_window_size = window_size * 2
+    n_measures = gaze_table.shape[1]
     for sentence in batch:
-        words_ids, words_fix = words_mapping(sentence['text']), sentence['fix_dur']
-        words, fixs = [], []
+        words_ids = words_mapping(sentence['text'])
+        words_measures = gaze_table.reindex(sentence['text'], fill_value=0)
+        words, measurements = [], []
         for i, word_id in enumerate(words_ids):
             if rnd_generator.random() < downsample_table[word_id]:
                 words.append(word_id)
-                fixs.append(words_fix[i])
+                measurements.append(words_measures.iloc[i].values)
         reduced_window = rnd_generator.integers(1, window_size + 1)
         for idx, word_id in enumerate(words):
             context_words = words[max(idx - reduced_window, 0): idx + reduced_window + 1]
-            context_words_fix = fixs[max(idx - reduced_window, 0): idx + reduced_window + 1]
+            context_words_fix = measurements[max(idx - reduced_window, 0): idx + reduced_window + 1]
             target_word_idx = idx if idx < reduced_window else reduced_window
             context_words.pop(target_word_idx)
             target_word_fix = context_words_fix.pop(target_word_idx)
@@ -121,22 +125,20 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
                 batch_input.extend([word_id] * len(context_words))
                 batch_fixations.extend([target_word_fix] * len(context_words))
                 batch_output.extend(context_words)
-                batch_target_fixations.extend(context_words_fix)
                 batch_negatives.extend([negative_samples.sample(n_negatives) for _ in range(len(context_words))])
             elif model_type == 'cbow' and len(context_words) > 0:
                 batch_input.append([context_words[j] if j < len(context_words) else 0 for j in range(max_window_size)])
-                batch_fixations.append([context_words_fix[j] if j < len(context_words) else -1 for j in range(max_window_size)])
+                batch_fixations.append([context_words_fix[j] if j < len(context_words) else [-1] * n_measures
+                                        for j in range(max_window_size)])
                 batch_output.append(word_id)
-                batch_target_fixations.append(target_word_fix)
                 batch_negatives.append(negative_samples.sample(n_negatives))
 
     batch_input = np.array(batch_input)
     batch_output = np.array(batch_output)
     batch_negatives = np.array(batch_negatives)
     batch_fixations = np.array(batch_fixations)
-    batch_target_fixations = np.array(batch_target_fixations)
     return (torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives),
-            torch.LongTensor(batch_fixations), torch.LongTensor(batch_target_fixations))
+            torch.LongTensor(batch_fixations))
 
 
 class Samples:

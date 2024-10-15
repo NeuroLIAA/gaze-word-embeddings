@@ -5,6 +5,7 @@ from scripts.corpora import load_corpora
 from scripts.utils import get_embeddings_path
 from models.word2vec.model import W2VTrainer
 from models.lstm.main import AwdLSTM
+from pandas import read_pickle
 import os
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
@@ -13,7 +14,7 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 class Trainer:
     def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
                  min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
-                 vector_size, window_size, min_count, model, fix_lr, min_fix_lr, save_path,
+                 vector_size, window_size, min_count, model, gaze_table, fix_lr, min_fix_lr, save_path,
                  pretrained_path, tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
@@ -34,6 +35,7 @@ class Trainer:
         self.window_size = window_size
         self.min_count = min_count
         self.model = model
+        self.gaze_table = gaze_table
         self.fix_lr = fix_lr
         self.min_fix_lr = min_fix_lr
         self.save_path = save_path
@@ -58,7 +60,7 @@ class Trainer:
         if self.model == 'skip' or self.model == 'cbow':
             return W2VTrainer(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
                               self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
-                              self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device,
+                              self.gaze_table, self.fix_lr, self.min_fix_lr, self.stimuli_path, self.device,
                               model_name, self.model, self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
@@ -113,6 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
                         help='Path to text files employed in the experiment')
+    parser.add_argument('-gt', '--gaze_table', type=str, default='words_measurements.pkl',
+                        help='Path to gaze measurements table')
     parser.add_argument('-fix_lr', '--fix_lr', type=float, default=1e-3, help='Initial learning rate for fix duration')
     parser.add_argument('-min_fix_lr', '--min_fix_lr', type=float, default=1e-4,
                         help='Minimum learning rate for fix duration')
@@ -126,6 +130,12 @@ if __name__ == '__main__':
     source_labels, corpora_labels = args.sources.split('+'), args.corpora.split('+')
     if len(source_labels) != len(corpora_labels):
         raise ValueError('You must specify from where each corpus will be fetched')
+    stimuli_path, gaze_table_path = Path(args.stimuli), Path(args.gaze_table)
+    if not stimuli_path.exists():
+        raise FileNotFoundError(f'Stimuli path {args.stimuli} does not exist')
+    if not gaze_table_path.exists():
+        raise FileNotFoundError(f'Gaze table path {args.gaze_table} does not exist')
+    gaze_table = read_pickle(gaze_table_path)
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
     
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli"
@@ -134,6 +144,6 @@ if __name__ == '__main__':
 
     Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
             args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
-            args.min_length, args.max_length, args.size, args.window, args.min_count, args.model,
-            args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab, Path(args.stimuli),
+            args.min_length, args.max_length, args.size, args.window, args.min_count, args.model, gaze_table,
+            args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab, stimuli_path,
             args.pretrained_embeddings).train()
