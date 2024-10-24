@@ -1,23 +1,23 @@
 import logging
 import argparse
 from pathlib import Path
-from scripts.corpora import load_corpora
+from scripts.corpora import load_corpora, load_gaze_table
 from scripts.utils import get_embeddings_path
 from models.word2vec.model import W2VTrainer
 from models.lstm.main import AwdLSTM
-from pandas import read_pickle
 import os
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 
 class Trainer:
-    def __init__(self, corpora_labels, data_sources, fraction, repeats, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len, max_sentence_len,
-                 vector_size, window_size, min_count, model, gaze_table, fix_lr, min_fix_lr, save_path,
-                 pretrained_path, tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
+    def __init__(self, corpora_labels, data_sources, name, fraction, repeats, negative_samples, downsample_factor,
+                 epochs, lr, min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len,
+                 max_sentence_len, vector_size, window_size, min_count, model, gaze_table, fix_lr, min_fix_lr,
+                 save_path, pretrained_path, tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
         self.corpora_labels = corpora_labels
         self.data_sources = data_sources
+        self.name = name
         self.fraction = fraction
         self.repeats = repeats
         self.negative_samples = negative_samples
@@ -71,9 +71,8 @@ class Trainer:
             raise ValueError(f'Invalid model type: {self.model}')
 
     def set_paths(self):
-        finetune_suffix = '_finetuned' if self.pretrained_path else ''
-        model_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
-        model_name = f'{self.model}_{model_name}{finetune_suffix}'
+        corpus_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
+        model_name = f'{self.model}_{corpus_name}_{self.name}'
         self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
         self.save_path = self.save_path / model_name
         return model_name
@@ -82,6 +81,7 @@ class Trainer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='Training data descriptive name')
+    parser.add_argument('-n', '--name', type=str, default='', help='(Optional) suffix name for the model')
     parser.add_argument('-c', '--corpora', type=str, default='all_wikis',
                         help='Texts to be employed for training')
     parser.add_argument('-s', '--sources', type=str, default='remote',
@@ -117,6 +117,8 @@ if __name__ == '__main__':
                         help='Path to text files employed in the experiment')
     parser.add_argument('-gt', '--gaze_table', type=str, default='words_measurements.pkl',
                         help='Path to gaze measurements table')
+    parser.add_argument('-gf', '--gaze_features', type=str, nargs='*', default=[],
+                        help='Gaze features to be employed in training')
     parser.add_argument('-fix_lr', '--fix_lr', type=float, default=1e-3, help='Initial learning rate for fix duration')
     parser.add_argument('-min_fix_lr', '--min_fix_lr', type=float, default=1e-4,
                         help='Minimum learning rate for fix duration')
@@ -133,17 +135,15 @@ if __name__ == '__main__':
     stimuli_path, gaze_table_path = Path(args.stimuli), Path(args.gaze_table)
     if not stimuli_path.exists():
         raise FileNotFoundError(f'Stimuli path {args.stimuli} does not exist')
-    if not gaze_table_path.exists():
-        raise FileNotFoundError(f'Gaze table path {args.gaze_table} does not exist')
-    gaze_table = read_pickle(gaze_table_path)
+    gaze_table = load_gaze_table(gaze_table_path, args.gaze_features)
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
     
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli"
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
     #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
 
-    Trainer(corpora_labels, source_labels, args.fraction, args.repeats, args.negative_samples, args.downsample_factor,
-            args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token, args.max_token,
-            args.min_length, args.max_length, args.size, args.window, args.min_count, args.model, gaze_table,
-            args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab, stimuli_path,
-            args.pretrained_embeddings).train()
+    Trainer(corpora_labels, source_labels, args.name, args.fraction, args.repeats, args.negative_samples,
+            args.downsample_factor, args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token,
+            args.max_token, args.min_length, args.max_length, args.size, args.window, args.min_count, args.model,
+            gaze_table, args.fix_lr, args.min_fix_lr, save_path, args.finetune, args.tokenizer, args.max_vocab,
+            stimuli_path, args.pretrained_embeddings).train()

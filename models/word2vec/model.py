@@ -42,7 +42,8 @@ class W2VTrainer:
                                                      self.gaze_table, self.stimuli_path, self.pretrained_path,
                                                      self.model_type, self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
-        model = Word2Vec(len(vocab), self.vector_size, self.lr, self.fix_lr, self.model_type, device)
+        n_gaze_features = len(self.gaze_table.columns)
+        model = Word2Vec(len(vocab), self.vector_size, self.lr, self.fix_lr, self.model_type, device, n_gaze_features)
         if self.pretrained_path:
             model.load_checkpoint(self.pretrained_path, device)
 
@@ -52,10 +53,12 @@ class W2VTrainer:
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
+
         loss_fix, loss_sg = [], []
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
-            fix_corrs, fix_pvalues = [], []
+            fix_corrs = [[] for _ in range(n_gaze_features)]
+            fix_pvalues = [[] for _ in range(n_gaze_features)]
             writer.add_scalar('lr/SG', model.optimizers['embeddings'].param_groups[0]['lr'], epoch)
             writer.add_scalar('lr/Fix', model.optimizers['fix_duration'].param_groups[0]['lr'], epoch)
             for n_step, batch in enumerate(tqdm(dataloader)):
@@ -64,9 +67,9 @@ class W2VTrainer:
                     pos_v = batch[1].to(device)
                     neg_v = batch[2].to(device)
                     fix_u = batch[3].to(device)
-                    # fix_u has shape (batch_size, 9), where 9 is the number of gaze features
+                    # fix_u has shape (batch_size, n_gaze_features)
 
-                    fix_labels = fix_u[fix_u != -1]
+                    fix_labels = fix_u[fix_u != -1].view(-1, n_gaze_features)
                     update_regressor = fix_labels.sum() > 0
                     model.optimizers['embeddings'].zero_grad()
                     model.optimizers['fix_duration'].zero_grad()
@@ -81,11 +84,11 @@ class W2VTrainer:
                         fix_loss_value = fix_loss.item()
                         fix_preds = fix_dur.cpu().detach().numpy()
                         fix_labels = fix_labels.cpu().detach().numpy()
-                        batch_correlation = spearmanr(fix_preds, fix_labels)
-                        fix_corrs.append(batch_correlation.correlation)
-                        fix_pvalues.append(batch_correlation.pvalue)
-                        writer.add_scalar('Correlation/Fix', batch_correlation.correlation, n_step)
-                        writer.add_scalar('P-value/Fix', batch_correlation.pvalue, n_step)
+                        batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
+                                              for i in range(fix_preds.shape[1])]
+                        for i in range(n_gaze_features):
+                            fix_corrs[i].append(batch_correlations[i].correlation)
+                            fix_pvalues[i].append(batch_correlations[i].pvalue)
                     loss_fix.append(fix_loss_value)
                     loss.backward()
                     model.optimizers['embeddings'].step()
@@ -95,8 +98,12 @@ class W2VTrainer:
             fix_scheduler.step()
             model.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             if fix_corrs:
-                print(f'Fix duration correlation: {np.nanmean(fix_corrs):.4f} (+/- {np.nanstd(fix_corrs):.4f})')
-                print(f'Fix duration p-value: {np.nanmean(fix_pvalues):.4f} (+/- {np.nanstd(fix_pvalues):.4f})')
+                for i in range(n_gaze_features):
+                    print(f'{self.gaze_table.columns[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
+                            f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
+                            f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')
+                    writer.add_scalar(f'Correlation/{self.gaze_table.columns[i]}', np.nanmean(fix_corrs[i]), epoch)
+                    writer.add_scalar(f'P-value/{self.gaze_table.columns[i]}', np.nanmean(fix_pvalues[i]), epoch)
 
         model.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
@@ -105,12 +112,12 @@ class W2VTrainer:
 
 class Word2Vec(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_classes=1):
+    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_features=1):
         super(Word2Vec, self).__init__()
         self.emb_dimension = emb_dimension
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
-        self.duration_regression = nn.Linear(emb_dimension, num_classes)
+        self.duration_regression = nn.Linear(emb_dimension, num_features)
         self.optimizers = self.init_optimizers(lr, fix_lr)
         self.model_type = model_type
         self.device = device

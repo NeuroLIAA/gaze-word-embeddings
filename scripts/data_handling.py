@@ -33,7 +33,7 @@ def build_vocab(corpora, min_count, max_vocab_size=None, words_in_stimuli=None):
         word_freq = word_freq.most_common(max_vocab_size)
     else:
         word_freq = word_freq.items()
-    
+
     word_freq = OrderedDict(sorted(word_freq, key=lambda x: x[1], reverse=True))
     vocabulary = Vocabulary(word_freq, min_freq=min_count)
     # Keep only words with frequency >= min_count
@@ -58,14 +58,16 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
         print('Loading vocabulary from checkpoint')
         vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath, weights_only=False).values()
         if not is_baseline:
-            _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
+            _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count,
+                                                                          max_vocab_size=max_vocab_size,
                                                                           words_in_stimuli=words_in_stimuli)
             # update word_freq with the fine-tuning corpus, but only if the word is in word_freq
             for word, freq in word_freq_ft.items():
                 if word in word_freq:
                     word_freq[word] = freq
     else:
-        vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count, max_vocab_size=max_vocab_size,
+        vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count,
+                                                                            max_vocab_size=max_vocab_size,
                                                                             words_in_stimuli=words_in_stimuli)
         if is_baseline:
             torch.save({'vocabulary': vocabulary, 'word_freq': word_freq, 'total_words': total_words,
@@ -138,7 +140,7 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
     batch_negatives = np.array(batch_negatives)
     batch_fixations = np.array(batch_fixations)
     return (torch.LongTensor(batch_input), torch.LongTensor(batch_output), torch.LongTensor(batch_negatives),
-            torch.LongTensor(batch_fixations))
+            torch.FloatTensor(batch_fixations))
 
 
 class Samples:
