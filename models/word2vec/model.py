@@ -51,6 +51,7 @@ class W2VTrainer:
                                                     end_factor=(self.min_fix_lr / self.fix_lr), total_iters=self.epochs)
         scheduler = optim.lr_scheduler.LinearLR(model.optimizers['embeddings'], start_factor=1.0,
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
+
         run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
         loss_fix, loss_sg = [], []
@@ -183,7 +184,7 @@ def log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_fea
 
 
 def log_batch_corrs(gaze_features, fix_corrs, fix_pvalues, n_gaze_features, writer, epoch):
-    if fix_corrs:
+    if np.any(fix_corrs):
         for i in range(n_gaze_features):
             print(f'{gaze_features[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
                   f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
