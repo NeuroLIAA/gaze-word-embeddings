@@ -53,7 +53,6 @@ class W2VTrainer:
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
-
         loss_fix, loss_sg = [], []
         for epoch in range(self.epochs):
             print(f'\nEpoch: {epoch + 1}')
@@ -71,24 +70,16 @@ class W2VTrainer:
 
                     fix_labels = fix_u[fix_u != -1].view(-1, n_gaze_features)
                     update_regressor = fix_labels.sum() > 0
-                    model.optimizers['embeddings'].zero_grad()
-                    model.optimizers['fix_duration'].zero_grad()
+                    model.optimizers['embeddings'].zero_grad(), model.optimizers['fix_duration'].zero_grad()
                     loss, fix_dur = model.forward(pos_u, pos_v, neg_v)
                     writer.add_scalar('Loss/SG', loss.item(), n_step)
                     loss_sg.append(loss.item())
                     fix_loss_value = 0.0
                     if update_regressor:
-                        fix_loss = nn.functional.l1_loss(fix_dur, fix_labels)
-                        loss += fix_loss
-                        writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
+                        fix_loss = log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features,
+                                                        writer, n_step)
                         fix_loss_value = fix_loss.item()
-                        fix_preds = fix_dur.cpu().detach().numpy()
-                        fix_labels = fix_labels.cpu().detach().numpy()
-                        batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
-                                              for i in range(fix_preds.shape[1])]
-                        for i in range(n_gaze_features):
-                            fix_corrs[i].append(batch_correlations[i].correlation)
-                            fix_pvalues[i].append(batch_correlations[i].pvalue)
+                        loss += fix_loss
                     loss_fix.append(fix_loss_value)
                     loss.backward()
                     model.optimizers['embeddings'].step()
@@ -97,13 +88,7 @@ class W2VTrainer:
             scheduler.step()
             fix_scheduler.step()
             model.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
-            if fix_corrs:
-                for i in range(n_gaze_features):
-                    print(f'{self.gaze_table.columns[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
-                            f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
-                            f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')
-                    writer.add_scalar(f'Correlation/{self.gaze_table.columns[i]}', np.nanmean(fix_corrs[i]), epoch)
-                    writer.add_scalar(f'P-value/{self.gaze_table.columns[i]}', np.nanmean(fix_pvalues[i]), epoch)
+            log_batch_corrs(self.gaze_table.columns, fix_corrs, fix_pvalues, n_gaze_features, writer, epoch)
 
         model.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
@@ -182,3 +167,26 @@ def calculate_class_weights(labels, num_classes):
         full_class_weights[cls] = weight
 
     return torch.tensor(full_class_weights, dtype=torch.float32)
+
+
+def log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features, writer, n_step):
+    fix_loss = nn.functional.l1_loss(fix_dur, fix_labels)
+    writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
+    fix_preds = fix_dur.cpu().detach().numpy()
+    fix_labels = fix_labels.cpu().detach().numpy()
+    batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
+                          for i in range(fix_preds.shape[1])]
+    for i in range(n_gaze_features):
+        fix_corrs[i].append(batch_correlations[i].correlation)
+        fix_pvalues[i].append(batch_correlations[i].pvalue)
+    return fix_loss
+
+
+def log_batch_corrs(gaze_features, fix_corrs, fix_pvalues, n_gaze_features, writer, epoch):
+    if fix_corrs:
+        for i in range(n_gaze_features):
+            print(f'{gaze_features[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
+                  f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
+                  f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')
+            writer.add_scalar(f'Correlation/{gaze_features[i]}', np.nanmean(fix_corrs[i]), epoch)
+            writer.add_scalar(f'P-value/{gaze_features[i]}', np.nanmean(fix_pvalues[i]), epoch)
