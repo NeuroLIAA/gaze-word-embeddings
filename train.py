@@ -72,7 +72,9 @@ class Trainer:
 
     def set_paths(self):
         corpus_name = self.corpora_labels[-1] if 'local' in self.data_sources else 'baseline'
-        model_name = f'{self.model}_{corpus_name}_{self.name}'
+        model_name = f'{self.model}_{corpus_name}'
+        if self.name:
+            model_name += f'_{self.name}'
         self.pretrained_path = self.save_path / self.pretrained_path if self.pretrained_path else None
         self.save_path = self.save_path / model_name
         return model_name
