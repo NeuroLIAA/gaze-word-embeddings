@@ -149,6 +149,7 @@ def load_gaze_table(gaze_table_file, gaze_features):
         raise FileNotFoundError(f'Gaze table path {gaze_table_file.name} does not exist')
     gaze_table = read_pickle(gaze_table_file)
     if gaze_features:
+        gaze_features = [gaze_feature.upper() for gaze_feature in gaze_features]
         gaze_table = gaze_table[gaze_features]
     else:
         gaze_table['dummy'] = 0
