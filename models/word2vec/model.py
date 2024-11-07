@@ -109,8 +109,6 @@ class Word2Vec(nn.Module):
         self.device = device
         self.to(device)
 
-        initrange = 1.0 / self.emb_dimension
-        init.uniform_(self.u_embeddings.weight.data, -initrange, initrange)
         init.constant_(self.v_embeddings.weight.data, 0)
 
     def forward(self, target_word, context_words, neg_words):
@@ -119,9 +117,8 @@ class Word2Vec(nn.Module):
         emb_neg_v = self.v_embeddings(neg_words)
 
         if self.model_type == 'cbow':
-            nonzero_mask = emb_u != 0
-            predicted_fix = self.duration_regression(emb_u[nonzero_mask].view(-1, self.emb_dimension)).squeeze()
-            emb_u = torch.sum(emb_u, dim=1) / torch.sum(nonzero_mask, dim=1)
+            predicted_fix = self.duration_regression(emb_u[target_word != 0]).squeeze()
+            emb_u = torch.sum(emb_u, dim=1) / torch.sum(emb_u != 0, dim=1)
         else:
             predicted_fix = self.duration_regression(emb_u).squeeze()
         score = torch.sum(torch.mul(emb_u, emb_v), dim=1)
