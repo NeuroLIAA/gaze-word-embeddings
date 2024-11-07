@@ -6,6 +6,7 @@ from numpy import linspace
 
 
 def plot_correlations(models_results, save_path):
+    sns.set_theme()
     fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
     for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
         title = f'{"in" if stimuli == "in_stimuli" else "off"} stimuli words'
