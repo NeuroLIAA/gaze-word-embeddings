@@ -1,7 +1,6 @@
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt, colormaps
-from scripts.utils import apply_threshold
 from numpy import linspace
 
 

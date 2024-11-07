@@ -71,16 +71,6 @@ def embeddings(words_vectors, words):
     return np.array(embeddings), corresponding_words
 
 
-def apply_threshold(similarity_df, threshold):
-    return similarity_df.map(lambda x: 0 if x < threshold or np.isnan(x) else 1)
-
-
-def build_all_pairs(words):
-    words_pairs = pd.DataFrame({'cue': np.repeat(words, len(words)),
-                               'answer': np.tile(words, len(words))})
-    return words_pairs
-
-
 def get_embeddings_path(embeddings, data_name, fraction):
     if fraction < 1.0:
         embeddings_path = Path(embeddings) / f'{data_name}_{int(fraction * 100)}%'
