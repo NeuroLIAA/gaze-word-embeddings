@@ -157,7 +157,7 @@ class Word2Vec(nn.Module):
     def load_checkpoint(self, checkpoint_path, device):
         checkpoint = next(checkpoint_path.glob(f'{self.model_type}*.pt'))
         checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)['model_state_dict']
-        if self.num_features != checkpoint['duration_regression.weight'][0]:
+        if self.num_features != checkpoint['duration_regression.weight'].shape[0]:
             print('Replacing duration regression layer from checkpoint')
             stdv = 1. / self.emb_dimension
             checkpoint['duration_regression.weight'] = (torch.FloatTensor(self.num_features, self.emb_dimension)
