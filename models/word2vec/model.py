@@ -101,6 +101,7 @@ class Word2Vec(nn.Module):
     def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_features=1):
         super(Word2Vec, self).__init__()
         self.emb_dimension = emb_dimension
+        self.num_features = num_features
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.duration_regression = nn.Linear(emb_dimension, num_features)
@@ -155,8 +156,14 @@ class Word2Vec(nn.Module):
 
     def load_checkpoint(self, checkpoint_path, device):
         checkpoint = next(checkpoint_path.glob(f'{self.model_type}*.pt'))
-        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
-        self.load_state_dict(checkpoint['model_state_dict'])
+        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)['model_state_dict']
+        if self.num_features != checkpoint['duration_regression.weight'][0]:
+            print('Replacing duration regression layer from checkpoint')
+            stdv = 1. / self.emb_dimension
+            checkpoint['duration_regression.weight'] = (torch.FloatTensor(self.num_features, self.emb_dimension)
+                                                        .uniform_(-stdv, stdv))
+            checkpoint['duration_regression.bias'] = torch.FloatTensor(self.num_features).uniform_(-stdv, stdv)
+        self.load_state_dict(checkpoint)
 
 
 def calculate_class_weights(labels, num_classes):
