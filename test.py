@@ -1,6 +1,6 @@
 import argparse
 import pandas as pd
-from numpy import abs, random
+from numpy import abs, random, std
 from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
@@ -27,13 +27,22 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        print(f'Linear CKA between {model_dir.name} and SWOW embeddings: '
-              f'{linear_CKA(model_embeddings, embeddings_in_stimuli):.4f}')
+        mean_cka, std_cka = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, rng)
+        print(f'{model_dir.name} CKA with SWOW embeddings: {mean_cka:.4f} (+/- {std_cka:.4f})')
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_correlations(models_results, save_path)
+
+
+def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, rng):
+    linear_ckas = []
+    for _ in range(resamples):
+        sample = rng.choice(len(model_embeddings), min(num_samples, len(model_embeddings)),
+                            replace=False)
+        linear_ckas.append(linear_CKA(model_embeddings[sample], embeddings_in_stimuli[sample]))
+    return sum(linear_ckas) / len(linear_ckas), std(linear_ckas)
 
 
 def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
