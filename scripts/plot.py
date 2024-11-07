@@ -1,5 +1,6 @@
 import numpy as np
 import seaborn as sns
+from pandas import DataFrame
 from matplotlib import pyplot as plt, colormaps
 from numpy import linspace
 
@@ -8,8 +9,8 @@ def plot_correlations(models_results, save_path):
     fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
     for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
         title = f'{"in" if stimuli == "in_stimuli" else "off"} stimuli words'
-        data = [models_results[stimuli][model_name] for model_name in models_results[stimuli]]
-        ax[i].boxplot(data, labels=models_results[stimuli].keys())
+        data = DataFrame(models_results[stimuli])
+        sns.boxplot(data=data, ax=ax[i], width=0.5)
         ax[i].set_title(title)
         ax[i].set_xlabel('Model')
         ax[i].set_ylabel('Spearman correlation coefficient')
