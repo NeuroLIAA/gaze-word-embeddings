@@ -12,7 +12,7 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 class Trainer:
     def __init__(self, corpora_labels, data_sources, name, fraction, repeats, negative_samples, downsample_factor,
-                 epochs, lr, min_lr, batch_size, device, min_token_len, max_token_len, min_sentence_len,
+                 epochs, lr, min_lr, fix_weight, batch_size, device, min_token_len, max_token_len, min_sentence_len,
                  max_sentence_len, vector_size, window_size, min_count, model, gaze_table, save_path, pretrained_path,
                  tokenizer, max_vocab, stimuli_path, pretrained_embeddings_path):
         self.corpora_labels = corpora_labels
@@ -25,6 +25,7 @@ class Trainer:
         self.epochs = epochs
         self.lr = lr
         self.min_lr = min_lr
+        self.fix_weight = fix_weight
         self.batch_size = batch_size
         self.device = device
         self.min_token_len = min_token_len
@@ -57,8 +58,8 @@ class Trainer:
         model_name = self.set_paths()
         if self.model == 'skip' or self.model == 'cbow':
             return W2VTrainer(corpora, self.vector_size, self.window_size, self.min_count, self.negative_samples,
-                              self.downsample_factor, self.epochs, self.lr, self.min_lr, self.batch_size,
-                              self.gaze_table, self.stimuli_path, self.device, model_name, self.model,
+                              self.downsample_factor, self.epochs, self.lr, self.min_lr, self.fix_weight,
+                              self.batch_size, self.gaze_table, self.stimuli_path, self.device, model_name, self.model,
                               self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
             return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
@@ -97,6 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
     parser.add_argument('-lr', '--lr', type=float, default=1e-3, help='Initial learning rate')
     parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
+    parser.add_argument('-fw', '--fix_weight', type=float, default=1.0, help='Fix duration loss weight')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('-d', '--device', type=str, default='cuda',
                         help='Device to be used for training (cpu or cuda)')
@@ -140,7 +142,7 @@ if __name__ == '__main__':
     #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
 
     Trainer(corpora_labels, source_labels, args.name, args.fraction, args.repeats, args.negative_samples,
-            args.downsample_factor, args.epochs, args.lr, args.min_lr, args.batch_size, args.device, args.min_token,
-            args.max_token, args.min_length, args.max_length, args.size, args.window, args.min_count, args.model,
-            gaze_table, save_path, args.finetune, args.tokenizer, args.max_vocab, stimuli_path,
+            args.downsample_factor, args.epochs, args.lr, args.min_lr, args.fix_weight, args.batch_size, args.device,
+            args.min_token, args.max_token, args.min_length, args.max_length, args.size, args.window, args.min_count,
+            args.model, gaze_table, save_path, args.finetune, args.tokenizer, args.max_vocab, stimuli_path,
             args.pretrained_embeddings).train()
