@@ -27,7 +27,7 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
         model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        mean_cka, std_cka = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, rng)
+        mean_cka, std_cka = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
         print(f'{model_dir.name} CKA with SWOW embeddings: {mean_cka:.4f} (+/- {std_cka:.4f})')
 
     model_basename = embeddings_path.name
@@ -36,7 +36,8 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
     plot_correlations(models_results, save_path)
 
 
-def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, rng):
+def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed):
+    rng = random.default_rng(seed)
     linear_ckas = []
     for _ in range(resamples):
         sample = rng.choice(len(model_embeddings), min(num_samples, len(model_embeddings)),
