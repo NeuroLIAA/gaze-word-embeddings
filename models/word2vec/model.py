@@ -13,7 +13,7 @@ from scripts.plot import plot_loss
 
 class W2VTrainer:
     def __init__(self, corpora, vector_size, window_size, min_count, negative_samples, downsample_factor, epochs, lr,
-                 min_lr, batch_size, gaze_table, fix_lr, min_fix_lr, stimuli_path, device, model_name, model_type,
+                 min_lr, batch_size, gaze_table, stimuli_path, device, model_name, model_type,
                  pretrained_path, save_path):
         self.corpora = corpora
         self.vector_size = vector_size
@@ -26,8 +26,6 @@ class W2VTrainer:
         self.min_lr = min_lr
         self.batch_size = batch_size
         self.gaze_table = gaze_table
-        self.fix_lr = fix_lr
-        self.min_fix_lr = min_fix_lr
         self.device = device
         self.model_name = model_name
         self.model_type = model_type
@@ -43,16 +41,16 @@ class W2VTrainer:
                                                      self.model_type, self.save_path)
         device = torch.device('cuda' if torch.cuda.is_available() and self.device == 'cuda' else 'cpu')
         n_gaze_features = len(self.gaze_table.columns)
-        model = Word2Vec(len(vocab), self.vector_size, self.lr, self.fix_lr, self.model_type, device, n_gaze_features)
+        model = Word2Vec(len(vocab), self.vector_size, self.lr, self.model_type, device, n_gaze_features)
         if self.pretrained_path:
             model.load_checkpoint(self.pretrained_path, device)
 
         fix_scheduler = optim.lr_scheduler.LinearLR(model.optimizers['fix_duration'], start_factor=1.0,
-                                                    end_factor=(self.min_fix_lr / self.fix_lr), total_iters=self.epochs)
+                                                    end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
         scheduler = optim.lr_scheduler.LinearLR(model.optimizers['embeddings'], start_factor=1.0,
                                                 end_factor=(self.min_lr / self.lr), total_iters=self.epochs)
 
-        run_name = f'e{self.epochs}_lr{self.lr}_fixlr{self.fix_lr}'
+        run_name = f'e{self.epochs}'
         writer = SummaryWriter(log_dir=self.save_path / 'logs' / run_name)
         loss_fix, loss_sg = [], []
         for epoch in range(self.epochs):
@@ -98,14 +96,14 @@ class W2VTrainer:
 
 class Word2Vec(nn.Module):
 
-    def __init__(self, vocab_size, emb_dimension, lr, fix_lr, model_type, device, num_features=1):
+    def __init__(self, vocab_size, emb_dimension, lr, model_type, device, num_features=1):
         super(Word2Vec, self).__init__()
         self.emb_dimension = emb_dimension
         self.num_features = num_features
         self.u_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.v_embeddings = nn.Embedding(vocab_size, emb_dimension, sparse=True, padding_idx=0)
         self.duration_regression = nn.Linear(emb_dimension, num_features)
-        self.optimizers = self.init_optimizers(lr, fix_lr)
+        self.optimizers = self.init_optimizers(lr)
         self.model_type = model_type
         self.device = device
         self.to(device)
@@ -135,9 +133,9 @@ class Word2Vec(nn.Module):
 
         return torch.mean(score + neg_score), predicted_fix
 
-    def init_optimizers(self, lr, fix_lr):
+    def init_optimizers(self, lr):
         optimizers = {'embeddings': optim.SparseAdam(list(self.parameters())[:2], lr=lr),
-                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=fix_lr)}
+                      'fix_duration': optim.AdamW(list(self.parameters())[2:], lr=lr)}
         return optimizers
 
     def save_embedding_vocab(self, vocab, file_name):
