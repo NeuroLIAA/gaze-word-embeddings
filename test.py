@@ -10,7 +10,7 @@ from scripts.plot import plot_correlations
 from scripts.process_swow import load_swow
 
 
-def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, resamples, stimuli_path,
+def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, resamples, stimuli_path, gaze_table,
          save_path, seed):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
@@ -19,8 +19,9 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     rng = random.default_rng(seed)
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_in_stimuli)
-    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_in_stimuli, words_associations, words_freq,
+    words_with_measurements = list(set(gaze_table.index) & set(words_in_stimuli))
+    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_with_measurements)
+    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_associations, words_freq,
                                                               num_samples, resamples, rng)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}}
     for model_dir in models:
@@ -69,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('-rs', '--resample', type=int, default=100, help='Number of times to resample word pairs')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
+    parser.add_argument('-t', '--gaze_table', type=str, default='words_measurements.pkl',
+                        help='Path to file with words gaze measurements')
     parser.add_argument('-wa', '--words_associations', type=str, default='evaluation/SWOWRP_words_associations.csv',
                         help='Words associations file to be employed for evaluation')
     parser.add_argument('-gt', '--ground_truth', type=str, default='evaluation/SWOWRP_embeddings.vec',
@@ -89,6 +92,7 @@ if __name__ == '__main__':
                      args.set, args.seed)
     swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
+    gaze_table = pd.read_pickle(args.gaze_table)
 
-    test(embeddings_path, swow, swow_wv, words_freq, args.words_samples, args.resample, stimuli_path, output,
-         args.seed)
+    test(embeddings_path, swow, swow_wv, words_freq, args.words_samples, args.resample, stimuli_path, gaze_table,
+         output, args.seed)
