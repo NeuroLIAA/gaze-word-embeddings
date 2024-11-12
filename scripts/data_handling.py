@@ -78,7 +78,7 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
 def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor, window_size, batch_size, gaze_table,
                              stimuli_path, pretrained_path, model_type, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    vocab_savepath = save_path / 'vocab.pt' if not pretrained_path else pretrained_path / 'vocab.pt'
+    vocab_savepath = save_path.parent / 'vocab.pt'
     vocabulary, word_freq, total_words, base_vocab_tokens = get_vocab(corpora, min_count, words_in_stimuli,
                                                                       pretrained_path is None, vocab_savepath)
     negative_samples_set = Samples(word_freq)
