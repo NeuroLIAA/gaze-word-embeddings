@@ -19,7 +19,7 @@ def load_swow(wa_file, words_freq, non_content_cues_file, min_freq, stimuli_path
 def process_swow(swow_file, words_freq, non_content_cues_file, min_freq):
     swow = pd.read_csv(swow_file, sep='\t')
     swow.drop(columns=['N'], inplace=True)
-    swow.rename(columns={'response': 'answer', 'R123': 'n', 'R123.Strength': 'freq'}, inplace=True)
+    swow.rename(columns={'response': 'answer', 'R1': 'n', 'R1.Strength': 'freq'}, inplace=True)
     swow.drop_duplicates(subset=['cue', 'answer'], inplace=True)
     swow = swow[swow['cue'] != swow['answer']]
 
