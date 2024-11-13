@@ -51,8 +51,8 @@ def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_
     models_results['in_stimuli'][model_name] = []
     models_results['off_stimuli'][model_name] = []
     for in_stimuli, off_stimuli in zip(in_stimuli_wp, off_stimuli_wp):
-        in_stimuli_sim = abs(similarities(model_wv, in_stimuli['cue'], in_stimuli['answer']))
-        off_stimuli_sim = abs(similarities(model_wv, off_stimuli['cue'], off_stimuli['answer']))
+        in_stimuli_sim = similarities(model_wv, in_stimuli['cue'], in_stimuli['answer'])
+        off_stimuli_sim = similarities(model_wv, off_stimuli['cue'], off_stimuli['answer'])
         models_results['in_stimuli'][model_name].append(spearmanr(in_stimuli['freq'], in_stimuli_sim,
                                                                   nan_policy='omit').statistic)
         models_results['off_stimuli'][model_name].append(spearmanr(off_stimuli['freq'], off_stimuli_sim,
