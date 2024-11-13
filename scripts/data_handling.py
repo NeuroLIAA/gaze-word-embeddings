@@ -79,8 +79,9 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                              stimuli_path, pretrained_path, model_type, save_path):
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     vocab_savepath = save_path.parent / 'vocab.pt'
+    is_baseline = not (pretrained_path is not None and 'baseline' not in pretrained_path.name)
     vocabulary, word_freq, total_words, base_vocab_tokens = get_vocab(corpora, min_count, words_in_stimuli,
-                                                                      pretrained_path is None, vocab_savepath)
+                                                                      is_baseline, vocab_savepath)
     negative_samples_set = Samples(word_freq)
     downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor,
                                                      vocabulary(base_vocab_tokens))
