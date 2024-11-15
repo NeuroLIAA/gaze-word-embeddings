@@ -57,14 +57,6 @@ def get_vocab(corpora, min_count, words_in_stimuli, is_baseline, vocab_savepath,
     if vocab_savepath.exists():
         print('Loading vocabulary from checkpoint')
         vocabulary, word_freq, total_words, base_vocab_tokens = torch.load(vocab_savepath, weights_only=False).values()
-        if not is_baseline:
-            _, word_freq_ft, total_words, base_vocab_tokens = build_vocab(corpora, min_count,
-                                                                          max_vocab_size=max_vocab_size,
-                                                                          words_in_stimuli=words_in_stimuli)
-            # update word_freq with the fine-tuning corpus, but only if the word is in word_freq
-            for word, freq in word_freq_ft.items():
-                if word in word_freq:
-                    word_freq[word] = freq
     else:
         vocabulary, word_freq, total_words, base_vocab_tokens = build_vocab(corpora, min_count,
                                                                             max_vocab_size=max_vocab_size,
