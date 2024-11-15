@@ -19,7 +19,7 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     rng = random.default_rng(seed)
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    words_with_measurements = list(set(gaze_table.index) & set(words_in_stimuli))
+    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_with_measurements)
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_associations, words_freq,
                                                               num_samples, resamples, rng)
