@@ -179,6 +179,8 @@ def calculate_class_weights(labels, num_classes):
 
 
 def log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features, writer, n_step):
+    if n_gaze_features == 1:
+        fix_dur = fix_dur.unsqueeze(dim=1)
     fix_loss = nn.functional.l1_loss(fix_dur, fix_labels)
     writer.add_scalar('Loss/Fix', fix_loss.item(), n_step)
     fix_preds = fix_dur.cpu().detach().numpy()
