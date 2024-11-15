@@ -9,15 +9,30 @@ def plot_correlations(models_results, save_path):
     sns.set_theme()
     fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
     for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
-        title = f'{"in" if stimuli == "in_stimuli" else "off"} stimuli words'
+        title = f'Palabras {"en" if stimuli == "in_stimuli" else "fuera de"} estímulo'
         data = DataFrame(models_results[stimuli])
         sns.boxplot(data=data, ax=ax[i], width=0.5)
         ax[i].set_title(title)
-        ax[i].set_xlabel('Model')
-        ax[i].set_ylabel('Spearman correlation coefficient')
+        ax[i].set_xlabel('Modelo')
+        ax[i].set_ylabel('Coeficiente de correlación de Spearman')
         plt.setp(ax[i].xaxis.get_majorticklabels(), rotation=45)
+        
+        # Add median and IQR annotations
+        for j, model in enumerate(data.columns):
+            median = data[model].median()
+            q1 = data[model].quantile(0.25)
+            q3 = data[model].quantile(0.75)
+            iqr = q3 - q1
+            ax[i].annotate(f'Mediana: {median:.2f}\nIQR: {iqr:.2f}', 
+                           xy=(j, median), 
+                           xytext=(j, q3 + 0.01), 
+                           ha='center', 
+                           fontsize=9, 
+                           color='black',
+                           bbox=dict(boxstyle="round,pad=0.3", edgecolor='black', facecolor='white'))
+
     plt.tight_layout()
-    plt.savefig(save_path / 'correlations.png')
+    plt.savefig(save_path / 'correlations.png', dpi=150)
     plt.show()
 
 
