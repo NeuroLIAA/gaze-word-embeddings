@@ -83,12 +83,19 @@ class AwdLSTMForFinetuning(AwdLSTM):
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, n_gaze_features, self.layer_num, self.w_drop,
                       self.dropout_i, self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
-        checkpoint = torch.load(self.checkpoint())
-        model.load_state_dict(checkpoint['model_state_dict'])
+        checkpoint = self.load_checkpoint(n_gaze_features)
+        model.load_state_dict(checkpoint)
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=True)
         scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)
         self.train_model(model, optimizer, scheduler)
 
-    def checkpoint(self):
-        # TODO: update regressor output dimension to n_gaze_features
-        return next(self.pretrained_model_path.glob('*.tar'))
+    def load_checkpoint(self, n_gaze_features):
+        ckpt_file = next(self.pretrained_model_path.glob('*.tar'))
+        ckpt = torch.load(ckpt_file, map_location=self.device, weights_only=False)['model_state_dict']
+        if n_gaze_features != ckpt['duration_regression.fc.weight'].shape[0]:
+            print('Replacing duration regression layer from checkpoint')
+            stdv = 1. / self.embed_size
+            ckpt['duration_regression.fc.weight'] = (torch.FloatTensor(n_gaze_features, self.embed_size)
+                                                        .uniform_(-stdv, stdv))
+            ckpt['duration_regression.fc.bias'] = torch.FloatTensor(n_gaze_features).uniform_(-stdv, stdv)
+        return ckpt
