@@ -1,15 +1,13 @@
 from models.lstm.main import AwdLSTM
-import numpy as np
 import pandas as pd
 import torch
 from torch.optim.lr_scheduler import LinearLR
-from scipy.stats import spearmanr
 import timeit
 import warnings
-
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
 from scripts.data_handling import chunk_examples
+from scripts.utils import print_batch_corrs
 
 
 class AwdLSTMForFinetuning(AwdLSTM):
@@ -70,6 +68,7 @@ class AwdLSTMForFinetuning(AwdLSTM):
             self.train_epoch(model, optimizer, metrics)
             scheduler.step()
 
+            print_batch_corrs(self.gaze_table.columns, metrics['fix_corrs'], metrics['fix_pvalues'], n_gaze_features)
             self.save_model(model)
             toc = timeit.default_timer()
             print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))

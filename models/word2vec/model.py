@@ -5,9 +5,9 @@ from torch import nn as nn
 from torch.nn import init, functional
 from tqdm import tqdm
 from sklearn.utils.class_weight import compute_class_weight
-from scipy.stats import spearmanr
 from scripts.data_handling import get_dataloader_and_vocab
 from scripts.plot import plot_loss
+from scripts.utils import compute_fix_loss, print_batch_corrs
 
 
 class W2VTrainer:
@@ -69,7 +69,7 @@ class W2VTrainer:
                     loss_sg.append(loss.item())
                     fix_loss_value = 0.0
                     if update_regressor:
-                        fix_loss = log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features)
+                        fix_loss = compute_fix_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features)
                         fix_loss_value = fix_loss.item()
                         loss += fix_loss * self.fix_weight
                     loss_fix.append(fix_loss_value)
@@ -80,7 +80,7 @@ class W2VTrainer:
             scheduler.step()
             fix_scheduler.step()
             model.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
-            log_batch_corrs(self.gaze_table.columns, fix_corrs, fix_pvalues, n_gaze_features)
+            print_batch_corrs(self.gaze_table.columns, fix_corrs, fix_pvalues, n_gaze_features)
 
         model.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
@@ -167,25 +167,3 @@ def calculate_class_weights(labels, num_classes):
         full_class_weights[cls] = weight
 
     return torch.tensor(full_class_weights, dtype=torch.float32)
-
-
-def log_and_compute_loss(fix_dur, fix_labels, fix_corrs, fix_pvalues, n_gaze_features):
-    if n_gaze_features == 1:
-        fix_dur = fix_dur.unsqueeze(dim=1)
-    fix_loss = nn.functional.l1_loss(fix_dur, fix_labels)
-    fix_preds = fix_dur.cpu().detach().numpy()
-    fix_labels = fix_labels.cpu().detach().numpy()
-    batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
-                          for i in range(fix_preds.shape[1])]
-    for i in range(n_gaze_features):
-        fix_corrs[i].append(batch_correlations[i].correlation)
-        fix_pvalues[i].append(batch_correlations[i].pvalue)
-    return fix_loss
-
-
-def log_batch_corrs(gaze_features, fix_corrs, fix_pvalues, n_gaze_features):
-    if np.any(fix_corrs):
-        for i in range(n_gaze_features):
-            print(f'{gaze_features[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
-                  f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
-                  f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')

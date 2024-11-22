@@ -7,7 +7,7 @@ from scipy.stats import spearmanr
 from tqdm import tqdm
 from pathlib import Path
 from scripts.data_handling import get_vocab, batchify, minibatch
-from scripts.utils import get_words_in_corpus
+from scripts.utils import get_words_in_corpus, compute_fix_loss
 from scripts.plot import plot_loss
 
 
@@ -160,15 +160,8 @@ class AwdLSTM:
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
 
                 if fix.sum() > 0:
-                    if n_gaze_features == 1:
-                        fix_preds = fix_preds.unsqueeze(dim=1)
-                    fix_loss = torch.nn.L1Loss()(fix_preds, fix)
-                    fix_preds = fix_preds.cpu().detach().numpy()
-                    fix_labels = fix.cpu().detach().numpy()
-                    batch_correlations = [spearmanr(fix_preds[:, k], fix_labels[:, k]) for k in range(n_gaze_features)]
-                    for j in range(n_gaze_features):
-                        metrics['fix_corrs'][j].append(batch_correlations[j].correlation)
-                        metrics['fix_pvalues'][j].append(batch_correlations[j].pvalue)
+                    fix_loss = compute_fix_loss(fix_preds, fix, metrics['fix_corrs'], metrics['fix_pvalues'],
+                                                n_gaze_features)
                 else:
                     fix_loss = torch.tensor(0.0)
 

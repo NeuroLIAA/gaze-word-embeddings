@@ -1,5 +1,8 @@
 from pathlib import Path
 import numpy as np
+from scipy.stats import spearmanr
+from torch import nn as nn
+
 from scripts.corpora import Corpus
 
 
@@ -75,3 +78,25 @@ def get_embeddings_path(embeddings, data_name, fraction):
     else:
         embeddings_path = Path(embeddings) / data_name
     return embeddings_path
+
+
+def compute_fix_loss(fix_preds, fix_labels, fix_corrs, fix_pvalues, n_gaze_features):
+    if n_gaze_features == 1:
+        fix_preds = fix_preds.unsqueeze(dim=1)
+    fix_loss = nn.functional.l1_loss(fix_preds, fix_labels)
+    fix_preds = fix_preds.cpu().detach().numpy()
+    fix_labels = fix_labels.cpu().detach().numpy()
+    batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
+                          for i in range(n_gaze_features)]
+    for i in range(n_gaze_features):
+        fix_corrs[i].append(batch_correlations[i].correlation)
+        fix_pvalues[i].append(batch_correlations[i].pvalue)
+    return fix_loss
+
+
+def print_batch_corrs(gaze_features, fix_corrs, fix_pvalues, n_gaze_features):
+    if np.any(fix_corrs):
+        for i in range(n_gaze_features):
+            print(f'{gaze_features[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
+                  f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
+                  f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')
