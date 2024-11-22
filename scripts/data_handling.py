@@ -135,7 +135,15 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             torch.FloatTensor(batch_fixations))
 
 
+def batchify(data, fix_data, batch_size):
+    num_batches = data.size(0) // batch_size
+    data = data[:num_batches * batch_size]
+    fix_data = fix_data[:num_batches * batch_size]
+    return data.reshape(batch_size, -1).transpose(1, 0), fix_data.reshape(batch_size, -1).transpose(1, 0)
+
+
 class Samples:
+
     def __init__(self, word_freq, size=1e8):
         self.current_pos = 0
         self.rng = np.random.default_rng()
@@ -152,7 +160,6 @@ class Samples:
         samples = np.array(samples)
         self.rng.shuffle(samples)
         return samples
-
     def sample(self, num_samples):
         if self.current_pos + num_samples > len(self.samples):
             self.rng.shuffle(self.samples)
@@ -160,3 +167,24 @@ class Samples:
         samples = self.samples[self.current_pos:self.current_pos + num_samples]
         self.current_pos += num_samples
         return samples
+
+
+def minibatch(data, fix_data, seq_length):
+    num_batches = data.size(0)
+    dataset = []
+    for i in range(0, num_batches - 1, seq_length):
+        ls = min(i + seq_length, num_batches - 1)
+        x = data[i:ls, :]
+        fix_x = fix_data[i:ls, :]
+        y = data[i + 1:ls + 1, :]
+        dataset.append((x, y, fix_x))
+    return dataset
+
+
+def chunk_examples(examples):
+    text, fix_dur = [], []
+    for sentence in examples['text']:
+        text += sentence
+    for sentence in examples['fix_dur']:
+        fix_dur += sentence
+    return {'text': text, 'fix_dur': fix_dur}

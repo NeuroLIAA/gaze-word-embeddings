@@ -4,27 +4,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.stats import spearmanr
-import timeit
-import warnings
-import random
-
 from tqdm import tqdm
 from pathlib import Path
-
-from models.lstm.model import Model
-from models.lstm.ntasgd import NTASGD
-
-from scripts.data_handling import get_vocab
+from scripts.data_handling import get_vocab, batchify, minibatch
 from scripts.utils import get_words_in_corpus
 from scripts.plot import plot_loss
-
 from gensim.models import KeyedVectors
 from pandas import read_csv
 
+
 class AwdLSTM:
     @staticmethod
-    def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, embed_size=400, batch_size=40, 
-                         epochs=750, lr=30, min_word_count=5, max_vocab_size=None, pretrained_embeddings_path=None):
+    def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, embed_size=300, batch_size=40,
+                         epochs=50, lr=30, min_word_count=20, max_vocab_size=None, pretrained_embeddings_path=None):
         pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
 
         if pretrained_model_path:
@@ -34,8 +26,9 @@ class AwdLSTM:
                                         dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                                         batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
                                         weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
-                                        device="gpu", log=50000, min_word_count=min_word_count, max_vocab_size=max_vocab_size,
-                                        shard_count=1, pretrained_embeddings_path=pretrained_embeddings_path)
+                                        device="gpu", log=50000, min_word_count=min_word_count,
+                                        max_vocab_size=max_vocab_size, shard_count=1,
+                                        pretrained_embeddings_path=pretrained_embeddings_path)
         else:
             from models.lstm.train import AwdLSTMForTraining
             return AwdLSTMForTraining(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,
@@ -43,8 +36,9 @@ class AwdLSTM:
                                       dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
                                       batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
                                       weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
-                                      device="gpu", log=50000, min_word_count=min_word_count, max_vocab_size=max_vocab_size,
-                                      shard_count=5, pretrained_embeddings_path=pretrained_embeddings_path)
+                                      device="gpu", log=50000, min_word_count=min_word_count,
+                                      max_vocab_size=max_vocab_size, shard_count=5,
+                                      pretrained_embeddings_path=pretrained_embeddings_path)
         
     SEED = 12345
 
@@ -105,14 +99,6 @@ class AwdLSTM:
     def plot_loss(self, loss_sg, loss_fix):
         plot_loss(loss_sg, loss_fix, self.name, self.save_path, 'LSTM')
 
-    def chunk_examples(self, examples):
-        text, fix_dur = [], []
-        for sentence in examples['text']:
-            text += sentence
-        for sentence in examples['fix_dur']:
-            fix_dur += sentence
-        return {'text': text, 'fix_dur': fix_dur}
-    
     def generate_embeddings(self, model):
         weights = model.embed.W
         vocabulary = OrderedDict(sorted(self.vocab.items(), key=lambda x: x[1]))
@@ -143,38 +129,6 @@ class AwdLSTM:
             seq_len = round(np.random.normal(seq_len, 5))
         return seq_len
 
-    def batchify(self, data, fix_data, batch_size):
-        num_batches = data.size(0) // batch_size
-        data = data[:num_batches * batch_size]
-        fix_data = fix_data[:num_batches * batch_size]
-        return data.reshape(batch_size, -1).transpose(1, 0), fix_data.reshape(batch_size, -1).transpose(1, 0)
-
-    def minibatch(self, data, fix_data, seq_length):
-        num_batches = data.size(0)
-        dataset = []
-        for i in range(0, num_batches - 1, seq_length):
-            ls = min(i + seq_length, num_batches - 1)
-            x = data[i:ls, :]
-            fix_x = fix_data[i:ls, :]
-            y = data[i + 1:ls + 1, :]
-            dataset.append((x, y, fix_x))
-        return dataset
-
-    def perplexity(self, data, fix_data, model):
-        model.eval()
-        data = self.minibatch(data, fix_data, self.bptt)
-        with torch.no_grad():
-            losses = []
-            batch_size = data[0][0].size(1)
-            states = model.state_init(batch_size)
-            for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
-                x = x.to(self.device)
-                y = y.to(self.device)
-                scores, states = model(x, states)
-                loss = F.cross_entropy(scores, y.reshape(-1))
-                losses.append(loss.data.item())
-        return np.exp(np.mean(losses))
-    
     def load_pretrained_embeddings(self, model):
         if self.pretrained_embeddings_path is not None:
             print("Loading pretrained embeddings...")
@@ -222,9 +176,9 @@ class AwdLSTM:
             print("Loading training fix durations...")
             fix_dur = dataset["fix_dur"].reshape(-1, 1)
             
-            tokens, fix_dur = self.batchify(tokens, fix_dur, self.batch_size)
+            tokens, fix_dur = batchify(tokens, fix_dur, self.batch_size)
             
-            minibatches = self.minibatch(tokens, fix_dur, seq_len)
+            minibatches = minibatch(tokens, fix_dur, seq_len)
 
             for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
                 x = x.to(self.device)

@@ -10,13 +10,15 @@ import warnings
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
 
-from scripts.data_handling import get_vocab
-from scripts.utils import get_words_in_corpus
+from scripts.data_handling import get_vocab, batchify, chunk_examples
+from scripts.utils import get_words_in_corpus, perplexity
 
 from gensim.models import KeyedVectors
 from pandas import read_csv
 
+
 class AwdLSTMForTraining(AwdLSTM):
+
     def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
                  lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, 
                  valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
@@ -29,12 +31,12 @@ class AwdLSTMForTraining(AwdLSTM):
 
     def set_log_dataset(self):
         self.log_dataset = pd.DataFrame({
-        "epoch": pd.Series(dtype='int'),
-        "valid_ppl": pd.Series(dtype='float'),
-        "lr": pd.Series(dtype='float'),
-        "simlex_corr": pd.Series(dtype='float'),
-        "simlex_pvalue": pd.Series(dtype='float')
-    })
+            "epoch": pd.Series(dtype='int'),
+            "valid_ppl": pd.Series(dtype='float'),
+            "lr": pd.Series(dtype='float'),
+            "simlex_corr": pd.Series(dtype='float'),
+            "simlex_pvalue": pd.Series(dtype='float')
+        })
 
     def log_data(self, epoch, valid_ppl, lr, simlex_corr, simlex_pvalue):
         self.log_dataset = self.log_dataset._append({
@@ -51,32 +53,26 @@ class AwdLSTMForTraining(AwdLSTM):
     def data_init(self):
         text = self.corpora
         split = text.corpora.train_test_split(test_size=0.2, seed=self.SEED)
-
         data = split['train']
         vld_data = split['test']
-
         vocab = self.generate_vocab(data, self.save_path / 'vocab.pt')
 
         print("Numericalizing Training set")
         data = data.map(
             lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
         )
-        
         print("Numericalizing Validation set")
         vld_data = vld_data.map(
             lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
         )
-
         print("Reshaping Training set")
-        data = data.map(self.chunk_examples, batched=True, remove_columns=data.column_names)
-
+        data = data.map(chunk_examples, batched=True, remove_columns=data.column_names)
         print("Reshaping Validation set")
-        vld_data = vld_data.map(self.chunk_examples, batched=True, remove_columns=vld_data.column_names)
+        vld_data = vld_data.map(chunk_examples, batched=True, remove_columns=vld_data.column_names)
         self.vocab = vocab.get_stoi()
         
         data = data.with_format("torch")
         vld_data = vld_data.with_format("torch")
-
         self.data = data
         print("Loading validation tokens...")
         self.vld_data_tokens = vld_data["text"].reshape(-1, 1)
@@ -101,7 +97,7 @@ class AwdLSTMForTraining(AwdLSTM):
         tic = timeit.default_timer()
         print("Starting training.")
         best_val = 1e10
-        metrics = { "loss_sg": [], "loss_fix": [] }
+        metrics = {"loss_sg": [], "loss_fix": []}
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))
@@ -113,7 +109,7 @@ class AwdLSTMForTraining(AwdLSTM):
                 tmp[prm] = prm.clone().detach()
                 prm.data = st['ax'].clone().detach()
 
-            val_perp = self.perplexity(self.vld_data_tokens, self.vld_data_fix, model)
+            val_perp = perplexity(self.bptt, self.vld_data_tokens, self.vld_data_fix, model, self.device)
             optimizer.check(val_perp)
 
             if val_perp < best_val:
@@ -147,11 +143,13 @@ class AwdLSTMForTraining(AwdLSTM):
         
     def train(self):
         warnings.filterwarnings("ignore")
-        self.vld_data_tokens, self.vld_data_fix = self.batchify(self.vld_data_tokens, self.vld_data_fix, self.valid_batch_size)
+        self.vld_data_tokens, self.vld_data_fix = batchify(self.vld_data_tokens, self.vld_data_fix,
+                                                           self.valid_batch_size)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
                       self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
         self.load_pretrained_embeddings(model)
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=False)
+        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
+                           fine_tuning=False)
         scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)
         self.train_model(model, optimizer, scheduler)

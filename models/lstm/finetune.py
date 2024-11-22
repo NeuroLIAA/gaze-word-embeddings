@@ -9,6 +9,8 @@ import warnings
 
 from models.lstm.model import Model
 from models.lstm.ntasgd import NTASGD
+from scripts.data_handling import chunk_examples
+
 
 class AwdLSTMForFinetuning(AwdLSTM):
     def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
@@ -57,7 +59,7 @@ class AwdLSTMForFinetuning(AwdLSTM):
         )
 
         print("Reshaping Training set")
-        data = data.map(self.chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
+        data = data.map(chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
 
         self.vocab = vocab.get_stoi()
         
