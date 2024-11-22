@@ -155,11 +155,6 @@ class DurationRegression(nn.Module):
         super().__init__()
         self.input_size = input_size
         self.fc = nn.Linear(input_size, 1)
-        self.reset_parameters()
-    
-    def reset_parameters(self):
-        nn.init.constant_(self.fc.weight, 0)
-        nn.init.constant_(self.fc.bias, 0)
 
     def forward(self, x):
         return self.fc(x)
@@ -169,7 +164,8 @@ class DurationRegression(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, layer_num, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, lstm_type):
+    def __init__(self, vocab_size, embed_size, hidden_size, layer_num, w_drop, dropout_i, dropout_l, dropout_o,
+                 dropout_e, winit, lstm_type):
         super().__init__()
         self.embed = Embed(vocab_size, embed_size, dropout_e, winit)
         self.rnns = [WeightDropLSTMCustom(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) if lstm_type == "custom"

@@ -13,14 +13,14 @@ from scripts.data_handling import chunk_examples
 
 
 class AwdLSTMForFinetuning(AwdLSTM):
-    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                 lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, 
+    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
+                 hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
                  valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
                  device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path):
-        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                         lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, valid_batch_size, 
-                         bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
-                         shard_count, pretrained_embeddings_path)
+        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
+                         hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
+                         valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device,
+                         log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
         self.data_init()
 
     def set_log_dataset(self):

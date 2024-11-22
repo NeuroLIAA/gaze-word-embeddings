@@ -109,12 +109,12 @@ class AwdLSTM:
 
     def generate_vocab(self, data, vocab_savepath=None):
         words_in_stimuli = get_words_in_corpus(self.stimuli_path)
-        return get_vocab(corpora=data, 
-                          min_count=self.min_word_count, 
-                          words_in_stimuli=words_in_stimuli, 
-                          max_vocab_size=self.max_vocab_size, 
-                          is_baseline=self.pretrained_model_path is None,
-                          vocab_savepath=vocab_savepath)[0]
+        return get_vocab(corpora=data,
+                         min_count=self.min_word_count,
+                         words_in_stimuli=words_in_stimuli,
+                         max_vocab_size=self.max_vocab_size,
+                         is_baseline=self.pretrained_model_path is None,
+                         vocab_savepath=vocab_savepath)[0]
 
     def get_seq_len(self):
         seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
