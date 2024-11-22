@@ -25,70 +25,53 @@ class AwdLSTMForFinetuning(AwdLSTM):
 
     def set_log_dataset(self):
         self.log_dataset = pd.DataFrame({
-        "epoch": pd.Series(dtype='int'),
-        "lr": pd.Series(dtype='float'),
-        "fix_corr": pd.Series(dtype='float'),
-        "fix_pvalue": pd.Series(dtype='float'),
-        "fix_std": pd.Series(dtype='float'),
-        "simlex_corr": pd.Series(dtype='float'),
-        "simlex_pvalue": pd.Series(dtype='float')
-    })
+            "epoch": pd.Series(dtype='int'),
+            "lr": pd.Series(dtype='float'),
+            "fix_corr": pd.Series(dtype='float'),
+            "fix_pvalue": pd.Series(dtype='float'),
+            "fix_std": pd.Series(dtype='float')
+        })
 
-    def log_data(self, epoch, lr, fix_corr, fix_pvalue, fix_std, simlex_corr, simlex_pvalue):
+    def log_data(self, epoch, lr, fix_corr, fix_pvalue, fix_std):
         self.log_dataset = self.log_dataset._append({
-            "epoch": epoch,
-            "lr": lr,
-            "fix_corr": fix_corr,
-            "fix_pvalue": fix_pvalue,
-            "fix_std": fix_std,
-            "simlex_corr": simlex_corr,
-            "simlex_pvalue": simlex_pvalue
-        }, ignore_index=True)
+                "epoch": epoch,
+                "lr": lr,
+                "fix_corr": fix_corr,
+                "fix_pvalue": fix_pvalue,
+                "fix_std": fix_std
+            }, ignore_index=True)
 
     def save_log(self):
         self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
 
     def data_init(self):
         data = self.corpora.corpora
-
         vocab = self.generate_vocab(data, self.pretrained_model_path / 'vocab.pt')
-
         print("Numericalizing Training set")
         data = data.map(
             lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
         )
-
         print("Reshaping Training set")
         data = data.map(chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
-
-        self.vocab = vocab.get_stoi()
-        
         data = data.with_format("torch")
-
+        self.vocab = vocab.get_stoi()
         self.data = data
 
     def train_model(self, model, optimizer, scheduler):
         tic = timeit.default_timer()
         print("Starting finetuning.")
-        metrics = { "loss_sg": [], "loss_fix": [], "fix_corrs": [], "fix_pvalues": [] }
+        metrics = {"loss_sg": [], "loss_fix": [], "fix_corrs": [], "fix_pvalues": []}
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))
-
             self.train_epoch(model, optimizer, metrics)
-
-            simlex_corr, simlex_pvalue = self.compare_embeddings(model, epoch + 1)
-
             self.log_data(
                 epoch + 1, 
                 scheduler.get_last_lr()[0], 
                 np.nanmean(metrics['fix_corrs']), 
                 np.nanmean(metrics['fix_pvalues']), 
                 np.nanstd(metrics['fix_corrs']),
-                simlex_corr,
-                simlex_pvalue
             )
-
             scheduler.step()
 
             self.save_model(model)

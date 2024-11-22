@@ -19,32 +19,28 @@ from pandas import read_csv
 
 class AwdLSTMForTraining(AwdLSTM):
 
-    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                 lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, 
+    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
+                 hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
                  valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
                  device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path):
-        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size, hidden_size, 
-                         lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size, valid_batch_size, 
-                         bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device, log, min_word_count, max_vocab_size, 
-                         shard_count, pretrained_embeddings_path)
+        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
+                         hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
+                         valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device,
+                         log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
         self.data_init()
 
     def set_log_dataset(self):
         self.log_dataset = pd.DataFrame({
             "epoch": pd.Series(dtype='int'),
             "valid_ppl": pd.Series(dtype='float'),
-            "lr": pd.Series(dtype='float'),
-            "simlex_corr": pd.Series(dtype='float'),
-            "simlex_pvalue": pd.Series(dtype='float')
+            "lr": pd.Series(dtype='float')
         })
 
-    def log_data(self, epoch, valid_ppl, lr, simlex_corr, simlex_pvalue):
+    def log_data(self, epoch, valid_ppl, lr):
         self.log_dataset = self.log_dataset._append({
             "epoch": epoch,
             "valid_ppl": valid_ppl,
-            "lr": lr,
-            "simlex_corr": simlex_corr,
-            "simlex_pvalue": simlex_pvalue
+            "lr": lr
         }, ignore_index=True)
 
     def save_log(self):
@@ -86,12 +82,12 @@ class AwdLSTMForTraining(AwdLSTM):
             return vocab
         else:
             words_in_stimuli = get_words_in_corpus(self.stimuli_path)
-            return get_vocab(corpora=data, 
-                            min_count=self.min_word_count, 
-                            words_in_stimuli=words_in_stimuli, 
-                            max_vocab_size=self.max_vocab_size, 
-                            is_baseline=self.pretrained_model_path is None,
-                            vocab_savepath=vocab_savepath)[0]
+            return get_vocab(corpora=data,
+                             min_count=self.min_word_count,
+                             words_in_stimuli=words_in_stimuli,
+                             max_vocab_size=self.max_vocab_size,
+                             is_baseline=self.pretrained_model_path is None,
+                             vocab_savepath=vocab_savepath)[0]
 
     def train_model(self, model, optimizer, scheduler):
         tic = timeit.default_timer()
@@ -121,15 +117,7 @@ class AwdLSTMForTraining(AwdLSTM):
             for (prm, st) in optimizer.state.items():
                 prm.data = tmp[prm].clone().detach()
 
-            simlex_corr, simlex_pvalue = self.compare_embeddings(model, epoch + 1)
-
-            self.log_data(
-                epoch + 1, 
-                val_perp,
-                scheduler.get_last_lr()[0], 
-                simlex_corr,
-                simlex_pvalue
-            )
+            self.log_data(epoch + 1, val_perp, scheduler.get_last_lr()[0])
 
             scheduler.step()
 

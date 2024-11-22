@@ -2,15 +2,13 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn.functional import cross_entropy
 from scipy.stats import spearmanr
 from tqdm import tqdm
 from pathlib import Path
 from scripts.data_handling import get_vocab, batchify, minibatch
 from scripts.utils import get_words_in_corpus
 from scripts.plot import plot_loss
-from gensim.models import KeyedVectors
-from pandas import read_csv
 
 
 class AwdLSTM:
@@ -78,11 +76,8 @@ class AwdLSTM:
         self.max_vocab_size = max_vocab_size
         self.shard_count = shard_count
         self.pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
-
         self.set_device()
-
         self.save_path.mkdir(exist_ok=True, parents=True)
-        
         self.set_log_dataset()
 
     def set_device(self):
@@ -137,31 +132,9 @@ class AwdLSTM:
                 map_location=torch.device("cpu")
             )
             pretrained_embeddings = pretrained_embeddings_state['model_state_dict']['u_embeddings.weight']
-            
             model_state = model.state_dict()
             model_state['embed.W'] = pretrained_embeddings
-
-            model.load_state_dict(model_state) 
-    
-    def compare_embeddings(self, model, epoch):
-        print("Generating embeddings...")
-        self.generate_embeddings(model)
-
-        print("Loading embeddings...")
-        embeddings = KeyedVectors.load_word2vec_format(str(self.save_path / f'{self.name}.vec'), binary=False)
-
-        simlex = read_csv('evaluation/spa.csv')
-        simlex['word1'] = simlex['word1'].str.lower()
-        simlex['word2'] = simlex['word2'].str.lower()
-
-        simlex['similarity'] = simlex.apply(lambda row: embeddings.similarity(row['word1'], row['word2']) if (row['word1'] in embeddings and row['word2'] in embeddings) else np.nan, axis=1)
-        simlex.dropna(inplace=True)
-
-        corr = spearmanr(simlex['similarity'], simlex['score'])
-
-        print(f'Simlex correlation: {corr.correlation:.4f}')
-        print(f'Simlex p-value: {corr.pvalue:.4f}')
-        return corr.correlation, corr.pvalue
+            model.load_state_dict(model_state)
     
     def train_epoch(self, model, optimizer, metrics):
         seq_len = self.get_seq_len()
@@ -170,31 +143,29 @@ class AwdLSTM:
 
         for i in tqdm(range(self.shard_count), desc="Sharding"):
             dataset = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)
-            
             print("Loading training tokens...")
             tokens = dataset["text"].reshape(-1, 1)
             print("Loading training fix durations...")
             fix_dur = dataset["fix_dur"].reshape(-1, 1)
-            
             tokens, fix_dur = batchify(tokens, fix_dur, self.batch_size)
-            
             minibatches = minibatch(tokens, fix_dur, seq_len)
-
-            for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1), total=len(minibatches)):
+            for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1),
+                                       total=len(minibatches)):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 fix = fix.to(self.device)
                 states = model.detach(states)
                 scores, states, activations, fix_pred = model(x, states)
 
-                loss = F.cross_entropy(scores, y.reshape(-1))
+                loss = cross_entropy(scores, y.reshape(-1))
                 h, h_m = activations
                 ar_reg = self.ar * h_m.pow(2).mean()
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
 
                 if fix.sum() > 0:
                     fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                    batch_correlation = spearmanr(fix_pred.cpu().detach().numpy(), fix.cpu().detach().numpy().reshape(-1))
+                    batch_correlation = spearmanr(fix_pred.cpu().detach().numpy(),
+                                                  fix.cpu().detach().numpy().reshape(-1))
                     metrics['fix_corrs'].append(batch_correlation.correlation)
                     metrics['fix_pvalues'].append(batch_correlation.pvalue)
                 else:
