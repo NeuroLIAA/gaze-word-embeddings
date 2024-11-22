@@ -151,10 +151,10 @@ class FCTied(nn.Module):
 
 
 class DurationRegression(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, num_features):
         super().__init__()
         self.input_size = input_size
-        self.fc = nn.Linear(input_size, 1)
+        self.fc = nn.Linear(input_size, num_features)
 
     def forward(self, x):
         return self.fc(x)
@@ -164,15 +164,15 @@ class DurationRegression(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, layer_num, w_drop, dropout_i, dropout_l, dropout_o,
-                 dropout_e, winit, lstm_type):
+    def __init__(self, vocab_size, embed_size, hidden_size, num_features, layer_num, w_drop, dropout_i, dropout_l,
+                 dropout_o, dropout_e, winit, lstm_type):
         super().__init__()
         self.embed = Embed(vocab_size, embed_size, dropout_e, winit)
         self.rnns = [WeightDropLSTMCustom(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) if lstm_type == "custom"
                      else WeightDropLSTM(embed_size if i == 0 else hidden_size, embed_size if i == layer_num-1 else hidden_size, w_drop) for i in range(layer_num)]
         self.rnns = nn.ModuleList(self.rnns)
         self.fc = FCTied(embed_size, vocab_size, self.embed.W)
-        self.duration_regression = DurationRegression(embed_size)
+        self.duration_regression = DurationRegression(embed_size, num_features)
         self.dropout = VariationalDropout()
         self.dropout_i = dropout_i
         self.dropout_l = dropout_l

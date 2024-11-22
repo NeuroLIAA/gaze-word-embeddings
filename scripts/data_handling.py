@@ -1,4 +1,6 @@
 from collections import Counter, OrderedDict
+
+from torch.nn import functional
 from torch.utils.data import DataLoader
 from scripts.utils import get_words_in_corpus
 from scripts.vocabulary import Vocabulary
@@ -142,33 +144,6 @@ def batchify(data, fix_data, batch_size):
     return data.reshape(batch_size, -1).transpose(1, 0), fix_data.reshape(batch_size, -1).transpose(1, 0)
 
 
-class Samples:
-
-    def __init__(self, word_freq, size=1e8):
-        self.current_pos = 0
-        self.rng = np.random.default_rng()
-        self.samples = self.build_samples(word_freq, size)
-
-    def build_samples(self, word_freq, size):
-        # This is highly dependent on word_freq having the same order as vocabulary
-        sqrt_freq = np.array(list(word_freq.values())) ** 0.5
-        ratio = sqrt_freq / sum(sqrt_freq)
-        count = np.round(ratio * size)
-        samples = []
-        for wid, c in enumerate(count, 1):
-            samples += [wid] * int(c)
-        samples = np.array(samples)
-        self.rng.shuffle(samples)
-        return samples
-    def sample(self, num_samples):
-        if self.current_pos + num_samples > len(self.samples):
-            self.rng.shuffle(self.samples)
-            self.current_pos = 0
-        samples = self.samples[self.current_pos:self.current_pos + num_samples]
-        self.current_pos += num_samples
-        return samples
-
-
 def minibatch(data, fix_data, seq_length):
     num_batches = data.size(0)
     dataset = []
@@ -188,3 +163,46 @@ def chunk_examples(examples):
     for sentence in examples['fix_dur']:
         fix_dur += sentence
     return {'text': text, 'fix_dur': fix_dur}
+
+
+class Samples:
+    def __init__(self, word_freq, size=1e8):
+        self.current_pos = 0
+        self.rng = np.random.default_rng()
+        self.samples = self.build_samples(word_freq, size)
+
+    def build_samples(self, word_freq, size):
+        # This is highly dependent on word_freq having the same order as vocabulary
+        sqrt_freq = np.array(list(word_freq.values())) ** 0.5
+        ratio = sqrt_freq / sum(sqrt_freq)
+        count = np.round(ratio * size)
+        samples = []
+        for wid, c in enumerate(count, 1):
+            samples += [wid] * int(c)
+        samples = np.array(samples)
+        self.rng.shuffle(samples)
+        return samples
+
+    def sample(self, num_samples):
+        if self.current_pos + num_samples > len(self.samples):
+            self.rng.shuffle(self.samples)
+            self.current_pos = 0
+        samples = self.samples[self.current_pos:self.current_pos + num_samples]
+        self.current_pos += num_samples
+        return samples
+
+
+def perplexity(bptt, data, fix_data, model, device):
+    model.eval()
+    data = minibatch(data, fix_data, bptt)
+    with torch.no_grad():
+        losses = []
+        batch_size = data[0][0].size(1)
+        states = model.state_init(batch_size)
+        for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
+            x = x.to(device)
+            y = y.to(device)
+            scores, states = model(x, states)
+            loss = functional.cross_entropy(scores, y.reshape(-1))
+            losses.append(loss.data.item())
+    return np.exp(np.mean(losses))

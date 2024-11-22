@@ -13,14 +13,14 @@ from scripts.data_handling import chunk_examples
 
 
 class AwdLSTMForFinetuning(AwdLSTM):
-    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
+    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num, embed_size,
                  hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
-                 valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
+                 valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono,
                  device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path):
-        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num, embed_size,
-                         hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
-                         valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, device,
-                         log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
+        super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num,
+                         embed_size, hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit,
+                         batch_size, valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono,
+                         device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
         self.data_init()
 
     def set_log_dataset(self):
@@ -54,7 +54,7 @@ class AwdLSTMForFinetuning(AwdLSTM):
         print("Reshaping Training set")
         data = data.map(chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
         data = data.with_format("torch")
-        self.vocab = vocab.get_stoi()
+        self.vocab = vocab
         self.data = data
 
     def train_model(self, model, optimizer, scheduler):
@@ -84,8 +84,9 @@ class AwdLSTMForFinetuning(AwdLSTM):
         
     def train(self):
         warnings.filterwarnings("ignore")
-        model = Model(len(self.vocab), self.embed_size, self.hidden_size, self.layer_num, self.w_drop, self.dropout_i,
-                      self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
+        n_gaze_features = len(self.gaze_table.columns)
+        model = Model(len(self.vocab), self.embed_size, self.hidden_size, n_gaze_features, self.layer_num, self.w_drop,
+                      self.dropout_i, self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
         model.to(self.device)
         checkpoint = torch.load(self.checkpoint())
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -94,4 +95,5 @@ class AwdLSTMForFinetuning(AwdLSTM):
         self.train_model(model, optimizer, scheduler)
 
     def checkpoint(self):
+        # TODO: update regressor output dimension to n_gaze_features
         return next(self.pretrained_model_path.glob('*.tar'))

@@ -13,43 +13,41 @@ from scripts.plot import plot_loss
 
 class AwdLSTM:
     @staticmethod
-    def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, embed_size=300, batch_size=40,
-                         epochs=50, lr=30, min_word_count=20, max_vocab_size=None, pretrained_embeddings_path=None):
+    def create_from_args(corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, embed_size=300,
+                         batch_size=40, epochs=50, lr=30, min_word_count=20, max_vocab_size=None,
+                         pretrained_embeddings_path=None):
         pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
+        params = {'corpora': corpora, 'name': name, 'save_path': save_path,
+                  'pretrained_model_path': pretrained_model_path, 'stimuli_path': stimuli_path,
+                  'gaze_table': gaze_table, 'layer_num': 3, 'embed_size': embed_size, 'hidden_size': 1150,
+                  'lstm_type': "pytorch", 'w_drop': 0.5, 'dropout_i': 0.4, 'dropout_l': 0.3, 'dropout_o': 0.4,
+                  'dropout_e': 0.1, 'winit': 0.1, 'batch_size': batch_size, 'valid_batch_size': 10, 'bptt': 70,
+                  'ar': 2, 'tar': 1, 'weight_decay': 1.2e-6, 'epochs': epochs, 'lr': lr, 'max_grad_norm': 0.25,
+                  'non_mono': 5, 'device': "gpu", 'log': 50000, 'min_word_count': min_word_count,
+                  'max_vocab_size': max_vocab_size, 'shard_count': 5,
+                  'pretrained_embeddings_path': pretrained_embeddings_path}
 
         if pretrained_model_path:
             from models.lstm.finetune import AwdLSTMForFinetuning
-            return AwdLSTMForFinetuning(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,
-                                        embed_size=embed_size, hidden_size=1150, lstm_type="pytorch", w_drop=0.5,
-                                        dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
-                                        batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
-                                        weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
-                                        device="gpu", log=50000, min_word_count=min_word_count,
-                                        max_vocab_size=max_vocab_size, shard_count=1,
-                                        pretrained_embeddings_path=pretrained_embeddings_path)
+            params['shard_count'] = 1
+            return AwdLSTMForFinetuning(**params)
         else:
             from models.lstm.train import AwdLSTMForTraining
-            return AwdLSTMForTraining(corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3,
-                                      embed_size=embed_size, hidden_size=1150, lstm_type="pytorch", w_drop=0.5,
-                                      dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
-                                      batch_size=batch_size, valid_batch_size=10, bptt=70, ar=2, tar=1,
-                                      weight_decay=1.2e-6, epochs=epochs, lr=lr, max_grad_norm=0.25, non_mono=5,
-                                      device="gpu", log=50000, min_word_count=min_word_count,
-                                      max_vocab_size=max_vocab_size, shard_count=5,
-                                      pretrained_embeddings_path=pretrained_embeddings_path)
+            return AwdLSTMForTraining(**params)
         
     SEED = 12345
 
-    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, layer_num=3, embed_size=400, hidden_size=1150, lstm_type="pytorch",
-                 w_drop=0.5, dropout_i=0.4, dropout_l=0.3, dropout_o=0.4, dropout_e=0.1, winit=0.1,
-                 batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1, weight_decay=1.2e-6,
-                 epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000, min_word_count=5,
-                 max_vocab_size=None, shard_count=5, pretrained_embeddings_path=None):
+    def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num=3,
+                 embed_size=300, hidden_size=1150, lstm_type="pytorch", w_drop=0.5, dropout_i=0.4, dropout_l=0.3,
+                 dropout_o=0.4, dropout_e=0.1, winit=0.1, batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1,
+                 weight_decay=1.2e-6, epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000,
+                 min_word_count=5, max_vocab_size=None, shard_count=5, pretrained_embeddings_path=None):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
         self.pretrained_model_path = pretrained_model_path
         self.stimuli_path = stimuli_path
+        self.gaze_table = gaze_table
         self.layer_num = layer_num
         self.embed_size = embed_size
         self.hidden_size = hidden_size
@@ -96,7 +94,7 @@ class AwdLSTM:
 
     def generate_embeddings(self, model):
         weights = model.embed.W
-        vocabulary = OrderedDict(sorted(self.vocab.items(), key=lambda x: x[1]))
+        vocabulary = OrderedDict(sorted(self.vocab.get_stoi().items(), key=lambda x: x[1]))
 
         with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
             f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
@@ -140,14 +138,12 @@ class AwdLSTM:
         seq_len = self.get_seq_len()
         states = model.state_init(self.batch_size)
         model.train()
-
         for i in tqdm(range(self.shard_count), desc="Sharding"):
             dataset = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)
-            print("Loading training tokens...")
             tokens = dataset["text"].reshape(-1, 1)
-            print("Loading training fix durations...")
-            fix_dur = dataset["fix_dur"].reshape(-1, 1)
-            tokens, fix_dur = batchify(tokens, fix_dur, self.batch_size)
+            words = [self.vocab.get_word(x) for x in dataset['text']]
+            fix_labels = torch.FloatTensor(self.gaze_table.reindex(words, fill_value=0).values)
+            tokens, fix_dur = batchify(tokens, fix_labels, self.batch_size)
             minibatches = minibatch(tokens, fix_dur, seq_len)
             for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1),
                                        total=len(minibatches)):

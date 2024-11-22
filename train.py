@@ -62,9 +62,10 @@ class Trainer:
                               self.batch_size, self.gaze_table, self.stimuli_path, self.device, model_name, self.model,
                               self.pretrained_path, self.save_path)
         elif self.model == 'lstm':
-            return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path, self.stimuli_path,
-                                            embed_size=self.vector_size, batch_size=self.batch_size, epochs=self.epochs,
-                                            lr=self.lr, min_word_count=self.min_count, max_vocab_size=self.max_vocab,
+            return AwdLSTM.create_from_args(corpora, model_name, self.save_path, self.pretrained_path,
+                                            self.stimuli_path, self.gaze_table, embed_size=self.vector_size,
+                                            batch_size=self.batch_size, epochs=self.epochs, lr=self.lr,
+                                            min_word_count=self.min_count, max_vocab_size=self.max_vocab,
                                             pretrained_embeddings_path=self.pretrained_embeddings_path)
         else:
             raise ValueError(f'Invalid model type: {self.model}')

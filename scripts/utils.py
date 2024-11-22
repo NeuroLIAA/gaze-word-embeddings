@@ -1,10 +1,6 @@
 from pathlib import Path
 import numpy as np
-import torch
-from torch.nn import functional
-from tqdm import tqdm
 from scripts.corpora import Corpus
-from scripts.data_handling import minibatch
 
 
 def get_words_in_corpus(stimuli_path):
@@ -79,19 +75,3 @@ def get_embeddings_path(embeddings, data_name, fraction):
     else:
         embeddings_path = Path(embeddings) / data_name
     return embeddings_path
-
-
-def perplexity(bptt, data, fix_data, model, device):
-    model.eval()
-    data = minibatch(data, fix_data, bptt)
-    with torch.no_grad():
-        losses = []
-        batch_size = data[0][0].size(1)
-        states = model.state_init(batch_size)
-        for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
-            x = x.to(device)
-            y = y.to(device)
-            scores, states = model(x, states)
-            loss = functional.cross_entropy(scores, y.reshape(-1))
-            losses.append(loss.data.item())
-    return np.exp(np.mean(losses))
