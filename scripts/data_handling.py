@@ -1,5 +1,4 @@
 from collections import Counter, OrderedDict
-
 from torch.nn import functional
 from torch.utils.data import DataLoader
 from scripts.utils import get_words_in_corpus
@@ -140,8 +139,9 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
 def batchify(data, fix_data, batch_size):
     num_batches = data.size(0) // batch_size
     data = data[:num_batches * batch_size].reshape(batch_size, -1).transpose(1, 0)
-    fix_data = fix_data[:num_batches * batch_size]
-    fix_data = fix_data.view(batch_size, -1, fix_data.shape[1]).transpose(1, 0)
+    if fix_data is not None:
+        fix_data = fix_data[:num_batches * batch_size]
+        fix_data = fix_data.view(batch_size, -1, fix_data.shape[1]).transpose(1, 0)
     return data, fix_data
 
 
@@ -151,19 +151,19 @@ def minibatch(data, fix_data, seq_length):
     for i in range(0, num_batches - 1, seq_length):
         ls = min(i + seq_length, num_batches - 1)
         x = data[i:ls, :]
-        fix_x = fix_data[i:ls, :]
+        fix_x = None
+        if fix_data is not None:
+            fix_x = fix_data[i:ls, :]
         y = data[i + 1:ls + 1, :]
         dataset.append((x, y, fix_x))
     return dataset
 
 
 def chunk_examples(examples):
-    text, fix_dur = [], []
+    text = []
     for sentence in examples['text']:
         text += sentence
-    for sentence in examples['fix_dur']:
-        fix_dur += sentence
-    return {'text': text, 'fix_dur': fix_dur}
+    return {'text': text}
 
 
 class Samples:
@@ -193,9 +193,9 @@ class Samples:
         return samples
 
 
-def perplexity(bptt, data, fix_data, model, device):
+def perplexity(bptt, data, model, device):
     model.eval()
-    data = minibatch(data, fix_data, bptt)
+    data = minibatch(data, None, bptt)
     with torch.no_grad():
         losses = []
         batch_size = data[0][0].size(1)

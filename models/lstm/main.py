@@ -23,7 +23,7 @@ class AwdLSTM:
                   'dropout_e': 0.1, 'winit': 0.1, 'batch_size': batch_size, 'valid_batch_size': 10, 'bptt': 70,
                   'ar': 2, 'tar': 1, 'weight_decay': 1.2e-6, 'epochs': epochs, 'lr': lr, 'max_grad_norm': 0.25,
                   'non_mono': 5, 'device': "gpu", 'log': 50000, 'min_word_count': min_word_count,
-                  'max_vocab_size': max_vocab_size, 'shard_count': 5,
+                  'max_vocab_size': max_vocab_size, 'shard_count': 10,
                   'pretrained_embeddings_path': pretrained_embeddings_path}
 
         if pretrained_model_path:
@@ -40,7 +40,7 @@ class AwdLSTM:
                  embed_size=300, hidden_size=1150, lstm_type="pytorch", w_drop=0.5, dropout_i=0.4, dropout_l=0.3,
                  dropout_o=0.4, dropout_e=0.1, winit=0.1, batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1,
                  weight_decay=1.2e-6, epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000,
-                 min_word_count=5, max_vocab_size=None, shard_count=5, pretrained_embeddings_path=None):
+                 min_word_count=5, max_vocab_size=None, shard_count=10, pretrained_embeddings_path=None):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
@@ -142,13 +142,12 @@ class AwdLSTM:
         n_gaze_features = len(self.gaze_table.columns)
         model.train()
         for i in tqdm(range(self.shard_count), desc="Sharding"):
-            dataset = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)
-            tokens = dataset["text"].reshape(-1, 1)
-            words = [self.vocab.get_word(x) for x in dataset['text']]
-            fix_labels = torch.FloatTensor(self.gaze_table.reindex(words, fill_value=0).values)
+            tokens = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)['text']
+            fix_labels = torch.FloatTensor(self.gaze_table.reindex(tokens, fill_value=0).values)
+            tokens = torch.LongTensor(self.vocab(tokens)).reshape(-1, 1)
             tokens, fix_dur = batchify(tokens, fix_labels, self.batch_size)
             minibatches = minibatch(tokens, fix_dur, seq_len)
-            for _, (x, y, fix) in tqdm(enumerate(minibatches), desc="Training Shard N°{:d}".format(i+1),
+            for _, (x, y, fix) in tqdm(enumerate(minibatches), desc='Training Shard N°{:d}'.format(i+1),
                                        total=len(minibatches)):
                 x = x.to(self.device)
                 y = y.to(self.device)
