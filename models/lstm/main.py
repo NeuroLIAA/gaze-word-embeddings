@@ -3,12 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.functional import cross_entropy
-from scipy.stats import spearmanr
 from tqdm import tqdm
 from pathlib import Path
 from scripts.data_handling import get_vocab, batchify, minibatch
 from scripts.utils import get_words_in_corpus, compute_fix_loss
-from scripts.plot import plot_loss
+from scripts.plot import plot_loss, plot_ppl
 
 
 class AwdLSTM:
@@ -91,6 +90,9 @@ class AwdLSTM:
 
     def plot_loss(self, loss_sg, loss_fix):
         plot_loss(loss_sg, loss_fix, self.name, self.save_path, 'LSTM')
+
+    def plot_perplexity(self, perplexity):
+        plot_ppl(perplexity, self.name, self.save_path, 'LSTM')
 
     def generate_embeddings(self, model):
         weights = model.embed.W

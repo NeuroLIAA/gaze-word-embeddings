@@ -87,7 +87,7 @@ class AwdLSTMForTraining(AwdLSTM):
         print("Starting training.")
         best_val = 1e10
         n_gaze_features = len(self.gaze_table.columns)
-        metrics = {"loss_sg": [], "loss_fix": [],
+        metrics = {"loss_sg": [], "loss_fix": [], "perplexity": [],
                    "fix_corrs": [[] for _ in range(n_gaze_features)],
                    "fix_pvalues": [[] for _ in range(n_gaze_features)]}
         for epoch in range(self.epochs):
@@ -100,21 +100,23 @@ class AwdLSTMForTraining(AwdLSTM):
                 prm.data = st['ax'].clone().detach()
             val_perp = perplexity(self.bptt, self.vld_data_tokens, self.vld_data_fix, model, self.device)
             optimizer.check(val_perp)
+            metrics['perplexity'].append(val_perp)
             if val_perp < best_val:
                 best_val = val_perp
-                print("Best validation perplexity : {:.3f}".format(best_val))
+                print('Best validation perplexity : {:.3f}'.format(best_val))
                 self.save_model(model)
-                print("Model saved!")
+                print('Model saved!')
             for (prm, st) in optimizer.state.items():
                 prm.data = tmp[prm].clone().detach()
             self.log_data(epoch + 1, val_perp, scheduler.get_last_lr()[0])
             scheduler.step()
             toc = timeit.default_timer()
-            print("Validation set perplexity : {:.3f}".format(val_perp))
-            print("Since beginning : {:.3f} mins".format(round((toc - tic) / 60)))
-            print("*************************************************\n")
+            print('Validation set perplexity : {:.3f}'.format(val_perp))
+            print('Since beginning : {:.3f} mins'.format(round((toc - tic) / 60)))
+            print('*************************************************\n')
 
         self.plot_loss(metrics['loss_sg'], metrics['loss_fix'])
+        self.plot_perplexity(metrics['perplexity'])
         self.save_log()
         self.generate_embeddings(model)
         

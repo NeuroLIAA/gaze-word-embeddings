@@ -48,13 +48,11 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path, model='W2V'):
 
 
 def plot_ppl(ppl, model_name, save_path):
-    keys = list(ppl.keys())
-    values = list(ppl.values())
-
+    sns.set_theme()
     plt.figure(figsize=(10, 5))
-    plt.plot(keys, values, marker='o')
+    plt.plot(ppl, label=model_name, alpha=0.7, marker='o')
     plt.title(model_name)
-    plt.xlabel('Batch')
+    plt.xlabel('Epoch')
     plt.ylabel('Perplexity')
     plt.grid(True)
     plt.savefig(save_path / 'ppl.png')
