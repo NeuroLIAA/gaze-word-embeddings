@@ -137,6 +137,7 @@ class AwdLSTM:
     def train_epoch(self, model, optimizer, metrics):
         seq_len = self.get_seq_len()
         states = model.state_init(self.batch_size)
+        n_gaze_features = len(self.gaze_table.columns)
         model.train()
         for i in tqdm(range(self.shard_count), desc="Sharding"):
             dataset = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)
@@ -149,9 +150,9 @@ class AwdLSTM:
                                        total=len(minibatches)):
                 x = x.to(self.device)
                 y = y.to(self.device)
-                fix = fix.to(self.device)
+                fix = fix.to(self.device).reshape(-1, n_gaze_features)
                 states = model.detach(states)
-                scores, states, activations, fix_pred = model(x, states)
+                scores, states, activations, fix_preds = model(x, states)
 
                 loss = cross_entropy(scores, y.reshape(-1))
                 h, h_m = activations
@@ -159,20 +160,22 @@ class AwdLSTM:
                 tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
 
                 if fix.sum() > 0:
-                    fix_loss = torch.nn.L1Loss()(fix_pred, fix.reshape(-1))
-                    batch_correlation = spearmanr(fix_pred.cpu().detach().numpy(),
-                                                  fix.cpu().detach().numpy().reshape(-1))
-                    metrics['fix_corrs'].append(batch_correlation.correlation)
-                    metrics['fix_pvalues'].append(batch_correlation.pvalue)
+                    if n_gaze_features == 1:
+                        fix_preds = fix_preds.unsqueeze(dim=1)
+                    fix_loss = torch.nn.L1Loss()(fix_preds, fix)
+                    fix_preds = fix_preds.cpu().detach().numpy()
+                    fix_labels = fix.cpu().detach().numpy()
+                    batch_correlations = [spearmanr(fix_preds[:, k], fix_labels[:, k]) for k in range(n_gaze_features)]
+                    for j in range(n_gaze_features):
+                        metrics['fix_corrs'][j].append(batch_correlations[j].correlation)
+                        metrics['fix_pvalues'][j].append(batch_correlations[j].pvalue)
                 else:
                     fix_loss = torch.tensor(0.0)
 
                 loss_reg = loss + ar_reg + tar_reg + fix_loss
                 loss_reg.backward()
-
                 metrics['loss_sg'].append(loss.item() + ar_reg.item() + tar_reg.item())
                 metrics['loss_fix'].append(fix_loss.item())
-
                 nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
                 optimizer.step()
                 optimizer.zero_grad()

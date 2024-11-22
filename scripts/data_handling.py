@@ -139,9 +139,10 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
 
 def batchify(data, fix_data, batch_size):
     num_batches = data.size(0) // batch_size
-    data = data[:num_batches * batch_size]
+    data = data[:num_batches * batch_size].reshape(batch_size, -1).transpose(1, 0)
     fix_data = fix_data[:num_batches * batch_size]
-    return data.reshape(batch_size, -1).transpose(1, 0), fix_data.reshape(batch_size, -1).transpose(1, 0)
+    fix_data = fix_data.view(batch_size, -1, fix_data.shape[1]).transpose(1, 0)
+    return data, fix_data
 
 
 def minibatch(data, fix_data, seq_length):

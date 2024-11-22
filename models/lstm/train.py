@@ -86,7 +86,10 @@ class AwdLSTMForTraining(AwdLSTM):
         tic = timeit.default_timer()
         print("Starting training.")
         best_val = 1e10
-        metrics = {"loss_sg": [], "loss_fix": []}
+        n_gaze_features = len(self.gaze_table.columns)
+        metrics = {"loss_sg": [], "loss_fix": [],
+                   "fix_corrs": [[] for _ in range(n_gaze_features)],
+                   "fix_pvalues": [[] for _ in range(n_gaze_features)]}
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))

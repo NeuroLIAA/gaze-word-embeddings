@@ -60,18 +60,14 @@ class AwdLSTMForFinetuning(AwdLSTM):
     def train_model(self, model, optimizer, scheduler):
         tic = timeit.default_timer()
         print("Starting finetuning.")
-        metrics = {"loss_sg": [], "loss_fix": [], "fix_corrs": [], "fix_pvalues": []}
+        n_gaze_features = len(self.gaze_table.columns)
+        metrics = {"loss_sg": [], "loss_fix": [],
+                   "fix_corrs": [[] for _ in range(n_gaze_features)],
+                   "fix_pvalues": [[] for _ in range(n_gaze_features)]}
         for epoch in range(self.epochs):
             print("Epoch : {:d}".format(epoch + 1))
             print("Learning rate : {:.3f}".format(scheduler.get_last_lr()[0]))
             self.train_epoch(model, optimizer, metrics)
-            self.log_data(
-                epoch + 1, 
-                scheduler.get_last_lr()[0], 
-                np.nanmean(metrics['fix_corrs']), 
-                np.nanmean(metrics['fix_pvalues']), 
-                np.nanstd(metrics['fix_corrs']),
-            )
             scheduler.step()
 
             self.save_model(model)
