@@ -92,7 +92,7 @@ class AwdLSTM:
         plot_loss(loss_sg, loss_fix, self.name, self.save_path, 'LSTM')
 
     def plot_perplexity(self, perplexity):
-        plot_ppl(perplexity, self.name, self.save_path, 'LSTM')
+        plot_ppl(perplexity, self.name, self.save_path)
 
     def generate_embeddings(self, model):
         weights = model.embed.W
