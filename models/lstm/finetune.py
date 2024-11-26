@@ -45,10 +45,6 @@ class AwdLSTMForFinetuning(AwdLSTM):
     def data_init(self):
         data = self.corpora.corpora
         vocab = self.generate_vocab(data, self.pretrained_model_path / 'vocab.pt')
-        print("Numericalizing Training set")
-        data = data.map(
-            lambda row: {"text": vocab(row["text"]), "fix_dur": row["fix_dur"]}, num_proc=12
-        )
         print("Reshaping Training set")
         data = data.map(chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
         data = data.with_format("torch")
