@@ -43,11 +43,8 @@ class AwdLSTMForFinetuning(AwdLSTM):
         self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
 
     def data_init(self):
-        data = self.corpora.corpora
+        data = self.corpora
         vocab = self.generate_vocab(data, self.pretrained_model_path / 'vocab.pt')
-        print("Reshaping Training set")
-        data = data.map(chunk_examples, batched=True, remove_columns=data.column_names, num_proc=12)
-        data = data.with_format("torch")
         self.vocab = vocab
         self.data = data
 

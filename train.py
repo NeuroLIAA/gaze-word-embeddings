@@ -140,7 +140,7 @@ if __name__ == '__main__':
     
     #all_wikis -c all_wikis -s remote -m lstm -lr 30 -t -e 5
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
-    #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
+    #all_wikis -c scanpaths -s local -m lstm -lr 30 -t -e 20 -ft lstm_baseline
 
     Trainer(corpora_labels, source_labels, args.name, args.fraction, args.repeats, args.negative_samples,
             args.downsample_factor, args.epochs, args.lr, args.min_lr, args.fix_weight, args.batch_size, args.device,

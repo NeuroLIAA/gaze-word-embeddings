@@ -136,6 +136,22 @@ def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_t
             torch.FloatTensor(batch_fixations))
 
 
+def collate_fn_lstm(batch, batch_size, vocab, gaze_table):
+    n_gaze_features = len(gaze_table.columns)
+    data = torch.cat([torch.LongTensor(vocab(sentence['text'])) for sentence in batch]).reshape(-1, 1)
+    fix_labels = torch.cat([torch.FloatTensor(gaze_table.reindex(sentence['text'], fill_value=0).values)
+                            for sentence in batch]).reshape(-1, n_gaze_features)
+    num_batches = data.size(0) // batch_size
+    data = data[:num_batches * batch_size].reshape(batch_size, -1).transpose(1, 0)
+    fix_labels = fix_labels[:num_batches * batch_size]
+    fix_labels = fix_labels.view(batch_size, -1, n_gaze_features).transpose(1, 0)
+
+    x = data[:-1, :]
+    fix_labels = fix_labels[:-1, :, :]
+    y = data[1:, :]
+    return x, y, fix_labels
+
+
 def batchify(data, fix_data, batch_size):
     num_batches = data.size(0) // batch_size
     data = data[:num_batches * batch_size].reshape(batch_size, -1).transpose(1, 0)

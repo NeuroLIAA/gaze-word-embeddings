@@ -55,7 +55,7 @@ class W2VTrainer:
             print(f'\nEpoch: {epoch + 1}')
             fix_corrs = [[] for _ in range(n_gaze_features)]
             fix_pvalues = [[] for _ in range(n_gaze_features)]
-            for n_step, batch in enumerate(tqdm(dataloader)):
+            for batch in tqdm(dataloader):
                 if len(batch[0]) > 1:
                     pos_u = batch[0].to(device)
                     pos_v = batch[1].to(device)

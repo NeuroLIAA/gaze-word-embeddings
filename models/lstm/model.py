@@ -18,7 +18,7 @@ class Embed(nn.Module):
         nn.init.uniform_(self.W, -winit, winit)
 
     def mask(self):
-        return torch.empty(self.vocab_size, 1, device = self.W.device).bernoulli_(1-self.dropout)/(1-self.dropout)
+        return torch.empty(self.vocab_size, 1, device=self.W.device).bernoulli_(1-self.dropout) / (1-self.dropout)
                      
     def forward(self, x):
         embeddings = self.W[x]
@@ -67,7 +67,8 @@ class WeightDropLSTM(nn.Module):
             nn.init.uniform_(param, -stdv, stdv)
 
     def __repr__(self):
-        return "WeightDropLSTM(input: {}, hidden: {}, weight drop: {})".format(self.input_size, self.hidden_size, self.weight_drop)
+        return "WeightDropLSTM(input: {}, hidden: {}, weight drop: {})".format(self.input_size, self.hidden_size,
+                                                                               self.weight_drop)
 
     def _setweights(self):
         raw_w = getattr(self, f'{self.weight_name}_raw')
@@ -82,7 +83,7 @@ class WeightDropLSTM(nn.Module):
 
 
 class WeightDropLSTMCustom(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_drop = 0.0):
+    def __init__(self, input_size, hidden_size, weight_drop=0.0):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -101,7 +102,8 @@ class WeightDropLSTMCustom(nn.Module):
         nn.init.uniform_(self.b_h, -stdv, stdv)
 
     def __repr__(self):
-        return "WeightDropLSTM(input: {}, hidden: {}, weight drop: {})".format(self.input_size, self.hidden_size, self.weight_drop)
+        return "WeightDropLSTM(input: {}, hidden: {}, weight drop: {})".format(self.input_size, self.hidden_size,
+                                                                               self.weight_drop)
 
     @staticmethod
     def lstm_step(x, h, c, W_x, W_h, b_x, b_h):
@@ -196,8 +198,10 @@ class Model(nn.Module):
     
     def state_init(self, batch_size):
         dev = next(self.parameters()).device
-        states = [(torch.zeros(batch_size, layer.hidden_size, device = dev), torch.zeros(batch_size, layer.hidden_size, device = dev)) if self.lstm_type == "custom" 
-                  else (torch.zeros(1, batch_size, layer.hidden_size, device = dev), torch.zeros(1, batch_size, layer.hidden_size, device = dev)) for layer in self.rnns]
+        states = [(torch.zeros(batch_size, layer.hidden_size, device=dev),
+                   torch.zeros(batch_size, layer.hidden_size, device=dev)) if self.lstm_type == "custom"
+                  else (torch.zeros(1, batch_size, layer.hidden_size, device=dev),
+                        torch.zeros(1, batch_size, layer.hidden_size, device=dev)) for layer in self.rnns]
         return states
             
     @staticmethod
