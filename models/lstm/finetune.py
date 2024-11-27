@@ -15,12 +15,13 @@ class AwdLSTMForFinetuning(AwdLSTM):
     def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num, embed_size,
                  hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
                  valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono,
-                 device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path):
+                 device, log, min_word_count, max_vocab_size, pretrained_embeddings_path):
         super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num,
                          embed_size, hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit,
                          batch_size, valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono,
-                         device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
-        self.data_init()
+                         device, log, min_word_count, max_vocab_size, pretrained_embeddings_path)
+        self.vocab = self.generate_vocab(self.corpora, self.pretrained_model_path / 'vocab.pt')
+        self.data = self.corpora
 
     def set_log_dataset(self):
         self.log_dataset = pd.DataFrame({
@@ -42,12 +43,6 @@ class AwdLSTMForFinetuning(AwdLSTM):
 
     def save_log(self):
         self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
-
-    def data_init(self):
-        data = self.corpora
-        vocab = self.generate_vocab(data, self.pretrained_model_path / 'vocab.pt')
-        self.vocab = vocab
-        self.data = data
 
     def train_model(self, model, dataloader, optimizer, scheduler):
         tic = timeit.default_timer()
@@ -84,8 +79,9 @@ class AwdLSTMForFinetuning(AwdLSTM):
                                 shuffle=False,
                                 collate_fn=lambda batch: collate_fn_lstm(batch, self.batch_size, self.vocab,
                                                                          self.gaze_table),
-                                num_workers=8)
-        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay, fine_tuning=True)
+                                num_workers=0)
+        optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
+                           fine_tuning=True)
         scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)
         self.train_model(model, dataloader, optimizer, scheduler)
 

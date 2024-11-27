@@ -16,12 +16,14 @@ class AwdLSTMForTraining(AwdLSTM):
     def __init__(self, corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num, embed_size,
                  hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit, batch_size,
                  valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono, 
-                 device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path):
+                 device, log, min_word_count, max_vocab_size, pretrained_embeddings_path):
         super().__init__(corpora, name, save_path, pretrained_model_path, stimuli_path, gaze_table, layer_num,
                          embed_size, hidden_size, lstm_type, w_drop, dropout_i, dropout_l, dropout_o, dropout_e, winit,
                          batch_size, valid_batch_size, bptt, ar, tar, weight_decay, epochs, lr, max_grad_norm, non_mono,
-                         device, log, min_word_count, max_vocab_size, shard_count, pretrained_embeddings_path)
-        self.data_init()
+                         device, log, min_word_count, max_vocab_size, pretrained_embeddings_path)
+        splits = self.corpora.corpora.train_test_split(test_size=0.2, seed=self.SEED)
+        self.data, self.val_data = splits['train'], splits['test']
+        self.vocab = self.generate_vocab(self.data, self.save_path / 'vocab.pt')
 
     def set_log_dataset(self):
         self.log_dataset = pd.DataFrame({
@@ -39,14 +41,6 @@ class AwdLSTMForTraining(AwdLSTM):
 
     def save_log(self):
         self.log_dataset.to_csv(self.save_path / f'{self.name}.csv', index=False)
-
-    def data_init(self):
-        splits = self.corpora.corpora.train_test_split(test_size=0.2, seed=self.SEED)
-        train_data, val_data = splits['train'], splits['test']
-        vocab = self.generate_vocab(train_data, self.save_path / 'vocab.pt')
-        self.vocab = vocab
-        self.data = train_data
-        self.val_data = val_data
 
     def generate_vocab(self, data, vocab_savepath=None):
         if self.pretrained_embeddings_path is not None:

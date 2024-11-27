@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.functional import cross_entropy
@@ -23,12 +22,10 @@ class AwdLSTM:
                   'dropout_e': 0.1, 'winit': 0.1, 'batch_size': batch_size, 'valid_batch_size': 10, 'bptt': 70,
                   'ar': 2, 'tar': 1, 'weight_decay': 1.2e-6, 'epochs': epochs, 'lr': lr, 'max_grad_norm': 0.25,
                   'non_mono': 5, 'device': "gpu", 'log': 50000, 'min_word_count': min_word_count,
-                  'max_vocab_size': max_vocab_size, 'shard_count': 10,
-                  'pretrained_embeddings_path': pretrained_embeddings_path}
+                  'max_vocab_size': max_vocab_size, 'pretrained_embeddings_path': pretrained_embeddings_path}
 
         if pretrained_model_path:
             from models.lstm.finetune import AwdLSTMForFinetuning
-            params['shard_count'] = 1
             return AwdLSTMForFinetuning(**params)
         else:
             from models.lstm.train import AwdLSTMForTraining
@@ -40,7 +37,7 @@ class AwdLSTM:
                  embed_size=300, hidden_size=1150, lstm_type="pytorch", w_drop=0.5, dropout_i=0.4, dropout_l=0.3,
                  dropout_o=0.4, dropout_e=0.1, winit=0.1, batch_size=40, valid_batch_size=10, bptt=70, ar=2, tar=1,
                  weight_decay=1.2e-6, epochs=750, lr=30, max_grad_norm=0.25, non_mono=5, device="gpu", log=50000,
-                 min_word_count=5, max_vocab_size=None, shard_count=10, pretrained_embeddings_path=None):
+                 min_word_count=5, max_vocab_size=None, pretrained_embeddings_path=None):
         self.corpora = corpora
         self.name = name
         self.save_path = save_path
@@ -71,7 +68,6 @@ class AwdLSTM:
         self.log = log
         self.min_word_count = min_word_count
         self.max_vocab_size = max_vocab_size
-        self.shard_count = shard_count
         self.pretrained_embeddings_path = Path(pretrained_embeddings_path) if pretrained_embeddings_path else None
         self.set_device()
         self.save_path.mkdir(exist_ok=True, parents=True)
@@ -115,15 +111,6 @@ class AwdLSTM:
                          max_vocab_size=self.max_vocab_size,
                          is_baseline=self.pretrained_model_path is None,
                          vocab_savepath=vocab_savepath)[0]
-
-    def get_seq_len(self):
-        # TODO: set seed
-        seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
-        seq_len = round(np.random.normal(seq_len, 5))
-        while seq_len <= 5 or seq_len >= 90:
-            seq_len = self.bptt if np.random.random() < 0.95 else self.bptt / 2
-            seq_len = round(np.random.normal(seq_len, 5))
-        return seq_len
 
     def load_pretrained_embeddings(self, model):
         if self.pretrained_embeddings_path is not None:
