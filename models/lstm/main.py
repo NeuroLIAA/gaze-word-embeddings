@@ -3,10 +3,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.functional import cross_entropy
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from pathlib import Path
-from scripts.data_handling import get_vocab, batchify, minibatch, collate_fn_lstm
+from scripts.data_handling import get_vocab
 from scripts.utils import get_words_in_corpus, compute_fix_loss
 from scripts.plot import plot_loss, plot_ppl
 
@@ -138,17 +137,11 @@ class AwdLSTM:
             model_state['embed.W'] = pretrained_embeddings
             model.load_state_dict(model_state)
 
-    def train_epoch(self, model, optimizer, metrics):
+    def train_epoch(self, model, dataloader, optimizer, metrics):
         states = model.state_init(self.batch_size)
         n_gaze_features = len(self.gaze_table.columns)
         model.train()
-        dataloader = DataLoader(self.data,
-                                batch_size=self.batch_size * 5,
-                                shuffle=False,
-                                collate_fn=lambda batch: collate_fn_lstm(batch, self.batch_size, self.vocab,
-                                                                         self.gaze_table),
-                                num_workers=8)
-        for (x, y, fix) in tqdm(dataloader):
+        for x, y, fix in tqdm(dataloader):
             x = x.to(self.device)
             y = y.to(self.device)
             fix = fix.to(self.device).reshape(-1, n_gaze_features)
@@ -173,42 +166,3 @@ class AwdLSTM:
             nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
             optimizer.step()
             optimizer.zero_grad()
-
-
-    # def train_epoch(self, model, optimizer, metrics):
-    #     seq_len = self.get_seq_len()
-    #     states = model.state_init(self.batch_size)
-    #     n_gaze_features = len(self.gaze_table.columns)
-    #     model.train()
-    #     for i in tqdm(range(self.shard_count), desc="Sharding"):
-    #         tokens = self.data.shard(num_shards=self.shard_count, index=i, contiguous=True)['text']
-    #         fix_labels = torch.FloatTensor(self.gaze_table.reindex(tokens, fill_value=0).values)
-    #         tokens = torch.LongTensor(self.vocab(tokens)).reshape(-1, 1)
-    #         tokens, fix_dur = batchify(tokens, fix_labels, self.batch_size)
-    #         minibatches = minibatch(tokens, fix_dur, seq_len)
-    #         for _, (x, y, fix) in tqdm(enumerate(minibatches), desc='Training Shard N°{:d}'.format(i+1),
-    #                                    total=len(minibatches)):
-    #             x = x.to(self.device)
-    #             y = y.to(self.device)
-    #             fix = fix.to(self.device).reshape(-1, n_gaze_features)
-    #             states = model.detach(states)
-    #             scores, states, activations, fix_preds = model(x, states)
-    #
-    #             loss = cross_entropy(scores, y.reshape(-1))
-    #             h, h_m = activations
-    #             ar_reg = self.ar * h_m.pow(2).mean()
-    #             tar_reg = self.tar * (h[:-1] - h[1:]).pow(2).mean()
-    #
-    #             if fix.sum() > 0:
-    #                 fix_loss = compute_fix_loss(fix_preds, fix, metrics['fix_corrs'], metrics['fix_pvalues'],
-    #                                             n_gaze_features)
-    #             else:
-    #                 fix_loss = torch.tensor(0.0)
-    #
-    #             loss_reg = loss + ar_reg + tar_reg + fix_loss
-    #             loss_reg.backward()
-    #             metrics['loss_sg'].append(loss.item() + ar_reg.item() + tar_reg.item())
-    #             metrics['loss_fix'].append(fix_loss.item())
-    #             nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-    #             optimizer.step()
-    #             optimizer.zero_grad()

@@ -152,34 +152,18 @@ def collate_fn_lstm(batch, batch_size, vocab, gaze_table):
     return x, y, fix_labels
 
 
-def batchify(data, fix_data, batch_size):
-    num_batches = data.size(0) // batch_size
-    data = data[:num_batches * batch_size].reshape(batch_size, -1).transpose(1, 0)
-    if fix_data is not None:
-        fix_data = fix_data[:num_batches * batch_size]
-        fix_data = fix_data.view(batch_size, -1, fix_data.shape[1]).transpose(1, 0)
-    return data, fix_data
-
-
-def minibatch(data, fix_data, seq_length):
-    num_batches = data.size(0)
-    dataset = []
-    for i in range(0, num_batches - 1, seq_length):
-        ls = min(i + seq_length, num_batches - 1)
-        x = data[i:ls, :]
-        fix_x = None
-        if fix_data is not None:
-            fix_x = fix_data[i:ls, :]
-        y = data[i + 1:ls + 1, :]
-        dataset.append((x, y, fix_x))
-    return dataset
-
-
-def chunk_examples(examples):
-    text = []
-    for sentence in examples['text']:
-        text += sentence
-    return {'text': text}
+def perplexity(data, model, batch_size, device):
+    model.eval()
+    with torch.no_grad():
+        losses = []
+        states = model.state_init(batch_size)
+        for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
+            x = x.to(device)
+            y = y.to(device)
+            scores, states = model(x, states)
+            loss = functional.cross_entropy(scores, y.reshape(-1))
+            losses.append(loss.data.item())
+    return np.exp(np.mean(losses))
 
 
 class Samples:
@@ -207,19 +191,3 @@ class Samples:
         samples = self.samples[self.current_pos:self.current_pos + num_samples]
         self.current_pos += num_samples
         return samples
-
-
-def perplexity(bptt, data, model, device):
-    model.eval()
-    data = minibatch(data, None, bptt)
-    with torch.no_grad():
-        losses = []
-        batch_size = data[0][0].size(1)
-        states = model.state_init(batch_size)
-        for x, y, _ in tqdm(data, desc="Evaluating perplexity"):
-            x = x.to(device)
-            y = y.to(device)
-            scores, states = model(x, states)
-            loss = functional.cross_entropy(scores, y.reshape(-1))
-            losses.append(loss.data.item())
-    return np.exp(np.mean(losses))
