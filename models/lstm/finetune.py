@@ -75,11 +75,11 @@ class AwdLSTMForFinetuning(AwdLSTM):
         checkpoint = self.load_checkpoint(n_gaze_features)
         model.load_state_dict(checkpoint)
         dataloader = DataLoader(self.data,
-                                batch_size=self.batch_size * 5,
-                                shuffle=False,
+                                batch_size=self.batch_size * 4,
+                                shuffle=True,
                                 collate_fn=lambda batch: collate_fn_lstm(batch, self.batch_size, self.vocab,
                                                                          self.gaze_table),
-                                num_workers=0)
+                                num_workers=8)
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
                            fine_tuning=True)
         scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=(0.3 / self.lr), total_iters=self.epochs)

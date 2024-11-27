@@ -47,7 +47,7 @@ class Trainer:
     def train(self):
         print(f'Beginning training with corpora {self.corpora_labels} ({int(self.fraction * 100)}% of baseline corpus)')
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-        corpora = load_corpora(self.corpora_labels, self.data_sources, self.fraction, self.repeats, self.min_token_len, 
+        corpora = load_corpora(self.corpora_labels, self.data_sources, self.fraction, self.repeats, self.min_token_len,
                                self.max_token_len, self.min_sentence_len, self.max_sentence_len, self.tokenizer)
         corpora.print_size()
         model = self.get_model(corpora)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
     gaze_table = load_gaze_table(gaze_table_path, args.gaze_features)
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
     
-    #all_wikis -c all_wikis -s remote -m lstm -lr 30 -t -e 5
+    #all_wikis -c all_wikis -s remote -m lstm -lr 30 -t -e 5 -bs 8
     #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
     #all_wikis -c scanpaths -s local -m lstm -lr 30 -t -e 20 -ft lstm_baseline
 

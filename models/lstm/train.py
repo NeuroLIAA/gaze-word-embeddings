@@ -108,8 +108,8 @@ class AwdLSTMForTraining(AwdLSTM):
         model.to(self.device)
         self.load_pretrained_embeddings(model)
         dataloader = DataLoader(self.data,
-                                batch_size=self.batch_size * 5,
-                                shuffle=False,
+                                batch_size=self.batch_size * 4,
+                                shuffle=True,
                                 collate_fn=lambda batch: collate_fn_lstm(batch, self.batch_size, self.vocab,
                                                                          self.gaze_table),
                                 num_workers=8)
