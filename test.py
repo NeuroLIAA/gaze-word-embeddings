@@ -25,7 +25,7 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
                                                               num_samples, resamples, rng)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}}
     for model_dir in models:
-        model_wv = KeyedVectors.load_word2vec_format(str(model_dir / f'{model_dir.name}.vec'))
+        model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
         mean_cka, ste_cka = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)

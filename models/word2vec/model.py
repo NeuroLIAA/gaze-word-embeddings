@@ -82,7 +82,7 @@ class W2VTrainer:
             model.save_checkpoint(self.save_path / f'{self.model_name}.pt', epoch)
             print_batch_corrs(self.gaze_table.columns, fix_corrs, fix_pvalues, n_gaze_features)
 
-        model.save_embedding_vocab(vocab, str(self.save_path / f'{self.model_name}.vec'))
+        model.save_embedding_vocab(vocab, str(self.save_path / 'embeddings.vec'))
         plot_loss(loss_sg, loss_fix, self.model_name, self.save_path, 'W2V')
 
 

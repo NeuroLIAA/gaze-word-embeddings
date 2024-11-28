@@ -98,7 +98,7 @@ class AwdLSTM:
         weights = model.embed.W
         vocabulary = OrderedDict(sorted(self.vocab.get_stoi().items(), key=lambda x: x[1]))
 
-        with open(str(self.save_path / f'{self.name}.vec'), "w") as f:
+        with open(str(self.save_path / 'embeddings.vec'), "w") as f:
             f.write(f"{weights.shape[0]} {weights.shape[1]}\n")
             for _, (word, vector) in enumerate(zip(vocabulary.keys(), weights)):
                 vector_str = ' '.join(str(x) for x in vector.tolist())
