@@ -10,18 +10,26 @@ def print_values(results_df):
         print(f'{model}: {results_df[model].mean():.4f} ± {results_df[model].sem():.4f}')
 
 
-def plot_ckas(ckas_dict, save_path):
-    results_df = DataFrame(ckas_dict)
-    fig, ax = plt.subplots(figsize=(10, 5))
-    sns.stripplot(results_df, ax=ax, alpha=.5)
-    sns.pointplot(results_df, linestyles='dotted', color='black', ax=ax)
-    ax.set_title('CKA to SWOW-RP embeddings')
-    ax.set_ylabel('CKA')
+def plot_results(ax, results_df, label, model_type):
+    sns.stripplot(data=results_df, ax=ax, alpha=.5)
+    sns.pointplot(data=results_df, linestyles='dotted', color='black', ax=ax)
+    ax.set_title(f'{label} {model_type}')
+    ax.set_ylabel(label)
     ax.set_xlabel('Model')
-    print_values(results_df)
-    plt.savefig(save_path / 'ckas.png', dpi=150)
-    plt.show()
 
+
+def plot_distribution(results_dict, save_path, label):
+    skip_results = {k.replace('skip_', ''): v for k, v in results_dict.items() if k.startswith('skip_')}
+    lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
+    skip_df = DataFrame(skip_results)
+    lstm_df = DataFrame(lstm_results)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
+    plot_results(ax1, skip_df, label, 'skip')
+    plot_results(ax2, lstm_df, label, 'lstm')
+    print_values(skip_df)
+    print_values(lstm_df)
+    plt.savefig(save_path / f'{label}.png', dpi=150)
+    plt.show()
 
 
 def plot_correlations(models_results, save_path):
