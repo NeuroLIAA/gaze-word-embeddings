@@ -5,6 +5,25 @@ from matplotlib import pyplot as plt, colormaps
 from numpy import linspace
 
 
+def print_values(results_df):
+    for model in results_df.columns:
+        print(f'{model}: {results_df[model].mean():.4f} ± {results_df[model].sem():.4f}')
+
+
+def plot_ckas(ckas_dict, save_path):
+    results_df = DataFrame(ckas_dict)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.stripplot(results_df, ax=ax, alpha=.5)
+    sns.pointplot(results_df, linestyles='dotted', color='black', ax=ax)
+    ax.set_title('CKA to SWOW-RP embeddings')
+    ax.set_ylabel('CKA')
+    ax.set_xlabel('Model')
+    print_values(results_df)
+    plt.savefig(save_path / 'ckas.png', dpi=150)
+    plt.show()
+
+
+
 def plot_correlations(models_results, save_path):
     sns.set_theme()
     fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)

@@ -1,12 +1,12 @@
 import argparse
 import pandas as pd
-from numpy import random, std
+from numpy import random
 from scipy.stats import spearmanr
 from pathlib import Path
 from gensim.models import KeyedVectors
 from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
 from scripts.CKA import linear_CKA
-from scripts.plot import plot_correlations
+from scripts.plot import plot_correlations, plot_ckas
 from scripts.process_swow import load_swow
 
 
@@ -23,17 +23,18 @@ def test(embeddings_path, words_associations, swow_wv, words_freq, num_samples, 
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_with_measurements)
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_associations, words_freq,
                                                               num_samples, resamples, rng)
-    models_results = {'in_stimuli': {}, 'off_stimuli': {}}
+    models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
     for model_dir in models:
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        mean_cka, ste_cka = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
-        print(f'{model_dir.name} CKA with SWOW embeddings: {mean_cka:.4f} (sem {ste_cka:.4f})')
+        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
+        models_results['CKA'][model_dir.name] = linear_ckas
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
+    plot_ckas(models_results['CKA'], save_path)
     plot_correlations(models_results, save_path)
 
 
@@ -44,9 +45,7 @@ def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, 
         sample = rng.choice(len(model_embeddings), min(num_samples, len(model_embeddings)),
                             replace=False)
         linear_ckas.append(linear_CKA(model_embeddings[sample], embeddings_in_stimuli[sample]))
-    mean_cka = sum(linear_ckas) / resamples
-    ste = std(linear_ckas) / resamples ** 0.5
-    return mean_cka, ste
+    return linear_ckas
 
 
 def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
