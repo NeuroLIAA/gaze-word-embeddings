@@ -35,7 +35,8 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['CKA'], save_path, label='ckas')
-    plot_correlations(models_results, save_path)
+    plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli')
+    plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli')
 
 
 def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed):
