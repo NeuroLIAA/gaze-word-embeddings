@@ -7,7 +7,7 @@ from gensim.models import KeyedVectors
 from tqdm import tqdm
 from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
 from scripts.CKA import linear_CKA
-from scripts.plot import plot_correlations, plot_distribution
+from scripts.plot import plot_distribution
 
 
 def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, stimuli_path, gaze_table, save_path,
@@ -34,9 +34,11 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_distribution(models_results['CKA'], save_path, label='ckas')
-    plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli')
-    plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli')
+    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA', fig_title='CKA to SWOW-RP embeddings')
+    plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
+                      fig_title='Word pairs fine-tuned')
+    plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
+                      fig_title='Word pairs off stimuli')
 
 
 def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed):
