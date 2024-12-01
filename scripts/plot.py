@@ -13,9 +13,8 @@ def print_values(results_df):
 def plot_results(ax, results_df, label, model_type):
     sns.stripplot(data=results_df, ax=ax, alpha=.5)
     sns.pointplot(data=results_df, linestyles='dotted', color='black', ax=ax)
-    ax.set_title(f'{label} {model_type}')
+    ax.set_title(f'{model_type.upper()}')
     ax.set_ylabel(label)
-    ax.set_xlabel('Model')
 
 
 def plot_distribution(results_dict, save_path, label):
@@ -23,12 +22,16 @@ def plot_distribution(results_dict, save_path, label):
     lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
     skip_df = DataFrame(skip_results)
     lstm_df = DataFrame(lstm_results)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
-    plot_results(ax1, skip_df, label, 'skip')
+    skip_df.to_csv(save_path / f'skip_{label}.csv')
+    lstm_df.to_csv(save_path / f'lstm_{label}.csv')
+    sns.set_theme()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
+    plot_results(ax1, skip_df, label, 'w2v')
     plot_results(ax2, lstm_df, label, 'lstm')
     print_values(skip_df)
     print_values(lstm_df)
-    plt.savefig(save_path / f'{label}.png', dpi=150)
+    plt.tight_layout()
+    plt.savefig(save_path / f'{label}.png', dpi=300)
     plt.show()
 
 
