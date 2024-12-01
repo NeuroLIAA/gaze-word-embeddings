@@ -27,7 +27,7 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        linear_ckas, ccas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
+        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
         models_results['CKA'][model_dir.name] = linear_ckas
         tqdm.write(f'{model_dir.name} done')
 
@@ -40,12 +40,12 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
 
 def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed):
     rng = random.default_rng(seed)
-    ckas, ccas = [], []
+    ckas = []
     for _ in tqdm(range(resamples), desc='Resampling'):
         sample = rng.choice(len(model_embeddings), min(num_samples, len(model_embeddings)),
                             replace=False)
         ckas.append(linear_CKA(model_embeddings[sample], embeddings_in_stimuli[sample]))
-    return ckas, ccas
+    return ckas
 
 
 def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
