@@ -28,15 +28,15 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        # linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
-        # models_results['CKA'][model_dir.name] = linear_ckas
+        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
+        models_results['CKA'][model_dir.name] = linear_ckas
         tqdm.write(f'{model_dir.name} done')
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    # plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
-    #                 fig_title='CKA to SWOW-RP embeddings')
+    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+                      fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
                       fig_title='Word pairs fine-tuned')
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
