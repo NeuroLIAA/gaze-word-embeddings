@@ -18,25 +18,25 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli
-                               and word not in non_content_words.values]
-    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_with_measurements)
+    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_similarities, num_samples,
                                                               resamples, seed)
+    content_words = [word for word in words_with_measurements if word not in non_content_words]
+    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
     for model_dir in tqdm(models, desc='Evaluating models'):
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
-        models_results['CKA'][model_dir.name] = linear_ckas
+        # linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
+        # models_results['CKA'][model_dir.name] = linear_ckas
         tqdm.write(f'{model_dir.name} done')
 
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
-                      fig_title='CKA to SWOW-RP embeddings')
+    # plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+    #                 fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
                       fig_title='Word pairs fine-tuned')
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
