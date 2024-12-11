@@ -10,15 +10,16 @@ from scripts.CKA import linear_CKA
 from scripts.plot import plot_distribution
 
 
-def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, stimuli_path, gaze_table, save_path,
-         seed):
+def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, stimuli_path, gaze_table,
+         non_content_words, save_path, seed):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {embeddings_path}')
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
+    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli
+                               and word not in non_content_words.values]
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, words_with_measurements)
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_similarities, num_samples,
                                                               resamples, seed)
@@ -34,7 +35,8 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA', fig_title='CKA to SWOW-RP embeddings')
+    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+                      fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
                       fig_title='Word pairs fine-tuned')
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
@@ -89,10 +91,10 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     output, stimuli_path = Path(args.output), Path(args.stimuli)
-    words_similarities = pd.read_csv(args.words_similarities)
+    words_similarities, non_content_words = pd.read_csv(args.words_similarities), pd.read_csv(args.non_content)['cue']
     swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
     gaze_table = pd.read_pickle(args.gaze_table)
 
     test(embeddings_path, words_similarities, swow_wv, args.num_samples, args.resample, stimuli_path, gaze_table,
-         output, args.seed)
+         non_content_words, output, args.seed)
