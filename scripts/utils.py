@@ -20,9 +20,9 @@ def subsample(series, n, seed):
     return series.sample(n, random_state=seed) if len(series) > n else series
 
 
-def in_off_stimuli_word_pairs(words_in_stimuli, words_similarities, n, resamples, seed=42):
-    in_stimuli = words_similarities[(words_similarities['word1'].isin(words_in_stimuli))
-                                    & (words_similarities['word2'].isin(words_in_stimuli))]
+def in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli, words_similarities, n, resamples, seed=42):
+    in_stimuli = words_similarities[(words_similarities['word1'].isin(words_with_measurements))
+                                    & (words_similarities['word2'].isin(words_with_measurements))]
     off_stimuli = words_similarities[(~words_similarities['word1'].isin(words_in_stimuli))
                                      & (~words_similarities['word2'].isin(words_in_stimuli))]
     rng = np.random.default_rng(seed)
