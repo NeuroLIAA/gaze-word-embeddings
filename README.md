@@ -6,15 +6,15 @@ Recent work has started exploring the incorporation of eye movement features fro
 ### Pretraining
 To pretrain the models on Wikipedia, run the following command:
 ```bash
-python train.py all_wikis --corpora all_wikis --source remote --model <model>
+python train.py <name> --corpora all_wikis --source remote --model <model>
 ```
-Where ```<model>``` is either ```skip``` or ```lstm```.
+Where ```<name>``` is the name of the parent folder in which the trained models will be saved. ```<model>``` is either ```skip``` or ```lstm```. In the case of ```lstm```, set ```--lr``` to ```30```. 
 ### Fine-tuning
 To fine-tune the models, run the following command:
 ```bash
-python train.py all_wikis --corpora <corpus> --source local --model <model> --finetune <model_path>
+python train.py <name> --corpora <corpus> --source local --model <model> --finetune <model_path>
 ```
-Where ```<corpus>``` is either ```texts``` or ```scanpaths``` and ```<model>``` is either ```skip``` or ```lstm```. ```<model_path>``` is the path to the pretrained baseline model.
+Where ```<name>``` is the name of the parent folder in which the pretrained models were saved. ```<corpus>``` is either ```texts``` or ```scanpaths``` and ```<model>``` is either ```skip``` or ```lstm```. ```<model_path>``` is the path (relative to ```<name>```) to the pretrained baseline model.
 
 To include gaze measure prediction, add ````--gaze_features```` followed by the gaze measures to predict (e.g. ````--gaze_features ffd fprt tfd````).
 ### Evaluation
