@@ -181,14 +181,13 @@ class Model(nn.Module):
 
     def forward(self, x, states):
         x = self.embed(x)
+        fix_durations = self.duration_regression(x.reshape(-1, x.shape[-1])).squeeze()
         x_m = self.dropout(x, self.dropout_i)
         for i, rnn in enumerate(self.rnns):
             x, states[i] = rnn(x_m, states[i])
             x_m = self.dropout(x, self.dropout_l if i != len(self.rnns)-1 else self.dropout_o)
         scores = self.fc(x_m)
-        
-        fix_durations = self.duration_regression(x.reshape(-1, x.shape[-1])).squeeze()
-        
+
         if self.training:
             return scores, states, (x, x_m), fix_durations
         else:
@@ -196,8 +195,10 @@ class Model(nn.Module):
     
     def state_init(self, batch_size):
         dev = next(self.parameters()).device
-        states = [(torch.zeros(batch_size, layer.hidden_size, device = dev), torch.zeros(batch_size, layer.hidden_size, device = dev)) if self.lstm_type == "custom" 
-                  else (torch.zeros(1, batch_size, layer.hidden_size, device = dev), torch.zeros(1, batch_size, layer.hidden_size, device = dev)) for layer in self.rnns]
+        states = [(torch.zeros(batch_size, layer.hidden_size, device=dev),
+                   torch.zeros(batch_size, layer.hidden_size, device=dev)) if self.lstm_type == "custom"
+                  else (torch.zeros(1, batch_size, layer.hidden_size, device=dev),
+                        torch.zeros(1, batch_size, layer.hidden_size, device=dev)) for layer in self.rnns]
         return states
             
     @staticmethod
