@@ -21,7 +21,7 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli,
                                                               words_similarities, num_samples, resamples, seed)
-    content_words = [word for word in words_with_measurements if word not in non_content_words.values]
+    content_words = [word for word in words_with_measurements if word not in non_content_words]
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
     for model_dir in tqdm(models, desc='Evaluating models'):
@@ -35,8 +35,8 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    #plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
-    #                  fig_title='CKA to SWOW-RP embeddings')
+    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+                      fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
                       fig_title='Word pairs fine-tuned')
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
