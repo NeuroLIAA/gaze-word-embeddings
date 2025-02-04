@@ -35,8 +35,8 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
-                      fig_title='CKA to SWOW-RP embeddings')
+    #plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+    #                  fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
                       fig_title='Word pairs fine-tuned')
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
@@ -86,7 +86,6 @@ if __name__ == '__main__':
                         help='Minimum frequency of answer for a cue answer pair to be considered')
     parser.add_argument('-nc', '--non_content', type=str, default='evaluation/non_content_cues.csv',
                         help='File containing a list of non-content cues to be filtered out')
-    parser.add_argument('-set', '--set', type=str, default='val', help='Set to evaluate')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
