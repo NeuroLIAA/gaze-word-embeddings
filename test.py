@@ -21,7 +21,7 @@ def test(embeddings_path, words_similarities, swow_wv, num_samples, resamples, s
     words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli,
                                                               words_similarities, num_samples, resamples, seed)
-    content_words = [word for word in words_with_measurements if word not in non_content_words]
+    content_words = [word for word in words_with_measurements if word not in non_content_words.values]
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
     for model_dir in tqdm(models, desc='Evaluating models'):
