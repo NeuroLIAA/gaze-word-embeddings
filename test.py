@@ -36,7 +36,7 @@ def test(embeddings_path, words_similarities_file, swow_wv, num_samples, resampl
     model_basename = embeddings_path.name
     save_path = save_path / model_basename
     save_path.mkdir(exist_ok=True, parents=True)
-    plot_distribution(models_results['CKA'], save_path, label='ckas', ylabel='CKA',
+    plot_distribution(models_results['CKA'], save_path, label='CKA', ylabel='CKA',
                       fig_title='CKA to SWOW-RP embeddings')
     save_path = save_path / words_similarities_file.stem
     save_path.mkdir(exist_ok=True, parents=True)
