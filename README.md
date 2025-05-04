@@ -29,3 +29,28 @@ This code was tested on Python 3.10 and greater. To install the required depende
 ```bash
 pip install -r requirements.txt
 ```
+## How to cite us
+```
+@inproceedings{travi-etal-2025-exploring,
+    title = "Exploring the Integration of Eye Movement Data on Word Embeddings",
+    author = "Travi, Ferm{\'i}n  and
+      Leclercq, Gabriel Aim{\'e}  and
+      Slezak, Diego Fernandez  and
+      Bianchi, Bruno  and
+      Kamienkowski, Juan E",
+    editor = "Kuribayashi, Tatsuki  and
+      Rambelli, Giulia  and
+      Takmaz, Ece  and
+      Wicke, Philipp  and
+      Li, Jixing  and
+      Oh, Byung-Doh",
+    booktitle = "Proceedings of the Workshop on Cognitive Modeling and Computational Linguistics",
+    month = may,
+    year = "2025",
+    address = "Albuquerque, New Mexico, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.cmcl-1.9/",
+    pages = "55--65",
+    ISBN = "979-8-89176-227-5"
+}
+```
