@@ -54,7 +54,7 @@ class AwdLSTMForTraining(AwdLSTM):
         val_data = val_data.with_format("torch")
         self.data = train_data
         print('Loading validation tokens...')
-        self.vld_data_tokens = val_data["text"].reshape(-1, 1)
+        self.vld_data_tokens = val_data["text"].values.reshape(-1, 1)
 
     def generate_vocab(self, data, vocab_savepath=None):
         if self.pretrained_embeddings_path is not None:
