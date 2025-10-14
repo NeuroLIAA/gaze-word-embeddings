@@ -21,9 +21,9 @@ To include gaze measure prediction, add ````--gaze_features```` followed by the 
 ### Evaluation
 To evaluate the models, run the following command:
 ```bash
-python test.py all_wikis --words_similarities <word_pairs_file>
+python test.py <name> --words_similarities <word_pairs_file>
 ```
-Where ```<word_pairs_file>``` is either ```evaluation/simlex.csv```, ```evaluation/abstract.csv```, or ```evaluation/concrete.csv```.
+Where ```<name>``` is the name of the parent folder in which the models were saved. ```<word_pairs_file>``` is either ```evaluation/simlex.csv```, ```evaluation/abstract.csv```, or ```evaluation/concrete.csv```.
 ### Dependencies
 This code was tested on Python 3.10 and greater. To install the required dependencies, run:
 ```bash
