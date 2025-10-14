@@ -3,7 +3,7 @@ import pandas as pd
 from numpy import random
 from scipy.stats import spearmanr
 from pathlib import Path
-from gensim.models import KeyedVectors
+from scripts.keyedvectors import KeyedVectors
 from tqdm import tqdm
 from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
 from scripts.CKA import linear_CKA
