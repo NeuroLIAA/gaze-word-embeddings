@@ -10,7 +10,7 @@ from scripts.CKA import linear_CKA
 from scripts.plot import plot_distribution
 
 
-def test(embeddings_path, words_similarities_file, swow_wv, num_samples, resamples, stimuli_path, gaze_table,
+def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_path, gaze_table,
          non_content_words, save_path, seed):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
@@ -21,7 +21,7 @@ def test(embeddings_path, words_similarities_file, swow_wv, num_samples, resampl
     words_similarities = pd.read_csv(words_similarities_file)
     words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli,
-                                                              words_similarities, num_samples, resamples, seed)
+                                                              words_similarities, resamples, seed)
     content_words = [word for word in words_with_measurements if word not in non_content_words.values]
     embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
@@ -29,7 +29,7 @@ def test(embeddings_path, words_similarities_file, swow_wv, num_samples, resampl
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed)
+        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, resamples, seed)
         models_results['CKA'][model_dir.name] = linear_ckas
         tqdm.write(f'{model_dir.name} done')
 
@@ -46,12 +46,11 @@ def test(embeddings_path, words_similarities_file, swow_wv, num_samples, resampl
                       fig_title='Word pairs off stimuli')
 
 
-def compare_distributions(model_embeddings, embeddings_in_stimuli, num_samples, resamples, seed):
+def compare_distributions(model_embeddings, embeddings_in_stimuli, resamples, seed):
     rng = random.default_rng(seed)
     ckas = []
     for _ in tqdm(range(resamples), desc='Resampling'):
-        sample = rng.choice(len(model_embeddings), min(num_samples, len(model_embeddings)),
-                            replace=False)
+        sample = rng.choice(len(model_embeddings), len(model_embeddings), replace=True)
         ckas.append(linear_CKA(model_embeddings[sample], embeddings_in_stimuli[sample]))
     return ckas
 
@@ -74,8 +73,6 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--embeddings', type=str, default='embeddings', help='Path to extracted embeddings')
     parser.add_argument('-f', '--fraction', type=float, default=1.0,
                         help='Fraction of baseline corpus employed for model training')
-    parser.add_argument('-n', '--num_samples', type=int, default=1000,
-                        help='Number of words to be sampled for evaluation')
     parser.add_argument('-r', '--resample', type=int, default=100, help='Number of times to resample words')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
@@ -98,5 +95,5 @@ if __name__ == '__main__':
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
     gaze_table = pd.read_pickle(args.gaze_table)
 
-    test(embeddings_path, Path(args.words_similarities), swow_wv, args.num_samples, args.resample, stimuli_path,
+    test(embeddings_path, Path(args.words_similarities), swow_wv, args.resample, stimuli_path,
          gaze_table, non_content_words, output, args.seed)
