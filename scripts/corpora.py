@@ -1,5 +1,5 @@
 from datasets import load_dataset, concatenate_datasets
-from pandas import read_pickle
+from pandas import read_csv
 from torch.utils.data import Dataset
 from functools import partial
 from fastai.text.all import SpacyTokenizer, tokenize1, string
@@ -147,7 +147,7 @@ def load_corpora(corpora_labels, data_sources, fraction, repeats, min_token_len,
 def load_gaze_table(gaze_table_file, gaze_features):
     if not gaze_table_file.exists():
         raise FileNotFoundError(f'Gaze table path {gaze_table_file.name} does not exist')
-    gaze_table = read_pickle(gaze_table_file)
+    gaze_table = read_csv(gaze_table_file, index_col=0)
     if gaze_features:
         gaze_features = [gaze_feature.upper() for gaze_feature in gaze_features]
         gaze_table = gaze_table[gaze_features]

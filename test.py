@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--resample', type=int, default=100, help='Number of times to resample words')
     parser.add_argument('-s', '--stimuli', type=str, default='stimuli',
                         help='Path to item files employed in the experiment')
-    parser.add_argument('-t', '--gaze_table', type=str, default='words_measurements.pkl',
+    parser.add_argument('-t', '--gaze_table', type=str, default='words_measures.csv',
                         help='Path to file with words gaze measurements')
     parser.add_argument('-ws', '--words_similarities', type=str, default='evaluation/simlex.csv',
                         help='Word pairs similarities file to be employed for evaluation')
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     non_content_words = pd.read_csv(args.non_content)['cue']
     swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
-    gaze_table = pd.read_pickle(args.gaze_table)
+    gaze_table = pd.read_csv(args.gaze_table, index_col=0)
 
     test(embeddings_path, Path(args.words_similarities), swow_wv, args.resample, stimuli_path,
          gaze_table, non_content_words, output, args.seed)

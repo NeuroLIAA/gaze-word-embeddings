@@ -118,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
     parser.add_argument('-st', '--stimuli', type=str, default='stimuli',
                         help='Path to text files employed in the experiment')
-    parser.add_argument('-gt', '--gaze_table', type=str, default='words_measurements.pkl',
+    parser.add_argument('-gt', '--gaze_table', type=str, default='words_measures.csv',
                         help='Path to gaze measurements table')
     parser.add_argument('-gf', '--gaze_features', type=str, nargs='*', default=[],
                         help='Gaze features to be employed in training')
