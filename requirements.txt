@@ -1,7 +1,7 @@
 datasets==2.20.0
 fastai==2.7.16
 matplotlib==3.9.4
-numpy==2.2.0
+numpy==1.26.4
 pandas==2.2.3
 regex==2024.7.24
 scikit_learn==1.4.2
