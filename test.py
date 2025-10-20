@@ -5,6 +5,7 @@ from scipy.stats import spearmanr
 from pathlib import Path
 from scripts.keyedvectors import KeyedVectors
 from tqdm import tqdm
+from sklearn.neighbors import NearestNeighbors
 from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
 from scripts.CKA import linear_CKA
 from scripts.plot import plot_distribution
@@ -23,14 +24,16 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli,
                                                               words_similarities, resamples, seed)
     content_words = [word for word in words_with_measurements if word not in non_content_words.values]
-    embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
-    models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}}
+    gt_embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
+    models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}, 'kNN_overlap': {}}
     for model_dir in tqdm(models, desc='Evaluating models'):
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
         model_embeddings = model_wv[corresponding_words]
-        linear_ckas = compare_distributions(model_embeddings, embeddings_in_stimuli, resamples, seed)
+        linear_ckas = compare_distributions(model_embeddings, gt_embeddings_in_stimuli, resamples, seed)
         models_results['CKA'][model_dir.name] = linear_ckas
+        local_overlaps = compare_nearest_neighbors(corresponding_words, model_wv, swow_wv, k=10)
+        models_results['kNN_overlap'][model_dir.name] = local_overlaps
         tqdm.write(f'{model_dir.name} done')
 
     model_basename = embeddings_path.name
@@ -38,6 +41,8 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['CKA'], save_path, label='CKA', ylabel='CKA',
                       fig_title='CKA to SWOW-RP embeddings')
+    plot_distribution(models_results['kNN_overlap'], save_path, label='kNN_overlap', ylabel='kNN % Overlap',
+                      fig_title='kNN Overlap with SWOW-RP embeddings')
     save_path = save_path / words_similarities_file.stem
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
@@ -46,13 +51,26 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
                       fig_title='Word pairs off stimuli')
 
 
-def compare_distributions(model_embeddings, embeddings_in_stimuli, resamples, seed):
+def compare_distributions(model_embeddings, gt_embeddings_in_stimuli, resamples, seed):
     rng = random.default_rng(seed)
     ckas = []
     for _ in tqdm(range(resamples), desc='Resampling'):
         sample = rng.choice(len(model_embeddings), len(model_embeddings), replace=True)
-        ckas.append(linear_CKA(model_embeddings[sample], embeddings_in_stimuli[sample]))
+        ckas.append(linear_CKA(model_embeddings[sample], gt_embeddings_in_stimuli[sample]))
     return ckas
+
+
+def compare_nearest_neighbors(words, model_embeddings, gt_embeddings_in_stimuli, k=10):
+    model_nn = NearestNeighbors(n_neighbors=k + 1, metric='cosine').fit(model_embeddings[words])
+    swow_nn = NearestNeighbors(n_neighbors=k + 1, metric='cosine').fit(gt_embeddings_in_stimuli[words])
+    _, model_indices = model_nn.kneighbors(model_embeddings[words])
+    _, swow_indices = swow_nn.kneighbors(gt_embeddings_in_stimuli[words])
+    # Exclude the first nearest neighbor (the word itself)
+    model_indices = model_indices[:, 1:]
+    swow_indices = swow_indices[:, 1:]
+    overlaps = [len(set(model_indices[i]).intersection(set(swow_indices[i]))) / k
+                for i in range(len(words))]
+    return overlaps
 
 
 def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
