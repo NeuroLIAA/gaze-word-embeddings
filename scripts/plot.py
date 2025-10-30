@@ -2,7 +2,10 @@ import numpy as np
 import seaborn as sns
 from pandas import DataFrame
 from matplotlib import pyplot as plt, colormaps
-from numpy import linspace
+from numpy import linspace, array, percentile
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE, Isomap, MDS
+import umap
 
 
 def print_values(results_df):
@@ -114,3 +117,122 @@ def similarity_distributions(models_similarities, save_path):
     plt.show()
 
     return models_thresholds
+
+
+def reduce_dimensionality(embeddings, method='pca', n_components=2, **kwargs):
+    embeddings = array(embeddings)
+
+    if method.lower() == 'pca':
+        reducer = PCA(n_components=n_components, **kwargs)
+    elif method.lower() == 'tsne':
+        reducer = TSNE(n_components=n_components, random_state=42, **kwargs)
+    elif method.lower() == 'umap':
+        reducer = umap.UMAP(n_components=n_components, random_state=42, **kwargs)
+    elif method.lower() == 'isomap':
+        reducer = Isomap(n_components=n_components, **kwargs)
+    elif method.lower() == 'mds':
+        reducer = MDS(n_components=n_components, random_state=42, **kwargs)
+    else:
+        raise ValueError(f"Unknown method: {method}. Choose from 'pca', 'tsne', 'umap', 'isomap', 'mds'")
+
+    return reducer.fit_transform(embeddings)
+
+
+def remove_outliers(embeddings, words, method='iqr', threshold=1.5):
+    embeddings = array(embeddings)
+
+    if method == 'iqr':
+        mask = [True] * len(embeddings)
+        for dim in range(embeddings.shape[1]):
+            Q1 = percentile(embeddings[:, dim], 25)
+            Q3 = percentile(embeddings[:, dim], 75)
+            IQR = Q3 - Q1
+            lower = Q1 - threshold * IQR
+            upper = Q3 + threshold * IQR
+            mask = mask & (embeddings[:, dim] >= lower) & (embeddings[:, dim] <= upper)
+    elif method == 'percentile':
+        mask = [True] * len(embeddings)
+        for dim in range(embeddings.shape[1]):
+            lower = percentile(embeddings[:, dim], (100 - threshold) / 2)
+            upper = percentile(embeddings[:, dim], 100 - (100 - threshold) / 2)
+            mask = mask & (embeddings[:, dim] >= lower) & (embeddings[:, dim] <= upper)
+    else:
+        raise ValueError(f"Unknown method: {method}. Choose 'iqr' or 'percentile'")
+
+    clean_embeddings = embeddings[mask]
+    clean_words = [w for w, m in zip(words, mask) if m]
+
+    return clean_embeddings, clean_words
+
+
+def plot_embeddings(embeddings, words_data, model_name,
+                    remove_outliers_flag=True, outlier_method='iqr',
+                    outlier_threshold=1.5, figsize=(12, 8), color_by_category=True,
+                    save_path=None, dpi=300):
+    embeddings = array(embeddings)
+    if isinstance(words_data, list):
+        df = DataFrame({'word': words_data})
+        color_by_category = False
+    else:
+        df = words_data.copy()
+        if color_by_category and 'category' not in df.columns:
+            raise ValueError("DataFrame must contain a 'category' column when color_by_category=True")
+    df = df.reset_index(drop=True)
+    words = df.index.tolist()
+    if remove_outliers_flag:
+        embeddings_clean, words_clean = remove_outliers(embeddings, words, method=outlier_method,
+                                                        threshold=outlier_threshold)
+        df = df.loc[words_clean]
+        embeddings = embeddings_clean
+        print(f"Removed {len(words) - len(words_clean)} outliers")
+    df['dim1'] = embeddings[:, 0]
+    df['dim2'] = embeddings[:, 1]
+    sns.set_style("white")
+    sns.set_context("paper")
+    fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+    if color_by_category and 'category' in df.columns:
+        unique_categories = sorted(df['category'].unique())
+        n_colors = len([c for c in unique_categories if c != 'otro'])
+        if n_colors > 12:
+            extra_colors = ['darkgrey', 'gold', 'cyan', 'magenta', 'orange', 'purple', 'brown', 'pink']
+            colors = sns.color_palette('Paired') + extra_colors
+        else:
+            colors = sns.color_palette('Set1', n_colors=n_colors)
+        color_map = {}
+        color_idx = 0
+        for category in unique_categories:
+            if category == 'otro':
+                color_map[category] = 'lightgrey'
+            else:
+                color_map[category] = colors[color_idx]
+                color_idx += 1
+        df_otro = df[df['category'] == 'otro']
+        df_categorized_words = df[df['category'] != 'otro']
+        if len(df_otro) > 0:
+            sns.scatterplot(data=df_otro, x='dim1', y='dim2',
+                            hue='category', palette={'otro': 'lightgrey'},
+                            s=20, alpha=0.3, edgecolor='white', linewidth=0.5,
+                            legend=True, ax=ax)
+        if len(df_categorized_words) > 0:
+            sns.scatterplot(data=df_categorized_words, x='dim1', y='dim2',
+                            hue='category', palette=color_map,
+                            s=35, alpha=0.8, edgecolor='grey', linewidth=0.3,
+                            legend=True, ax=ax)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles=handles, labels=labels,
+                  loc='best', frameon=True, fancybox=True,
+                  shadow=True, fontsize=10)
+
+    else:
+        sns.scatterplot(data=df, x='dim1', y='dim2',
+                        color='steelblue', s=30, alpha=0.7,
+                        edgecolor='white', linewidth=0.5, ax=ax)
+
+    ax.set_xlabel('Dimension 1')
+    ax.set_ylabel('Dimension 2')
+    ax.set_title(f'{model_name} word embeddings', fontsize=12, pad=20)
+    sns.despine(ax=ax)
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path / f'umap_{model_name}.png', dpi=dpi, bbox_inches='tight', facecolor='white')
+    return fig

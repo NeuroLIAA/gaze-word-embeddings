@@ -8,7 +8,7 @@ from tqdm import tqdm
 from sklearn.neighbors import NearestNeighbors
 from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
 from scripts.CKA import linear_CKA
-from scripts.plot import plot_distribution
+from scripts.plot import plot_distribution, plot_embeddings
 
 
 def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_path, gaze_table,
@@ -20,11 +20,13 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     words_in_stimuli = get_words_in_corpus(stimuli_path)
     words_similarities = pd.read_csv(words_similarities_file)
-    words_with_measurements = [word for word in gaze_table.index if word in words_in_stimuli]
-    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli,
+    words_with_measures = [word for word in gaze_table.index if word in words_in_stimuli]
+    in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measures, words_in_stimuli,
                                                               words_similarities, resamples, seed)
-    content_words = [word for word in words_with_measurements if word not in non_content_words.values]
+    content_words = [word for word in words_with_measures if word not in non_content_words.values]
     gt_embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
+    save_path = save_path / embeddings_path.name
+    save_path.mkdir(exist_ok=True, parents=True)
     models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}, 'kNN_overlap': {}}
     for model_dir in tqdm(models, desc='Evaluating models'):
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
@@ -34,11 +36,9 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
         models_results['CKA'][model_dir.name] = linear_ckas
         local_overlaps = compare_nearest_neighbors(corresponding_words, model_wv, swow_wv, k=10)
         models_results['kNN_overlap'][model_dir.name] = local_overlaps
+        plot_embeddings(model_wv[list(gaze_table.loc[content_words].index)], gaze_table, model_dir.name)
         tqdm.write(f'{model_dir.name} done')
 
-    model_basename = embeddings_path.name
-    save_path = save_path / model_basename
-    save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['CKA'], save_path, label='CKA', ylabel='CKA',
                       fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['kNN_overlap'], save_path, label='kNN_overlap', ylabel='kNN % Overlap',
