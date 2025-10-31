@@ -191,3 +191,4 @@ def plot_embeddings(model_wv, words_data, model_name,
     sns.despine(ax=ax)
     if save_path:
         fig.savefig(save_path / f'umap_{model_name}.png', dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
