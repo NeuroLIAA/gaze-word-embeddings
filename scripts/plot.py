@@ -189,7 +189,5 @@ def plot_embeddings(model_wv, words_data, model_name,
     ax.set_ylabel('Dimension 2')
     ax.set_title(f'{model_name} word embeddings', fontsize=12, pad=20)
     sns.despine(ax=ax)
-    plt.tight_layout()
     if save_path:
         fig.savefig(save_path / f'umap_{model_name}.png', dpi=dpi, bbox_inches='tight', facecolor='white')
-    return fig
