@@ -70,10 +70,6 @@ def in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli, words_s
     return in_stimuli_wp, off_stimuli_wp
 
 
-def filter_low_frequency_answers(words_answers_pairs, min_appearances):
-    return words_answers_pairs[words_answers_pairs['n'] >= min_appearances]
-
-
 def similarities(words_vectors, words, answers):
     similarities = zeros(len(answers))
     for i, word_pair in enumerate(zip(words, answers)):
