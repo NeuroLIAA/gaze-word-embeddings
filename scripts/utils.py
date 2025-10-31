@@ -1,8 +1,44 @@
 from pathlib import Path
-import numpy as np
+from numpy import array, unique, median, sort, mean, nanstd, nanmean, any, random, nan, zeros
 from scipy.stats import spearmanr
+from pandas import DataFrame
 from torch import nn as nn
 from scripts.corpora import Corpus
+from sklearn.metrics import silhouette_samples
+
+
+def save_results(results_dict, save_path, label):
+    skip_results = {k.replace('skip_', ''): v for k, v in results_dict.items() if k.startswith('skip_')}
+    lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
+    skip_df, lstm_df = DataFrame(skip_results), DataFrame(lstm_results)
+    skip_df.to_csv(save_path / f'skip_{label}.csv', index=False)
+    lstm_df.to_csv(save_path / f'lstm_{label}.csv', index=False)
+    return skip_df, lstm_df
+
+
+def silhouette_score(embeddings, words, aggregation='median'):
+    words = words[words['category'] != 'otro']
+    embeddings = array([embeddings[w] for w in words.index])
+    labels = array(words['category'])
+    silhouette_vals = silhouette_samples(embeddings, labels, metric='cosine')
+
+    category_scores = {}
+    for category in unique(labels):
+        mask = labels == category
+        vals = silhouette_vals[mask]
+
+        if aggregation == 'median':
+            category_scores[category] = median(vals)
+        elif aggregation == 'trimmed_mean':
+            # Remove top/bottom 10%
+            sorted_vals = sort(vals)
+            if len(vals) < 10:
+                category_scores[category] = mean(sorted_vals)
+            else:
+                trim = int(0.1 * len(vals))
+                category_scores[category] = mean(sorted_vals[trim:-trim])
+
+    return category_scores
 
 
 def get_words_in_corpus(stimuli_path):
@@ -24,7 +60,7 @@ def in_off_stimuli_word_pairs(words_with_measurements, words_in_stimuli, words_s
                                     & (words_similarities['word2'].isin(words_with_measurements))]
     off_stimuli = words_similarities[(~words_similarities['word1'].isin(words_in_stimuli))
                                      & (~words_similarities['word2'].isin(words_in_stimuli))]
-    rng = np.random.default_rng(seed)
+    rng = random.default_rng(seed)
     seeds = rng.integers(0, 10000, size=resamples)
     in_stimuli_wp, off_stimuli_wp = [], []
     for seed in seeds:
@@ -39,7 +75,7 @@ def filter_low_frequency_answers(words_answers_pairs, min_appearances):
 
 
 def similarities(words_vectors, words, answers):
-    similarities = np.zeros(len(answers))
+    similarities = zeros(len(answers))
     for i, word_pair in enumerate(zip(words, answers)):
         word, answer = word_pair
         similarities[i] = word_similarity(words_vectors, word, answer)
@@ -48,7 +84,7 @@ def similarities(words_vectors, words, answers):
 
 def word_similarity(words_vectors, word, answer):
     if answer is None or answer not in words_vectors or word not in words_vectors:
-        return np.nan
+        return nan
     return words_vectors.similarity(word, answer)
 
 
@@ -58,7 +94,7 @@ def embeddings(words_vectors, words):
         if word in words_vectors:
             embeddings.append(words_vectors[word])
             corresponding_words.append(word)
-    return np.array(embeddings), corresponding_words
+    return array(embeddings), corresponding_words
 
 
 def get_embeddings_path(embeddings, data_name, fraction):
@@ -84,8 +120,8 @@ def compute_fix_loss(fix_preds, fix_labels, fix_corrs, fix_pvalues, n_gaze_featu
 
 
 def print_batch_corrs(gaze_features, fix_corrs, fix_pvalues, n_gaze_features):
-    if np.any(fix_corrs):
+    if any(fix_corrs):
         for i in range(n_gaze_features):
-            print(f'{gaze_features[i]} correlation: {np.nanmean(fix_corrs[i]):.3f} '
-                  f'(+/- {np.nanstd(fix_corrs[i]):.3f}) | p-value: {np.nanmean(fix_pvalues[i]):.3f} '
-                  f'(+/- {np.nanstd(fix_pvalues[i]):.3f})')
+            print(f'{gaze_features[i]} correlation: {nanmean(fix_corrs[i]):.3f} '
+                  f'(+/- {nanstd(fix_corrs[i]):.3f}) | p-value: {nanmean(fix_pvalues[i]):.3f} '
+                  f'(+/- {nanstd(fix_pvalues[i]):.3f})')

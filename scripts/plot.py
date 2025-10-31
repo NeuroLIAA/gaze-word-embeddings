@@ -1,9 +1,9 @@
 import seaborn as sns
-from pandas import DataFrame
 from matplotlib import pyplot as plt
 from numpy import array, percentile
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE, Isomap, MDS
+from scripts.utils import save_results
 import umap
 
 
@@ -20,11 +20,7 @@ def plot_results(ax, results_df, label, model_type):
 
 
 def plot_distribution(results_dict, save_path, label, ylabel, fig_title):
-    skip_results = {k.replace('skip_', ''): v for k, v in results_dict.items() if k.startswith('skip_')}
-    lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
-    skip_df, lstm_df = DataFrame(skip_results), DataFrame(lstm_results)
-    skip_df.to_csv(save_path / f'skip_{label}.csv', index=False)
-    lstm_df.to_csv(save_path / f'lstm_{label}.csv', index=False)
+    skip_df, lstm_df = save_results(results_dict, save_path, label)
     sns.set_theme()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
     plot_results(ax1, skip_df, ylabel, 'w2v')
@@ -104,20 +100,16 @@ def remove_outliers(embeddings, words, method='iqr', threshold=1.5):
     return clean_embeddings, clean_words
 
 
-def plot_embeddings(embeddings, words_data, model_name,
+def plot_embeddings(model_wv, words_data, model_name,
                     remove_outliers_flag=True, outlier_method='iqr',
                     outlier_threshold=1.5, figsize=(12, 8), color_by_category=True,
-                    save_path=None, dpi=300):
-    embeddings = array(embeddings)
-    if isinstance(words_data, list):
-        df = DataFrame({'word': words_data})
-        color_by_category = False
-    else:
-        df = words_data.copy()
-        if color_by_category and 'category' not in df.columns:
-            raise ValueError("DataFrame must contain a 'category' column when color_by_category=True")
-    df = df.reset_index(drop=True)
+                    save_path=None, dpi=300, categories_scores=None):
+    df = words_data.copy()
+    if color_by_category and 'category' not in df.columns:
+        raise ValueError("DataFrame must contain a 'category' column when color_by_category=True")
     words = df.index.tolist()
+    embeddings = array(model_wv[words])
+    embeddings = reduce_dimensionality(embeddings, method='umap')
     if remove_outliers_flag:
         embeddings_clean, words_clean = remove_outliers(embeddings, words, method=outlier_method,
                                                         threshold=outlier_threshold)
@@ -128,7 +120,16 @@ def plot_embeddings(embeddings, words_data, model_name,
     df['dim2'] = embeddings[:, 1]
     sns.set_style("white")
     sns.set_context("paper")
-    fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+
+    if categories_scores is not None and color_by_category and 'category' in df.columns:
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        gs = fig.add_gridspec(2, 1, height_ratios=[4, 1], hspace=0.1)
+        ax = fig.add_subplot(gs[0])
+        ax_bar = fig.add_subplot(gs[1])
+    else:
+        fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+        ax_bar = None
+
     if color_by_category and 'category' in df.columns:
         unique_categories = sorted(df['category'].unique())
         n_colors = len([c for c in unique_categories if c != 'otro'])
@@ -157,10 +158,27 @@ def plot_embeddings(embeddings, words_data, model_name,
                             hue='category', palette=color_map,
                             s=35, alpha=0.8, edgecolor='grey', linewidth=0.3,
                             legend=True, ax=ax)
+        ax.set_xticks([])
+        ax.set_yticks([])
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles=handles, labels=labels,
                   loc='best', frameon=True, fancybox=True,
                   shadow=True, fontsize=10)
+
+        if categories_scores is not None and ax_bar is not None:
+            filtered_scores = {k: v for k, v in categories_scores.items() if k != 'otro'}
+            if filtered_scores:
+                sorted_categories = [cat for cat in sorted(unique_categories) if cat in filtered_scores]
+                scores = [filtered_scores[cat] for cat in sorted_categories]
+                bar_colors = [color_map[cat] for cat in sorted_categories]
+                _ = ax_bar.bar(range(len(sorted_categories)), scores, color=bar_colors,
+                                  edgecolor='black', linewidth=0.5, alpha=0.8)
+                ax_bar.set_xticks(range(len(sorted_categories)))
+                ax_bar.set_xticklabels(sorted_categories, rotation=45, ha='right', fontsize=9)
+                ax_bar.set_ylabel('Silhouette Score', fontsize=9)
+                ax_bar.set_ylim((-0.1, 0.6))
+                ax_bar.grid(axis='y', alpha=0.8, linestyle='--', linewidth=0.5)
+                sns.despine(ax=ax_bar)
 
     else:
         sns.scatterplot(data=df, x='dim1', y='dim2',

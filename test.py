@@ -1,12 +1,13 @@
 import argparse
-import pandas as pd
+from pandas import DataFrame, read_csv
 from numpy import random
 from scipy.stats import spearmanr
 from pathlib import Path
 from scripts.keyedvectors import KeyedVectors
 from tqdm import tqdm
 from sklearn.neighbors import NearestNeighbors
-from scripts.utils import similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs, embeddings
+from scripts.utils import (similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs,
+                           embeddings, silhouette_score)
 from scripts.CKA import linear_CKA
 from scripts.plot import plot_distribution, plot_embeddings
 
@@ -19,15 +20,18 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
     if not stimuli_path.exists():
         raise ValueError(f'Stimuli files missing: {stimuli_path} does not exist')
     words_in_stimuli = get_words_in_corpus(stimuli_path)
-    words_similarities = pd.read_csv(words_similarities_file)
+    words_similarities = read_csv(words_similarities_file)
     words_with_measures = [word for word in gaze_table.index if word in words_in_stimuli]
     in_stimuli_wp, off_stimuli_wp = in_off_stimuli_word_pairs(words_with_measures, words_in_stimuli,
                                                               words_similarities, resamples, seed)
     content_words = [word for word in words_with_measures if word not in non_content_words.values]
+    gaze_table = gaze_table.loc[content_words]
     gt_embeddings_in_stimuli, corresponding_words = embeddings(swow_wv, content_words)
     save_path = save_path / embeddings_path.name
     save_path.mkdir(exist_ok=True, parents=True)
-    models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}, 'kNN_overlap': {}}
+    semantic_categories = [category for category in gaze_table['category'].unique() if category != 'otro']
+    models_results = {'in_stimuli': {}, 'off_stimuli': {}, 'CKA': {}, 'kNN_overlap': {},
+                      'semantic_clustering': {category: {} for category in semantic_categories}}
     for model_dir in tqdm(models, desc='Evaluating models'):
         model_wv = KeyedVectors.load_word2vec_format(str(next(model_dir.glob('*.vec'))))
         test_word_pairs(model_wv, model_dir.name, in_stimuli_wp, off_stimuli_wp, models_results)
@@ -36,13 +40,15 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
         models_results['CKA'][model_dir.name] = linear_ckas
         local_overlaps = compare_nearest_neighbors(corresponding_words, model_wv, swow_wv, k=10)
         models_results['kNN_overlap'][model_dir.name] = local_overlaps
-        plot_embeddings(model_wv[list(gaze_table.loc[content_words].index)], gaze_table, model_dir.name)
+        semantic_clustering(model_wv, gaze_table, model_dir.name, models_results['semantic_clustering'], save_path)
         tqdm.write(f'{model_dir.name} done')
 
     plot_distribution(models_results['CKA'], save_path, label='CKA', ylabel='CKA',
                       fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['kNN_overlap'], save_path, label='kNN_overlap', ylabel='kNN % Overlap',
                       fig_title='kNN Overlap with SWOW-RP embeddings')
+    semantic_clustering_df = DataFrame.from_dict(models_results['semantic_clustering'], orient='index')
+    semantic_clustering_df.to_csv(save_path / 'semantic_clustering.csv')
     save_path = save_path / words_similarities_file.stem
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
@@ -71,6 +77,13 @@ def compare_nearest_neighbors(words, model_embeddings, gt_embeddings_in_stimuli,
     overlaps = [len(set(model_indices[i]).intersection(set(swow_indices[i]))) / k
                 for i in range(len(words))]
     return overlaps
+
+
+def semantic_clustering(model_wv, words_data, model_name, results_dict, save_path):
+    score_per_category = silhouette_score(model_wv, words_data)
+    for category, score in score_per_category.items():
+        results_dict[category][model_name] = score
+    plot_embeddings(model_wv, words_data, model_name, categories_scores=score_per_category, save_path=save_path)
 
 
 def test_word_pairs(model_wv, model_name, in_stimuli_wp, off_stimuli_wp, models_results):
@@ -108,10 +121,10 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     output, stimuli_path = Path(args.output), Path(args.stimuli)
-    non_content_words = pd.read_csv(args.non_content)['cue']
+    non_content_words = read_csv(args.non_content)['cue']
     swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
-    gaze_table = pd.read_csv(args.gaze_table, index_col=0)
+    gaze_table = read_csv(args.gaze_table, index_col=0)
 
     test(embeddings_path, Path(args.words_similarities), swow_wv, args.resample, stimuli_path,
          gaze_table, non_content_words, output, args.seed)
