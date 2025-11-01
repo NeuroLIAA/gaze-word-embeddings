@@ -113,13 +113,13 @@ if __name__ == '__main__':
                         help='Word pairs similarities file to be employed for evaluation')
     parser.add_argument('-gt', '--ground_truth', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Ground truth embeddings for evaluation')
-    parser.add_argument('-nc', '--non_content', type=str, default='evaluation/non_content_cues.csv',
-                        help='File containing a list of non-content cues to be filtered out')
+    parser.add_argument('-nc', '--non_content', type=str, default='evaluation/non_content_words.csv',
+                        help='File containing a list of non-content words to be filtered out')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
     args = parser.parse_args()
     output, stimuli_path = Path(args.output), Path(args.stimuli)
-    non_content_words = read_csv(args.non_content)['cue']
+    non_content_words = read_csv(args.non_content)['word']
     swow_wv = KeyedVectors.load_word2vec_format(args.ground_truth)
     embeddings_path = get_embeddings_path(args.embeddings, args.data, args.fraction)
     gaze_table = read_csv(args.gaze_table, index_col=0)
