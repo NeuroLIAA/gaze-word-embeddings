@@ -1,6 +1,6 @@
 from pathlib import Path
-from numpy import array, unique, median, sort, mean, nanstd, nanmean, any, random, nan, zeros
-from scipy.stats import spearmanr
+from numpy import array, unique, median, sort, mean, nanstd, nanmean, any, random, nan, zeros, isnan
+from scipy.stats import pearsonr
 from pandas import DataFrame
 from torch import nn as nn
 from scripts.corpora import Corpus
@@ -107,7 +107,9 @@ def compute_fix_loss(fix_preds, fix_labels, fix_corrs, fix_pvalues, n_gaze_featu
     fix_loss = nn.functional.l1_loss(fix_preds, fix_labels)
     fix_preds = fix_preds.cpu().detach().numpy()
     fix_labels = fix_labels.cpu().detach().numpy()
-    batch_correlations = [spearmanr(fix_preds[:, i], fix_labels[:, i], nan_policy='omit')
+    fix_preds = fix_preds[~isnan(fix_labels).any(axis=1)]
+    fix_labels = fix_labels[~isnan(fix_labels).any(axis=1)]
+    batch_correlations = [pearsonr(fix_preds[:, i], fix_labels[:, i])
                           for i in range(n_gaze_features)]
     for i in range(n_gaze_features):
         fix_corrs[i].append(batch_correlations[i].correlation)
