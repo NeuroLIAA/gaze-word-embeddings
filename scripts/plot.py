@@ -62,7 +62,7 @@ def reduce_dimensionality(embeddings, method='pca', n_components=2, **kwargs):
     elif method.lower() == 'tsne':
         reducer = TSNE(n_components=n_components, random_state=42, **kwargs)
     elif method.lower() == 'umap':
-        reducer = umap.UMAP(n_components=n_components, random_state=42, **kwargs)
+        reducer = umap.UMAP(n_components=n_components, random_state=42, n_jobs=1, **kwargs)
     elif method.lower() == 'isomap':
         reducer = Isomap(n_components=n_components, **kwargs)
     elif method.lower() == 'mds':
