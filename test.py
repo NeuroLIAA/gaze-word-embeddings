@@ -1,5 +1,5 @@
 import argparse
-from pandas import DataFrame, read_csv
+from pandas import read_csv
 from numpy import random
 from scipy.stats import spearmanr
 from pathlib import Path
@@ -9,7 +9,7 @@ from sklearn.neighbors import NearestNeighbors
 from scripts.utils import (similarities, get_embeddings_path, get_words_in_corpus, in_off_stimuli_word_pairs,
                            embeddings, silhouette_score)
 from scripts.CKA import linear_CKA
-from scripts.plot import plot_distribution, plot_embeddings
+from scripts.plot import plot_distribution, plot_embeddings, plot_semantic_scores
 
 
 def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_path, gaze_table,
@@ -47,8 +47,7 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
                       fig_title='CKA to SWOW-RP embeddings')
     plot_distribution(models_results['kNN_overlap'], save_path, label='kNN_overlap', ylabel='kNN % Overlap',
                       fig_title='kNN Overlap with SWOW-RP embeddings')
-    semantic_clustering_df = DataFrame.from_dict(models_results['semantic_clustering'], orient='index')
-    semantic_clustering_df.to_csv(save_path / 'semantic_clustering.csv')
+    plot_semantic_scores(models_results['semantic_clustering'], models, save_path)
     save_path = save_path / words_similarities_file.stem
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
