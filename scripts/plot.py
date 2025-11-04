@@ -175,13 +175,13 @@ def plot_embeddings(model_wv, words_data, model_name,
 
 def plot_semantic_scores(semantic_clustering_dict, models_dirs, save_path):
     semantic_clustering_df = DataFrame.from_dict(semantic_clustering_dict, orient='index')
-    for model in models_dirs:
-        model_name = model.name
-        model_scores = [column for column in semantic_clustering_df.columns if model_name in column]
+    model_types = set(model.name.split('_')[0] for model in models_dirs)
+    for model in model_types:
+        model_scores = [column for column in semantic_clustering_df.columns if model in column]
         model_df = semantic_clustering_df[model_scores]
-        model_df.columns = [col.replace(f'{model_name}_', '') for col in model_df.columns]
-        model_df.to_csv(save_path / f'semantic_clustering_{model_name}.csv')
-        plot_model_semantic_scores(model_df, save_path, f'semantic_clustering_{model_name}.png')
+        model_df.columns = [col.replace(f'{model}_', '') for col in model_df.columns]
+        model_df.to_csv(save_path / f'semantic_clustering_{model}.csv')
+        plot_model_semantic_scores(model_df, save_path, f'semantic_clustering_{model}.png')
 
 
 def plot_model_semantic_scores(semantic_clustering_df, save_path, filename):
