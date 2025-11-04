@@ -11,8 +11,10 @@ def save_results(results_dict, save_path, label):
     skip_results = {k.replace('skip_', ''): v for k, v in results_dict.items() if k.startswith('skip_')}
     lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
     skip_df, lstm_df = DataFrame(skip_results), DataFrame(lstm_results)
-    skip_df.to_csv(save_path / f'skip_{label}.csv', index=False)
-    lstm_df.to_csv(save_path / f'lstm_{label}.csv', index=False)
+    if not skip_df.empty:
+        skip_df.to_csv(save_path / f'skip_{label}.csv', index=False)
+    if not lstm_df.empty:
+        lstm_df.to_csv(save_path / f'lstm_{label}.csv', index=False)
     return skip_df, lstm_df
 
 
