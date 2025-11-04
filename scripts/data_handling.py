@@ -77,6 +77,7 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
     negative_samples_set = Samples(word_freq)
     downsample_table = build_downsample_distribution(word_freq, total_words, downsample_factor,
                                                      vocabulary(base_vocab_tokens))
+    rnd_generator = np.random.default_rng(seed=5)
     dataloader = DataLoader(
         corpora,
         shuffle=True,
@@ -88,15 +89,15 @@ def get_dataloader_and_vocab(corpora, min_count, n_negatives, downsample_factor,
                            downsample_table=downsample_table,
                            n_negatives=n_negatives,
                            gaze_table=gaze_table,
-                           model_type=model_type),
+                           model_type=model_type,
+                           rnd_generator=rnd_generator),
         num_workers=8
     )
     return dataloader, vocabulary
 
 
 def collate_fn(batch, words_mapping, window_size, negative_samples, downsample_table, n_negatives, gaze_table,
-               model_type):
-    rnd_generator = np.random.default_rng()
+               model_type, rnd_generator):
     batch_input, batch_output, batch_negatives, batch_fixations, batch_target_fixations = [], [], [], [], []
     max_window_size = window_size * 2
     n_measures = gaze_table.shape[1]
