@@ -31,6 +31,8 @@ def silhouette_score(embeddings, words, aggregation='median'):
 
         if aggregation == 'median':
             category_scores[category] = median(vals)
+        elif aggregation == 'mean':
+            category_scores[category] = mean(vals)
         elif aggregation == 'trimmed_mean':
             # Remove top/bottom 10%
             sorted_vals = sort(vals)
@@ -39,6 +41,8 @@ def silhouette_score(embeddings, words, aggregation='median'):
             else:
                 trim = int(0.1 * len(vals))
                 category_scores[category] = mean(sorted_vals[trim:-trim])
+        else:
+            category_scores[category] = vals
 
     return category_scores
 
