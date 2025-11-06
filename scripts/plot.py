@@ -17,7 +17,7 @@ def print_values(results_df):
 
 def plot_results(ax, results_df, label, model_type):
     stripplot(data=results_df, ax=ax, alpha=.3)
-    pointplot(data=results_df, linestyles='dotted', color='black', ax=ax, errorbar='sd')
+    pointplot(data=results_df, linestyles='dotted', color='black', ax=ax, errorbar='ci')
     ax.set_title(f'{model_type.upper()}')
     ax.set_ylabel(label)
 
