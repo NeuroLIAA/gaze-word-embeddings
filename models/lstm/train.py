@@ -114,6 +114,11 @@ class AwdLSTMForTraining(AwdLSTM):
         n_gaze_features = len(self.gaze_table.columns)
         model = Model(len(self.vocab), self.embed_size, self.hidden_size, n_gaze_features, self.layer_num, self.w_drop,
                       self.dropout_i, self.dropout_l, self.dropout_o, self.dropout_e, self.winit, self.lstm_type)
+        checkpoint = self.save_path / f'{self.name}.tar'
+        if checkpoint.exists():
+            print(f'Loading model from checkpoint {checkpoint}')
+            model_state = torch.load(checkpoint, map_location=self.device)['model_state_dict']
+            model.load_state_dict(model_state)
         model.to(self.device)
         self.load_pretrained_embeddings(model)
         optimizer = NTASGD(model.parameters(), lr=self.lr, n=self.non_mono, weight_decay=self.weight_decay,
