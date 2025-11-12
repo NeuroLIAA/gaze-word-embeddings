@@ -22,7 +22,7 @@ def plot_results(ax, results_df, label, model_type):
     ax.set_ylabel(label)
 
 
-def plot_distribution(results_dict, save_path, label, ylabel, fig_title):
+def plot_distribution(results_dict, save_path, label, ylabel, fig_title, silent=False):
     skip_df, lstm_df = save_results(results_dict, save_path, label)
     set_theme()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
@@ -32,7 +32,10 @@ def plot_distribution(results_dict, save_path, label, ylabel, fig_title):
     fig.suptitle(fig_title)
     plt.tight_layout()
     plt.savefig(save_path / f'{label}.png', dpi=300)
-    plt.show()
+    if not silent:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_loss(loss_sg, loss_fix, model_name, save_path, model='W2V'):
@@ -173,7 +176,7 @@ def plot_embeddings(model_wv, words_data, model_name,
     plt.close(fig)
 
 
-def plot_semantic_scores(semantic_clustering_dict, models_dirs, save_path):
+def plot_semantic_scores(semantic_clustering_dict, models_dirs, save_path, silent=False):
     semantic_clustering_df = DataFrame.from_dict(semantic_clustering_dict, orient='index')
     model_types = set(model.name.split('_')[0] for model in models_dirs)
     for model in model_types:
@@ -181,10 +184,10 @@ def plot_semantic_scores(semantic_clustering_dict, models_dirs, save_path):
         model_df = semantic_clustering_df[model_scores]
         model_df.columns = [col.replace(f'{model}_', '') for col in model_df.columns]
         model_df.to_csv(save_path / f'semantic_clustering_{model}.csv')
-        plot_model_semantic_scores(model_df, save_path, f'semantic_clustering_{model}.png')
+        plot_model_semantic_scores(model_df, save_path, f'semantic_clustering_{model}.png', silent)
 
 
-def plot_model_semantic_scores(semantic_clustering_df, save_path, filename):
+def plot_model_semantic_scores(semantic_clustering_df, save_path, filename, silent):
     labels = semantic_clustering_df.index.tolist()
     models = semantic_clustering_df.columns.tolist()
     n_labels, n_models = len(labels), len(models)
@@ -225,4 +228,7 @@ def plot_model_semantic_scores(semantic_clustering_df, save_path, filename):
     ax.set_xlim(left_xlim, right_xlim)
     plt.tight_layout()
     plt.savefig(save_path / filename, dpi=300, bbox_inches='tight')
-    plt.show()
+    if not silent:
+        plt.show()
+    else:
+        plt.close(fig)

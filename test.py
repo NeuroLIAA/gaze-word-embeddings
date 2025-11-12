@@ -13,7 +13,7 @@ from scripts.plot import plot_distribution, plot_embeddings, plot_semantic_score
 
 
 def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_path, gaze_table,
-         non_content_words, save_path, seed):
+         non_content_words, save_path, seed, silent):
     models = [dir_ for dir_ in sorted(embeddings_path.iterdir()) if dir_.is_dir()]
     if len(models) == 0:
         raise ValueError(f'There are no models in {embeddings_path}')
@@ -44,16 +44,16 @@ def test(embeddings_path, words_similarities_file, swow_wv, resamples, stimuli_p
         tqdm.write(f'{model_dir.name} done')
 
     plot_distribution(models_results['CKA'], save_path, label='CKA', ylabel='CKA',
-                      fig_title='CKA to SWOW-RP embeddings')
+                      fig_title='CKA to SWOW-RP embeddings', silent=silent)
     plot_distribution(models_results['kNN_overlap'], save_path, label='kNN_overlap', ylabel='kNN % Overlap',
-                      fig_title='kNN Overlap with SWOW-RP embeddings')
-    plot_semantic_scores(models_results['semantic_clustering'], models, save_path)
+                      fig_title='kNN Overlap with SWOW-RP embeddings', silent=silent)
+    plot_semantic_scores(models_results['semantic_clustering'], models, save_path, silent=silent)
     save_path = save_path / words_similarities_file.stem
     save_path.mkdir(exist_ok=True, parents=True)
     plot_distribution(models_results['in_stimuli'], save_path, label='word_pairs_in_stimuli', ylabel='Spearman r',
-                      fig_title='Word pairs fine-tuned')
+                      fig_title='Word pairs fine-tuned', silent=silent)
     plot_distribution(models_results['off_stimuli'], save_path, label='word_pairs_off_stimuli', ylabel='Spearman r',
-                      fig_title='Word pairs off stimuli')
+                      fig_title='Word pairs off stimuli', silent=silent)
 
 
 def compare_distributions(model_embeddings, gt_embeddings_in_stimuli, resamples, seed):
@@ -116,6 +116,7 @@ if __name__ == '__main__':
                         help='File containing a list of non-content words to be filtered out')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
     parser.add_argument('-o', '--output', type=str, default='results', help='Where to save test results')
+    parser.add_argument('--silent', action='store_true', help='If set, does not show plots')
     args = parser.parse_args()
     output, stimuli_path = Path(args.output), Path(args.stimuli)
     non_content_words = read_csv(args.non_content)['word']
@@ -124,4 +125,4 @@ if __name__ == '__main__':
     gaze_table = read_csv(args.gaze_table, index_col=0)
 
     test(embeddings_path, Path(args.words_similarities), swow_wv, args.resample, stimuli_path,
-         gaze_table, non_content_words, output, args.seed)
+         gaze_table, non_content_words, output, args.seed, args.silent)
