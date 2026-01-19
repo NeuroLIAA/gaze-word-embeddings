@@ -137,10 +137,6 @@ if __name__ == '__main__':
         raise FileNotFoundError(f'Stimuli path {args.stimuli} does not exist')
     gaze_table = load_gaze_table(gaze_table_path, args.gaze_features)
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
-    
-    #all_wikis -c all_wikis -s remote -m lstm -lr 30 -t -e 5
-    #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
-    #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
 
     Trainer(corpora_labels, source_labels, args.name, args.fraction, args.repeats, args.negative_samples,
             args.downsample_factor, args.epochs, args.lr, args.min_lr, args.fix_weight, args.batch_size, args.device,
