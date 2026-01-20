@@ -82,8 +82,6 @@ if __name__ == '__main__':
                         help='Word pairs similarities file to be employed for evaluation')
     parser.add_argument('-gt', '--ground_truth', type=str, default='evaluation/SWOWRP_embeddings.vec',
                         help='Ground truth embeddings for evaluation')
-    parser.add_argument('-min_freq', '--min_freq', type=float, default=0.02,
-                        help='Minimum frequency of answer for a cue answer pair to be considered')
     parser.add_argument('-nc', '--non_content', type=str, default='evaluation/non_content_cues.csv',
                         help='File containing a list of non-content cues to be filtered out')
     parser.add_argument('-seed', '--seed', type=int, default=42, help='Seed for random sampling')
