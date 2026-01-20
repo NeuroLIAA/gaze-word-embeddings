@@ -97,8 +97,8 @@ if __name__ == '__main__':
     parser.add_argument('-ds', '--downsample_factor', type=float, default=1e-5,
                         help='Downsample factor for frequent words in Word2Vec')
     parser.add_argument('-e', '--epochs', type=int, default=5, help='Number of epochs for training')
-    parser.add_argument('-lr', '--lr', type=float, default=1e-3, help='Initial learning rate')
-    parser.add_argument('-min_lr', '--min_lr', type=float, default=1e-4, help='Minimum learning rate')
+    parser.add_argument('-lr', type=float, default=1e-3, help='Initial learning rate')
+    parser.add_argument('-min_lr', type=float, default=1e-4, help='Minimum learning rate')
     parser.add_argument('-fw', '--fix_weight', type=float, default=1.0, help='Fix duration loss weight')
     parser.add_argument('-bs', '--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('-d', '--device', type=str, default='cuda',
@@ -106,13 +106,13 @@ if __name__ == '__main__':
     parser.add_argument('-min', '--min_count', type=int, default=20, help='Minimum number of occurrences for a word')
     parser.add_argument('-size', '--size', type=int, default=300, help='Size of the word vectors')
     parser.add_argument('-w', '--window', type=int, default=5, help='Window size')
-    parser.add_argument('-min_token', '--min_token', type=int, default=2,
+    parser.add_argument('-min_token', type=int, default=2,
                         help='Word min length, in tokens')
-    parser.add_argument('-max_token', '--max_token', type=int, default=20,
+    parser.add_argument('-max_token', type=int, default=20,
                         help='Word max length, in tokens')
-    parser.add_argument('-min_length', '--min_length', type=int, default=4,
+    parser.add_argument('-min_length', type=int, default=4,
                         help='Sentence minimum length, in tokens')
-    parser.add_argument('-max_length', '--max_length', type=int, default=40,
+    parser.add_argument('-max_length', type=int, default=40,
                         help='Sentence maximum length, in tokens')
     parser.add_argument('-t', '--tokenizer', action='store_true', help='Use Spacy tokenizer for preprocessing')
     parser.add_argument('-max_vocab', '--max_vocab', type=int, default=None, help='Maximum vocabulary size')
@@ -137,10 +137,6 @@ if __name__ == '__main__':
         raise FileNotFoundError(f'Stimuli path {args.stimuli} does not exist')
     gaze_table = load_gaze_table(gaze_table_path, args.gaze_features)
     save_path = get_embeddings_path(args.output, args.data, args.fraction)
-    
-    #all_wikis -c all_wikis -s remote -m lstm -lr 30 -t -e 5
-    #test -c "all_wikis" -s "remote" -f 0.01 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -pte "./embeddings/all_wikis/w2v_baseline"
-    #test -c "scanpaths" -s "local" -f 1 -m "lstm" -lr 30 -t -e 5 -st "./stimuli" -ft "lstm_baseline"
 
     Trainer(corpora_labels, source_labels, args.name, args.fraction, args.repeats, args.negative_samples,
             args.downsample_factor, args.epochs, args.lr, args.min_lr, args.fix_weight, args.batch_size, args.device,

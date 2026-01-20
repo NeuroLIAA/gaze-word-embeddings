@@ -1,8 +1,13 @@
-import numpy as np
-import seaborn as sns
+from seaborn import color_palette, set_theme, stripplot, pointplot, scatterplot, set_style, set_context, despine
+from matplotlib import pyplot as plt
+from numpy import array, percentile
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE, Isomap, MDS
+from scripts.utils import save_results
 from pandas import DataFrame
-from matplotlib import pyplot as plt, colormaps
-from numpy import linspace
+import umap
+
+CATEGORIES_COLORS = color_palette('Paired') + ['darkgrey', 'gold', 'cyan']
 
 
 def print_values(results_df):
@@ -11,19 +16,15 @@ def print_values(results_df):
 
 
 def plot_results(ax, results_df, label, model_type):
-    sns.stripplot(data=results_df, ax=ax, alpha=.3)
-    sns.pointplot(data=results_df, linestyles='dotted', color='black', ax=ax, errorbar='sd')
+    stripplot(data=results_df, ax=ax, alpha=.3)
+    pointplot(data=results_df, linestyles='dotted', color='black', ax=ax, errorbar='ci')
     ax.set_title(f'{model_type.upper()}')
     ax.set_ylabel(label)
 
 
-def plot_distribution(results_dict, save_path, label, ylabel, fig_title):
-    skip_results = {k.replace('skip_', ''): v for k, v in results_dict.items() if k.startswith('skip_')}
-    lstm_results = {k.replace('lstm_', ''): v for k, v in results_dict.items() if k.startswith('lstm_')}
-    skip_df, lstm_df = DataFrame(skip_results), DataFrame(lstm_results)
-    skip_df.to_csv(save_path / f'skip_{label}.csv', index=False)
-    lstm_df.to_csv(save_path / f'lstm_{label}.csv', index=False)
-    sns.set_theme()
+def plot_distribution(results_dict, save_path, label, ylabel, fig_title, silent=False):
+    skip_df, lstm_df = save_results(results_dict, save_path, label)
+    set_theme()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
     plot_results(ax1, skip_df, ylabel, 'w2v')
     plot_results(ax2, lstm_df, ylabel, 'lstm')
@@ -31,42 +32,14 @@ def plot_distribution(results_dict, save_path, label, ylabel, fig_title):
     fig.suptitle(fig_title)
     plt.tight_layout()
     plt.savefig(save_path / f'{label}.png', dpi=300)
-    plt.show()
-
-
-def plot_correlations(models_results, save_path):
-    sns.set_theme()
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
-    for i, stimuli in enumerate(['in_stimuli', 'off_stimuli']):
-        title = f'Palabras {"en" if stimuli == "in_stimuli" else "fuera de"} estímulo'
-        data = DataFrame(models_results[stimuli])
-        sns.boxplot(data=data, ax=ax[i], width=0.5)
-        ax[i].set_title(title)
-        ax[i].set_xlabel('Modelo')
-        ax[i].set_ylabel('Coeficiente de correlación de Spearman')
-        plt.setp(ax[i].xaxis.get_majorticklabels(), rotation=45)
-        
-        # Add median and IQR annotations
-        for j, model in enumerate(data.columns):
-            median = data[model].median()
-            q1 = data[model].quantile(0.25)
-            q3 = data[model].quantile(0.75)
-            iqr = q3 - q1
-            ax[i].annotate(f'Mediana: {median:.2f}\nIQR: {iqr:.2f}', 
-                           xy=(j, median), 
-                           xytext=(j, q3 + 0.01), 
-                           ha='center', 
-                           fontsize=9, 
-                           color='black',
-                           bbox=dict(boxstyle="round,pad=0.3", edgecolor='black', facecolor='white'))
-
-    plt.tight_layout()
-    plt.savefig(save_path / 'correlations.png', dpi=150)
-    plt.show()
+    if not silent:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_loss(loss_sg, loss_fix, model_name, save_path, model='W2V'):
-    sns.set_theme()
+    set_theme()
     plt.plot(loss_sg, label=model, alpha=0.7)
     plt.plot(loss_fix, label='Fix duration', alpha=0.7)
     plt.legend()
@@ -77,7 +50,7 @@ def plot_loss(loss_sg, loss_fix, model_name, save_path, model='W2V'):
 
 
 def plot_ppl(ppl, model_name, save_path):
-    sns.set_theme()
+    set_theme()
     plt.figure(figsize=(10, 5))
     plt.plot(ppl, label=model_name, alpha=0.7, marker='o')
     plt.title(model_name)
@@ -87,30 +60,175 @@ def plot_ppl(ppl, model_name, save_path):
     plt.savefig(save_path / 'ppl.png')
 
 
-def similarity_distributions(models_similarities, save_path):
-    num_models = len(models_similarities)
-    colors = colormaps['Accent'](linspace(0, 1, num_models))
-    fig_hist, ax_hist = plt.subplots(1, 2, figsize=(15, 6), sharex=True, sharey=True)
-    hist_bins = np.arange(-0.4, 0.8, 0.01)
-    models_thresholds = {model_name: {} for model_name in models_similarities}
-    models_thresholds['SWOW-RP'] = {}
-    for i, model_name in enumerate(models_similarities):
-        for j, in_stimuli in enumerate([True, False]):
-            model_similarities = models_similarities[model_name].copy()
-            model_similarities = model_similarities[model_similarities['in_stimuli'] == in_stimuli]
-            models_thresholds[model_name]['in' if in_stimuli else 'off'] = np.percentile(model_similarities['sim'],
-                                                                                         np.arange(0, 100, 5))
-            if i == 0:
-                models_thresholds['SWOW-RP']['in' if in_stimuli else 'off'] = np.percentile(model_similarities['sim_gt'],
-                                                                                                np.arange(0, 100, 5))
-                ax_hist[j].hist(model_similarities['sim_gt'], bins=hist_bins, density=True, alpha=0.7, color='blue',
-                                label='SWOW-RP', histtype='step')
-            ax_hist[j].hist(model_similarities['sim'], bins=hist_bins, density=True, alpha=0.7, color=colors[i],
-                            label=model_name, histtype='step')
-            ax_hist[j].set_title(f'Similarity distributions for words {"in" if in_stimuli else "off"} stimuli')
-            ax_hist[j].set_xlabel('Similarity'), ax_hist[j].set_ylabel('Density')
-            ax_hist[j].legend()
-    fig_hist.savefig(save_path / 'similarities_hist.png')
-    plt.show()
+def reduce_dimensionality(embeddings, method='pca', n_components=2, **kwargs):
+    embeddings = array(embeddings)
 
-    return models_thresholds
+    if method.lower() == 'pca':
+        reducer = PCA(n_components=n_components, **kwargs)
+    elif method.lower() == 'tsne':
+        reducer = TSNE(n_components=n_components, random_state=42, **kwargs)
+    elif method.lower() == 'umap':
+        reducer = umap.UMAP(n_components=n_components, random_state=42, n_jobs=1, **kwargs)
+    elif method.lower() == 'isomap':
+        reducer = Isomap(n_components=n_components, **kwargs)
+    elif method.lower() == 'mds':
+        reducer = MDS(n_components=n_components, random_state=42, **kwargs)
+    else:
+        raise ValueError(f"Unknown method: {method}. Choose from 'pca', 'tsne', 'umap', 'isomap', 'mds'")
+
+    return reducer.fit_transform(embeddings)
+
+
+def remove_outliers(embeddings, words, method='iqr', threshold=1.5):
+    embeddings = array(embeddings)
+
+    if method == 'iqr':
+        mask = [True] * len(embeddings)
+        for dim in range(embeddings.shape[1]):
+            Q1 = percentile(embeddings[:, dim], 25)
+            Q3 = percentile(embeddings[:, dim], 75)
+            IQR = Q3 - Q1
+            lower = Q1 - threshold * IQR
+            upper = Q3 + threshold * IQR
+            mask = mask & (embeddings[:, dim] >= lower) & (embeddings[:, dim] <= upper)
+    elif method == 'percentile':
+        mask = [True] * len(embeddings)
+        for dim in range(embeddings.shape[1]):
+            lower = percentile(embeddings[:, dim], (100 - threshold) / 2)
+            upper = percentile(embeddings[:, dim], 100 - (100 - threshold) / 2)
+            mask = mask & (embeddings[:, dim] >= lower) & (embeddings[:, dim] <= upper)
+    else:
+        raise ValueError(f"Unknown method: {method}. Choose 'iqr' or 'percentile'")
+
+    clean_embeddings = embeddings[mask]
+    clean_words = [w for w, m in zip(words, mask) if m]
+
+    return clean_embeddings, clean_words
+
+
+def plot_embeddings(model_wv, words_data, model_name,
+                    remove_outliers_flag=True, outlier_method='iqr',
+                    outlier_threshold=1.5, figsize=(12, 8), color_by_category=True,
+                    save_path=None, dpi=300, categories_scores=None):
+    df = words_data.copy()
+    if color_by_category and 'category' not in df.columns:
+        raise ValueError("DataFrame must contain a 'category' column when color_by_category=True")
+    words = df.index.tolist()
+    embeddings = array(model_wv[words])
+    embeddings = reduce_dimensionality(embeddings, method='umap')
+    if remove_outliers_flag:
+        embeddings_clean, words_clean = remove_outliers(embeddings, words, method=outlier_method,
+                                                        threshold=outlier_threshold)
+        df = df.loc[words_clean]
+        embeddings = embeddings_clean
+        print(f"Removed {len(words) - len(words_clean)} outliers")
+    df['dim1'] = embeddings[:, 0]
+    df['dim2'] = embeddings[:, 1]
+    set_style("white")
+    set_context("paper")
+
+    if categories_scores is not None and color_by_category and 'category' in df.columns:
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        gs = fig.add_gridspec(2, 1, height_ratios=[4, 1], hspace=0.1)
+        ax = fig.add_subplot(gs[0])
+    else:
+        fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+
+    if color_by_category and 'category' in df.columns:
+        unique_categories = sorted(df['category'].unique())
+        color_map = {}
+        color_idx = 0
+        for category in unique_categories:
+            if category == 'otro':
+                color_map[category] = 'lightgrey'
+            else:
+                color_map[category] = CATEGORIES_COLORS[color_idx]
+                color_idx += 1
+        df_otro = df[df['category'] == 'otro']
+        df_categorized_words = df[df['category'] != 'otro']
+        if len(df_otro) > 0:
+            scatterplot(data=df_otro, x='dim1', y='dim2',
+                            hue='category', palette={'otro': 'lightgrey'},
+                            s=20, alpha=0.3, edgecolor='white', linewidth=0.5,
+                            legend=True, ax=ax)
+        if len(df_categorized_words) > 0:
+            scatterplot(data=df_categorized_words, x='dim1', y='dim2',
+                            hue='category', palette=color_map,
+                            s=35, alpha=0.8, edgecolor='grey', linewidth=0.3,
+                            legend=True, ax=ax)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles=handles, labels=labels,
+                  loc='best', frameon=True, fancybox=True,
+                  shadow=True, fontsize=10)
+    else:
+        scatterplot(data=df, x='dim1', y='dim2',
+                        color='steelblue', s=30, alpha=0.7,
+                        edgecolor='white', linewidth=0.5, ax=ax)
+
+    ax.set_xlabel('Dimension 1')
+    ax.set_ylabel('Dimension 2')
+    ax.set_title(f'{model_name} word embeddings', fontsize=12, pad=20)
+    despine(ax=ax)
+    if save_path:
+        fig.savefig(save_path / f'umap_{model_name}.png', dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+
+
+def plot_semantic_scores(semantic_clustering_dict, models_dirs, save_path, silent=False):
+    semantic_clustering_df = DataFrame.from_dict(semantic_clustering_dict, orient='index')
+    model_types = set(model.name.split('_')[0] for model in models_dirs)
+    for model in model_types:
+        model_scores = [column for column in semantic_clustering_df.columns if model in column]
+        model_df = semantic_clustering_df[model_scores]
+        model_df.columns = [col.replace(f'{model}_', '') for col in model_df.columns]
+        model_df.to_csv(save_path / f'semantic_clustering_{model}.csv')
+        plot_model_semantic_scores(model_df, save_path, f'semantic_clustering_{model}.png', silent)
+
+
+def plot_model_semantic_scores(semantic_clustering_df, save_path, filename, silent):
+    labels = semantic_clustering_df.index.tolist()
+    models = semantic_clustering_df.columns.tolist()
+    n_labels, n_models = len(labels), len(models)
+    gap = 1
+    bar_width = 1.0
+
+    xs, vals, labs, mods = [], [], [], []
+    for i, label in enumerate(labels):
+        base = i * (n_models + gap)
+        for j, model in enumerate(models):
+            xs.append(base + j)
+            vals.append(semantic_clustering_df.loc[label, model])
+            labs.append(label)
+            mods.append(model)
+
+    total_span = max(xs) - min(xs) + 1
+    fig_width = max(10, min(28, total_span * 0.22))
+    fig, ax = plt.subplots(figsize=(fig_width, 5))
+    for i, label in enumerate(labels):
+        idxs = [k for k, l in enumerate(labs) if l == label]
+        xpos = [xs[k] for k in idxs]
+        yvals = [vals[k] for k in idxs]
+        color = CATEGORIES_COLORS[i % len(CATEGORIES_COLORS)]
+        ax.bar(xpos, yvals, width=bar_width, color=color, label=label, edgecolor='k', linewidth=0.4, alpha=0.75)
+
+    ax.set_xticks(xs)
+    ax.set_xticklabels(mods, rotation=90, fontsize=8)
+    for i in range(1, n_labels):
+        sep_x = i * (n_models + gap) - 1.0
+        ax.axvline(sep_x, color='k', linestyle='--', linewidth=0.4, alpha=0.35)
+
+    ax.set_xlabel('Models')
+    ax.set_ylabel('Silhouette Score')
+    ax.set_title('Semantic clustering values per label across models')
+    ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left', fontsize='small')
+    left_xlim = min(xs) - (bar_width / 1.2)
+    right_xlim = max(xs) + (bar_width / 1.2)
+    ax.set_xlim(left_xlim, right_xlim)
+    plt.tight_layout()
+    plt.savefig(save_path / filename, dpi=300, bbox_inches='tight')
+    if not silent:
+        plt.show()
+    else:
+        plt.close(fig)
